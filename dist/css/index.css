@@ -5804,14 +5804,37 @@ readers do not read off random characters that represent icons */
   font-family: "Font Awesome 5 Brands";
 }
 
-.status-item, .nav-icon-button, .nav-header {
+/*!
+ * Font Awesome Free 5.10.2 by @fontawesome - https://fontawesome.com
+ * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+ */
+@font-face {
+  font-family: "Font Awesome 5 Free";
+  font-style: normal;
+  font-weight: 400;
+  font-display: auto;
+  src: url("../webfonts/fa-regular-400.eot");
+  src: url("../webfonts/fa-regular-400.eot?#iefix") format("embedded-opentype"), url("../webfonts/fa-regular-400.woff2") format("woff2"), url("../webfonts/fa-regular-400.woff") format("woff"), url("../webfonts/fa-regular-400.ttf") format("truetype"), url("../webfonts/fa-regular-400.svg#fontawesome") format("svg");
+}
+.far {
+  font-family: "Font Awesome 5 Free";
+  font-weight: 400;
+}
+
+.options-bar .options-bar-body .icon-button .text, .options-bar .options-bar-body .icon-button .icon, .status-item, .nav-icon-button, .nav-header {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-.filetree, .nav {
+.options-bar .options-bar-body .button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filetree, .options-bar .options-bar-body .icon-button, .options-bar .options-bar-body .button, .nav {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
@@ -5864,14 +5887,20 @@ readers do not read off random characters that represent icons */
   margin-left: auto;
 }
 
-.status-item, .nav-header, .nav-icon-button {
+.options-bar .options-bar-body .icon-button .text, .options-bar .options-bar-body .icon-button .icon, .status-item, .nav-header, .nav-icon-button {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-.filetree, .nav {
+.options-bar .options-bar-body .button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filetree, .options-bar .options-bar-body .icon-button, .options-bar .options-bar-body .button, .nav {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
@@ -5898,8 +5927,71 @@ readers do not read off random characters that represent icons */
 .status-item.right {
   margin-left: auto;
 }
-.status-item .connected {
-  color: lightgreen;
+
+.options-bar .options-bar-body .icon-button .text, .options-bar .options-bar-body .icon-button .icon, .nav-header, .nav-icon-button, .status-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.options-bar .options-bar-body .button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filetree, .options-bar .options-bar-body .icon-button, .options-bar .options-bar-body .button, .nav {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.options-bar {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  max-height: 50px;
+  margin: 0;
+  padding: 0;
+  box-shadow: 0 2px 4px #708690;
+}
+.options-bar .options-bar-body {
+  display: flex;
+}
+.options-bar .options-bar-body .button {
+  color: #152932;
+  min-width: 100px;
+  border: 1px solid #708690;
+  padding: 0.5em 0.75em;
+  margin: 0.5em 0.25em;
+  cursor: pointer;
+}
+.options-bar .options-bar-body .button:hover {
+  background-color: #708690;
+  color: #ffffff;
+}
+.options-bar .options-bar-body .icon-button {
+  display: flex;
+  color: #152932;
+  min-width: 100px;
+  border: 1px solid #708690;
+  margin: 0.5em 0.25em;
+  cursor: pointer;
+}
+.options-bar .options-bar-body .icon-button .icon {
+  min-width: 1.5em;
+  background-color: #708690;
+  color: #ffffff;
+  padding: 0.5em;
+}
+.options-bar .options-bar-body .icon-button .text {
+  padding: 0.5em 0.75em;
+}
+.options-bar .options-bar-body .icon-button:hover {
+  background-color: #708690;
+  color: #ffffff;
 }
 
 .body {
@@ -5913,6 +6005,7 @@ readers do not read off random characters that represent icons */
 
 .body-full {
   display: flex;
+  flex-direction: column;
   flex: 1 0 auto;
   height: calc(100vh - 70px - 25px);
   overflow: hidden;
@@ -5920,14 +6013,20 @@ readers do not read off random characters that represent icons */
   width: 100%;
 }
 
-.nav-header, .nav-icon-button, .status-item {
+.nav-header, .nav-icon-button, .status-item, .options-bar .options-bar-body .icon-button .icon, .options-bar .options-bar-body .icon-button .text {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-.filetree, .nav {
+.options-bar .options-bar-body .button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filetree, .nav, .options-bar .options-bar-body .button, .options-bar .options-bar-body .icon-button {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
@@ -5969,6 +6068,13 @@ readers do not read off random characters that represent icons */
 }
 .filetree .file:hover .icon, .filetree .file:hover .filename {
   color: #ffffff;
+}
+
+.table-view {
+  display: flex;
+}
+.table-view table {
+  margin: 1em;
 }
 
 .fileview {

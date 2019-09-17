@@ -6,6 +6,7 @@ import { GraphView } from './views/graph-view';
 import { TableView } from './views/table-view';
 import { TreeView } from './views/tree-view';
 import { SourceView } from './views/source-view';
+import { Instance } from '..';
 
 export class UI {
 
@@ -95,7 +96,7 @@ export class UI {
 
     // Public API
 
-    set_instance (instance) {
+    set_instance (instance: Instance) {
 
         let sources = [];
 
@@ -107,9 +108,10 @@ export class UI {
             });
         });
 
-        if (this._source_view) this._source_view.set_files(sources);
-        if (this._tree_view) this._tree_view.set_instance(instance);
         if (this._status_bar) this._status_bar.set_command(instance.command());
+        if (this._table_view) this._table_view.set_instance(instance);
+        if (this._tree_view) this._tree_view.set_instance(instance);
+        if (this._source_view) this._source_view.set_files(sources);
 
     }
 

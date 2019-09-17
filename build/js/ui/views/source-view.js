@@ -38,6 +38,10 @@ export class SourceView extends View {
         this._set_tree_data(files);
         this._show_code();
     }
+    _on_show() {
+    }
+    _on_hide() {
+    }
     _set_tree_data(files) {
         let fs = this._tree
             .selectAll('.file')

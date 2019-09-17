@@ -3,4 +3,8 @@ export class GraphView extends View {
     constructor(selection) {
         super(selection);
     }
+    _on_show() {
+    }
+    _on_hide() {
+    }
 }

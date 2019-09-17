@@ -108,15 +108,15 @@ export class TreeLayout {
             .selectAll('g')
             .data(nodes, unique_id);
         let enterNode = this._enter_nodes(node.enter(), source);
-        let updateNode = this._update_nodes(node.merge(enterNode), transition);
-        let exitNode = this._exit_nodes(node.exit(), transition, source);
+        this._update_nodes(node.merge(enterNode), transition);
+        this._exit_nodes(node.exit(), transition, source);
         // Join link data to elements
         let link = this._gLink
             .selectAll('path')
             .data(links, d => unique_id(d.target));
         let enterLink = this._enter_links(link.enter(), source);
-        let updateLink = this._update_links(link.merge(enterLink), transition);
-        let exitLink = this._exit_links(link.exit(), transition, source);
+        this._update_links(link.merge(enterLink), transition);
+        this._exit_links(link.exit(), transition, source);
     }
     _enter_links(selection, source) {
         let starting_position = d => {
@@ -183,7 +183,6 @@ export class TreeLayout {
             .attr('fill-opacity', 0)
             .attr('stroke-opacity', 0)
             .on('click', toggle);
-        let sep = this._prefs.node_text_separation;
         let circle = enter.append('circle');
         let text = enter.append('text').html(label);
         let lower = text.clone(true).attr('class', 'lower').lower();

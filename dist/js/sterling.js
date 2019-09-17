@@ -6577,9 +6577,11 @@
                     this._heartbeat_count += 1;
                     break;
                 case 'XML:':
-                    let instance = Instance.fromXML(data);
-                    if (this._on_instance_cb)
-                        this._on_instance_cb(instance);
+                    if (data.length) {
+                        let instance = Instance.fromXML(data);
+                        if (this._on_instance_cb)
+                            this._on_instance_cb(instance);
+                    }
                     break;
                 default:
                     break;
@@ -6692,10 +6694,12 @@
         show() {
             if (this._view_selection)
                 this._view_selection.style('display', null);
+            this._on_show();
         }
         hide() {
             if (this._view_selection)
                 this._view_selection.style('display', 'none');
+            this._on_hide();
         }
     }
 
@@ -6703,11 +6707,203 @@
         constructor(selection) {
             super(selection);
         }
+        _on_show() {
+        }
+        _on_hide() {
+        }
+    }
+
+    class TableLayoutPreferences {
+        constructor() {
+            this.border_color = '#ababab';
+            this.border_color_dim = '#cdcdcd';
+            this.text_color = '#000000';
+            this.text_color_dim = '#777777';
+            this.background_color = '#cdcdcd';
+            this.background_color_dim = '#efefef';
+            this.padding_normal = '5px';
+            this.padding_compact = '1px';
+        }
+    }
+
+    class TableLayout {
+        constructor(selection, preferences) {
+            this._prefs = preferences ? preferences : new TableLayoutPreferences();
+            this._signatures = selection
+                .append('div')
+                .attr('class', 'table-view');
+            this._fields = selection
+                .append('div')
+                .attr('class', 'table-view');
+            this._is_compact = true;
+        }
+        set_fields(fields) {
+            // Sort fields
+            fields.sort((a, b) => {
+                let c = b.tuples().length - a.tuples().length;
+                if (c !== 0)
+                    return c;
+                return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
+            });
+            // Bind data
+            let tables = this._fields
+                .selectAll('table')
+                .data(fields);
+            // Remove old tables
+            tables
+                .exit()
+                .remove();
+            let enter = tables
+                .enter()
+                .append('table');
+            let hdr = enter
+                .append('thead');
+            hdr
+                .append('tr')
+                .append('th')
+                .attr('colspan', d => d.size())
+                .text(d => d.label());
+            hdr
+                .append('tr')
+                .selectAll('th')
+                .data(d => d.types())
+                .enter()
+                .append('th')
+                .text(d => d.label());
+            // enter
+            //     .append('tbody')
+            //     .selectAll('tr')
+            //     .data
+        }
+        set_signatures(signatures) {
+            // Sort signatures
+            signatures.sort((a, b) => {
+                if (a.builtin() && !b.builtin())
+                    return 1;
+                if (b.builtin() && !a.builtin())
+                    return -1;
+                let c = b.atoms().length - a.atoms().length;
+                if (c !== 0)
+                    return c;
+                return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
+            });
+            // Bind data
+            let tables = this._signatures
+                .selectAll('table')
+                .data(signatures);
+            // Remove old tables
+            tables
+                .exit()
+                .remove();
+            // Add new tables
+            let enter = tables
+                .enter()
+                .append('table');
+            enter
+                .append('thead')
+                .append('tr')
+                .append('th')
+                .text(d => d.label());
+            enter
+                .append('tbody')
+                .selectAll('tr')
+                .data(d => d.atoms())
+                .enter()
+                .append('tr')
+                .append('td')
+                .text(d => d);
+            // Update all signatures
+            this._update_signatures();
+            return;
+        }
+        _update_signatures() {
+            let bc = this._prefs.border_color, bcd = this._prefs.border_color_dim, bgc = this._prefs.background_color, bgcd = this._prefs.background_color_dim, p = this._prefs.padding_normal, pc = this._prefs.padding_compact, tc = this._prefs.text_color, tcd = this._prefs.text_color_dim;
+            this._signatures
+                .selectAll('table')
+                .style('border', d => '1px solid ' + (d.builtin() ? bcd : bc))
+                .style('color', d => d.builtin() ? tcd : tc);
+            this._signatures
+                .selectAll('th')
+                .style('padding', this._is_compact ? pc : p);
+            this._signatures
+                .selectAll('table')
+                .filter(d => !d.builtin())
+                .selectAll('tbody')
+                .selectAll('tr')
+                .style('background-color', (d, i) => i % 2 === 0 ? bgc : null);
+            this._signatures
+                .selectAll('table')
+                .filter(d => d.builtin())
+                .selectAll('tbody')
+                .selectAll('tr')
+                .style('background-color', (d, i) => i % 2 === 0 ? bgcd : null);
+            this._signatures
+                .selectAll('td')
+                .attr('align', 'center')
+                .style('padding', this._is_compact ? pc : p);
+        }
     }
 
     class TableView extends View {
         constructor(selection) {
             super(selection);
+            this._layout = new TableLayout(selection.select('#tables'));
+            this._compact_button = selection.select('#table-compact-view');
+            this._builtin_button = selection.select('#table-built-ins');
+            this._empty_button = selection.select('#table-emptys');
+            this._compact_button.on('click', this._on_toggle_compact.bind(this));
+            this._builtin_button.on('click', this._on_toggle_builtin.bind(this));
+            this._empty_button.on('click', this._on_toggle_empty.bind(this));
+            this._is_compact = false;
+            this._show_builtins = false;
+            this._show_emptys = false;
+        }
+        set_instance(instance) {
+            this._layout.set_signatures(instance.signatures());
+            this._layout.set_fields(instance.fields());
+        }
+        _on_show() {
+        }
+        _on_hide() {
+        }
+        _on_toggle_compact() {
+            // Toggle state
+            this._is_compact = !this._is_compact;
+            // Update the icon
+            this._compact_button
+                .select('i')
+                .classed('fa-compress-arrows-alt', !this._is_compact)
+                .classed('fa-expand-arrows-alt', this._is_compact);
+            // Update the text
+            this._compact_button
+                .select('.text')
+                .text(() => this._is_compact ? 'Expanded View' : 'Compact View');
+        }
+        _on_toggle_builtin() {
+            // Toggle state
+            this._show_builtins = !this._show_builtins;
+            // Update the icon
+            this._builtin_button
+                .select('i')
+                .classed('fa-eye-slash', !this._show_builtins)
+                .classed('fa-eye', this._show_builtins);
+            // Update text
+            this._builtin_button
+                .select('.text')
+                .text(() => this._show_builtins ? 'Show Built-in Signatures' : 'Hide Built-in Signatures');
+        }
+        _on_toggle_empty() {
+            // Toggle state
+            this._show_emptys = !this._show_emptys;
+            // Update the icon
+            this._empty_button
+                .select('i')
+                .classed('fa-eye-slash', !this._show_emptys)
+                .classed('fa-eye', this._show_emptys);
+            // Update text
+            this._empty_button
+                .select('.text')
+                .text(() => this._show_emptys ? 'Show Empty Tables' : 'Hide Empty Tables');
         }
     }
 
@@ -6764,7 +6960,7 @@
             };
         }
         text_lower_attributes() {
-            return Object.assign({}, this.text_attributes(), { 'stroke-linejoin': this.text_lower_stroke_linejoin, 'stroke-width': this.text_lower_stroke_width });
+            return Object.assign(Object.assign({}, this.text_attributes()), { 'stroke-linejoin': this.text_lower_stroke_linejoin, 'stroke-width': this.text_lower_stroke_width });
         }
     }
 
@@ -6876,15 +7072,15 @@
                 .selectAll('g')
                 .data(nodes, unique_id);
             let enterNode = this._enter_nodes(node.enter(), source);
-            let updateNode = this._update_nodes(node.merge(enterNode), transition);
-            let exitNode = this._exit_nodes(node.exit(), transition, source);
+            this._update_nodes(node.merge(enterNode), transition);
+            this._exit_nodes(node.exit(), transition, source);
             // Join link data to elements
             let link = this._gLink
                 .selectAll('path')
                 .data(links, d => unique_id(d.target));
             let enterLink = this._enter_links(link.enter(), source);
-            let updateLink = this._update_links(link.merge(enterLink), transition);
-            let exitLink = this._exit_links(link.exit(), transition, source);
+            this._update_links(link.merge(enterLink), transition);
+            this._exit_links(link.exit(), transition, source);
         }
         _enter_links(selection, source) {
             let starting_position = d => {
@@ -6951,7 +7147,6 @@
                 .attr('fill-opacity', 0)
                 .attr('stroke-opacity', 0)
                 .on('click', toggle);
-            let sep = this._prefs.node_text_separation;
             let circle = enter.append('circle');
             let text = enter.append('text').html(label);
             let lower = text.clone(true).attr('class', 'lower').lower();
@@ -7094,12 +7289,28 @@
     class TreeView extends View {
         constructor(selection) {
             super(selection);
-            // TODO: Replace with layout instead of view
             this._layout = new TreeLayout(selection.select('#tree'));
+            this._instance = null;
+            this._is_visible = false;
             window.addEventListener('resize', this._layout.resize.bind(this._layout));
         }
         set_instance(instance) {
-            this._layout.set_instance(instance);
+            if (this._is_visible) {
+                this._layout.set_instance(instance);
+            }
+            else {
+                this._instance = instance;
+            }
+        }
+        _on_show() {
+            this._is_visible = true;
+            if (this._instance !== null) {
+                this._layout.set_instance(this._instance);
+                this._instance = null;
+            }
+        }
+        _on_hide() {
+            this._is_visible = false;
         }
     }
 
@@ -7140,6 +7351,10 @@
         set_files(files) {
             this._set_tree_data(files);
             this._show_code();
+        }
+        _on_show() {
+        }
+        _on_hide() {
         }
         _set_tree_data(files) {
             let fs = this._tree
@@ -7292,12 +7507,14 @@
                     text: source
                 });
             });
-            if (this._source_view)
-                this._source_view.set_files(sources);
-            if (this._tree_view)
-                this._tree_view.set_instance(instance);
             if (this._status_bar)
                 this._status_bar.set_command(instance.command());
+            if (this._table_view)
+                this._table_view.set_instance(instance);
+            if (this._tree_view)
+                this._tree_view.set_instance(instance);
+            if (this._source_view)
+                this._source_view.set_files(sources);
         }
         show_graph() {
             this._nav_bar.set_graph_active();

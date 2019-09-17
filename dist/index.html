@@ -52,10 +52,39 @@
         <div id='graph-view' class='body'>
 
         </div>
-        <div id='table-view' class='body'>
-
+        <div id='table-view' class='body-full'>
+            <div class='options-bar'>
+                <div class='options-bar-body'>
+                    <div id='table-compact-view' class='icon-button'>
+                        <div class='icon'>
+                            <i class="fas fa-compress-arrows-alt"></i>
+                        </div>
+                        <div class='text'>
+                            Compact View
+                        </div>
+                    </div>
+                    <div id='table-built-ins' class='icon-button'>
+                        <div class='icon'>
+                            <i class="far fa-eye-slash"></i>
+                        </div>
+                        <div class='text'>
+                            Hide Built-in Signatures
+                        </div>
+                    </div>
+                    <div id='table-emptys' class='icon-button'>
+                        <div class='icon'>
+                            <i class="far fa-eye-slash"></i>
+                        </div>
+                        <div class='text'>
+                            Hide Empty Tables
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id='tables' class='table-view'></div>
         </div>
         <div id='tree-view' class='body-full'>
+            <div class='options-bar'></div>
             <svg class='treeview' id='tree'></svg>
         </div>
         <div id='source-view' class='body'>
@@ -74,7 +103,7 @@
                 .tree_view('#tree-view')
                 .source_view('#source-view')
                 .connect();
-            ui.show_tree();
+            ui.show_table();
         </script>
     </body>
 </html>

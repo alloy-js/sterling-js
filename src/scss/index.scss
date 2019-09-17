@@ -2,10 +2,12 @@
 @import "fonts";
 @import "nav";
 @import "status";
+@import "optionsbar";
 @import "body";
 @import "filetree";
+@import "tableview";
 @import "fileview";
-@import "_treeview.scss";
+@import "treeview";
 
 html, body {
   display: flex;

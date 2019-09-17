@@ -62,12 +62,14 @@ export class UI {
                 text: source
             });
         });
-        if (this._source_view)
-            this._source_view.set_files(sources);
-        if (this._tree_view)
-            this._tree_view.set_instance(instance);
         if (this._status_bar)
             this._status_bar.set_command(instance.command());
+        if (this._table_view)
+            this._table_view.set_instance(instance);
+        if (this._tree_view)
+            this._tree_view.set_instance(instance);
+        if (this._source_view)
+            this._source_view.set_files(sources);
     }
     show_graph() {
         this._nav_bar.set_graph_active();

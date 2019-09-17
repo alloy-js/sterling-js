@@ -8,4 +8,12 @@ export class GraphView extends View {
 
     }
 
+    _on_show (): void {
+
+    }
+
+    _on_hide (): void {
+
+    }
+
 }

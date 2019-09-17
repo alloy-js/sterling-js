@@ -129,8 +129,10 @@ export class AlloyConnection {
                 break;
 
             case 'XML:':
-                let instance = Instance.fromXML(data);
-                if (this._on_instance_cb) this._on_instance_cb(instance);
+                if (data.length) {
+                    let instance = Instance.fromXML(data);
+                    if (this._on_instance_cb) this._on_instance_cb(instance);
+                }
                 break;
 
             default:

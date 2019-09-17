@@ -7,6 +7,12 @@
   justify-content: center;
 }
 
+%flex-center-h {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 // user cannot select text
 %user-select-none {
   -webkit-user-select: none;

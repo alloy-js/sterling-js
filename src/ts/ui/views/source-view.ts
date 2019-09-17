@@ -64,6 +64,14 @@ export class SourceView extends View {
 
     }
 
+    _on_show (): void {
+
+    }
+
+    _on_hide (): void {
+
+    }
+
     _set_tree_data (files) {
 
         let fs = this._tree
