@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <title>Sterling</title>
+
+        <script src='js/highlight.js'></script>
+        <script src='js/sterling.js'></script>
+
+        <link rel='stylesheet' href='css/github-gist.css'>
+        <link rel='stylesheet' href='css/index.css'>
+
+    </head>
+    <body>
+        <div id='nav-bar' class='nav'>
+            <div class='nav-body'>
+                <div class='nav-header'>
+                    Sterling
+                </div>
+                <div id='nav-graph' class='nav-icon-button'>
+                    <i class='nav-icon fas fa-project-diagram'></i>
+                    Graph
+                </div>
+                <div id='nav-table' class='nav-icon-button'>
+                    <i class='nav-icon fas fa-table'></i>
+                    Table
+                </div>
+                <div id='nav-tree' class='nav-icon-button'>
+                    <i class='nav-icon fas fa-sitemap'></i>
+                    Tree
+                </div>
+                <div id='nav-source' class='nav-icon-button active'>
+                    <i class='nav-icon fas fa-file-alt'></i>
+                    Source
+                </div>
+                <div id='nav-next' class='nav-icon-button right'>
+                    <i class="nav-icon fas fa-arrow-alt-circle-right"></i>
+                    Next
+                </div>
+            </div>
+        </div>
+        <div id='status-bar' class='status'>
+            <div class='status-body'>
+                <div id='command-status' class='status-item'>Command: run Show
+                    for 6 expect
+                    1</div>
+                <div id='connection-status' class='right status-item'>Status:
+                    Connected</div>
+            </div>
+        </div>
+
+        <div id='graph-view' class='body'>
+
+        </div>
+        <div id='table-view' class='body'>
+
+        </div>
+        <div id='tree-view' class='body-full'>
+            <svg class='treeview' id='tree'></svg>
+        </div>
+        <div id='source-view' class='body'>
+            <div class='filetree'></div>
+            <div class='fileview'>
+                <div class='gutter'></div>
+                <div class='editor'></div>
+            </div>
+        </div>
+        <script>
+            let ui = new sterling.UI()
+                .nav_bar('#nav-bar')
+                .status_bar('#status-bar')
+                .graph_view('#graph-view')
+                .table_view('#table-view')
+                .tree_view('#tree-view')
+                .source_view('#source-view')
+                .connect();
+            ui.show_tree();
+        </script>
+    </body>
+</html>
