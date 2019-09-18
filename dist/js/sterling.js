@@ -6736,15 +6736,12 @@
                 .append('div')
                 .attr('class', 'table-view');
             this._is_compact = true;
+            this._show_builtins = false;
+            this._show_emptys = false;
         }
         set_fields(fields) {
             // Sort fields
-            fields.sort((a, b) => {
-                let c = b.tuples().length - a.tuples().length;
-                if (c !== 0)
-                    return c;
-                return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
-            });
+            this._sort_fields(fields);
             // Bind data
             let tables = this._fields
                 .selectAll('table')
@@ -6753,40 +6750,90 @@
             tables
                 .exit()
                 .remove();
-            let enter = tables
+            tables = tables
                 .enter()
-                .append('table');
-            let hdr = enter
-                .append('thead');
-            hdr
+                .append('table')
+                .merge(tables);
+            let headers = tables
+                .selectAll('thead')
+                .data(d => [d]);
+            headers
+                .exit()
+                .remove();
+            headers = headers
+                .enter()
+                .append('thead')
+                .merge(headers);
+            let titles = headers
+                .selectAll('.title')
+                .data(d => [d]);
+            titles
+                .exit()
+                .remove();
+            titles
+                .enter()
                 .append('tr')
                 .append('th')
-                .attr('colspan', d => d.size())
+                .attr('class', 'title')
+                .merge(titles)
                 .text(d => d.label());
-            hdr
+            let cols = headers
+                .selectAll('.columns')
+                .data(d => [d]);
+            cols
+                .exit()
+                .remove();
+            cols = cols
+                .enter()
                 .append('tr')
+                .attr('class', 'columns')
+                .merge(cols);
+            let ch = cols
                 .selectAll('th')
-                .data(d => d.types())
+                .data(d => d.types());
+            ch
+                .exit()
+                .remove();
+            ch
                 .enter()
                 .append('th')
+                .merge(ch)
                 .text(d => d.label());
-            // enter
-            //     .append('tbody')
-            //     .selectAll('tr')
-            //     .data
+            let bodys = tables
+                .selectAll('tbody')
+                .data(d => [d]);
+            bodys
+                .exit()
+                .remove();
+            bodys = bodys
+                .enter()
+                .append('tbody')
+                .merge(bodys);
+            let rows = bodys
+                .selectAll('tr')
+                .data(d => d.tuples());
+            rows
+                .exit()
+                .remove();
+            rows = rows
+                .enter()
+                .append('tr')
+                .merge(rows);
+            let cells = rows
+                .selectAll('td')
+                .data(d => d.atoms());
+            cells
+                .exit()
+                .remove();
+            cells
+                .enter()
+                .append('td')
+                .merge(cells)
+                .text(d => d.label());
+            this._update_fields();
         }
         set_signatures(signatures) {
-            // Sort signatures
-            signatures.sort((a, b) => {
-                if (a.builtin() && !b.builtin())
-                    return 1;
-                if (b.builtin() && !a.builtin())
-                    return -1;
-                let c = b.atoms().length - a.atoms().length;
-                if (c !== 0)
-                    return c;
-                return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
-            });
+            this._sort_signatures(signatures);
             // Bind data
             let tables = this._signatures
                 .selectAll('table')
@@ -6795,33 +6842,121 @@
             tables
                 .exit()
                 .remove();
-            // Add new tables
-            let enter = tables
+            tables = tables
                 .enter()
-                .append('table');
-            enter
+                .append('table')
+                .merge(tables);
+            let headers = tables
+                .selectAll('th')
+                .data(d => [d]);
+            headers
+                .exit()
+                .remove();
+            headers
+                .enter()
                 .append('thead')
                 .append('tr')
                 .append('th')
+                .merge(headers)
                 .text(d => d.label());
-            enter
+            let bodys = tables
+                .selectAll('tbody')
+                .data(d => [d]);
+            bodys
+                .exit()
+                .remove();
+            bodys = bodys
+                .enter()
                 .append('tbody')
+                .merge(bodys);
+            let rows = bodys
                 .selectAll('tr')
-                .data(d => d.atoms())
+                .data(d => d.atoms());
+            rows
+                .exit()
+                .remove();
+            rows = rows
                 .enter()
                 .append('tr')
+                .merge(rows);
+            let cells = rows
+                .selectAll('td')
+                .data(d => [d]);
+            cells
+                .exit()
+                .remove();
+            cells
+                .enter()
                 .append('td')
-                .text(d => d);
-            // Update all signatures
+                .merge(cells)
+                .text(d => d.label());
             this._update_signatures();
-            return;
+        }
+        toggle_builtins() {
+            this._show_builtins = !this._show_builtins;
+            this._update();
+            return this._show_builtins;
+        }
+        toggle_compact() {
+            this._is_compact = !this._is_compact;
+            this._update();
+            return this._is_compact;
+        }
+        toggle_emptys() {
+            this._show_emptys = !this._show_emptys;
+            this._update();
+            return this._show_emptys;
+        }
+        _sort_fields(fields) {
+            return fields.sort((a, b) => {
+                return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
+            });
+        }
+        _sort_signatures(signatures) {
+            return signatures.sort((a, b) => {
+                if (a.builtin() && !b.builtin())
+                    return 1;
+                if (b.builtin() && !a.builtin())
+                    return -1;
+                return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
+            });
+        }
+        _update() {
+            this._update_fields();
+            this._update_signatures();
+        }
+        _update_fields() {
+            let bc = this._prefs.border_color, bgc = this._prefs.background_color, p = this._prefs.padding_normal, pc = this._prefs.padding_compact, tc = this._prefs.text_color;
+            let showfld = d => {
+                return this._show_emptys || d.tuples().length ? null : 'none';
+            };
+            this._fields
+                .selectAll('table, td, th')
+                .attr('align', 'center')
+                .style('border', '1px solid ' + bc)
+                .style('padding', this._is_compact ? pc : p)
+                .style('color', tc);
+            this._fields
+                .selectAll('.title')
+                .attr('colspan', d => d.size());
+            this._fields
+                .selectAll('table')
+                .style('display', showfld)
+                .selectAll('tbody')
+                .selectAll('tr')
+                .style('background-color', (d, i) => i % 2 === 0 ? bgc : null);
         }
         _update_signatures() {
             let bc = this._prefs.border_color, bcd = this._prefs.border_color_dim, bgc = this._prefs.background_color, bgcd = this._prefs.background_color_dim, p = this._prefs.padding_normal, pc = this._prefs.padding_compact, tc = this._prefs.text_color, tcd = this._prefs.text_color_dim;
+            let showsig = d => {
+                let bi = d.builtin(), em = d.atoms().length === 0, vi = (this._show_builtins || !bi) && (this._show_emptys || !em);
+                return vi ? null : 'none';
+            };
             this._signatures
                 .selectAll('table')
                 .style('border', d => '1px solid ' + (d.builtin() ? bcd : bc))
-                .style('color', d => d.builtin() ? tcd : tc);
+                .style('color', d => d.builtin() ? tcd : tc)
+                .style('display', showsig);
             this._signatures
                 .selectAll('th')
                 .style('padding', this._is_compact ? pc : p);
@@ -6854,9 +6989,6 @@
             this._compact_button.on('click', this._on_toggle_compact.bind(this));
             this._builtin_button.on('click', this._on_toggle_builtin.bind(this));
             this._empty_button.on('click', this._on_toggle_empty.bind(this));
-            this._is_compact = false;
-            this._show_builtins = false;
-            this._show_emptys = false;
         }
         set_instance(instance) {
             this._layout.set_signatures(instance.signatures());
@@ -6868,42 +7000,42 @@
         }
         _on_toggle_compact() {
             // Toggle state
-            this._is_compact = !this._is_compact;
+            let is_compact = this._layout.toggle_compact();
             // Update the icon
             this._compact_button
                 .select('i')
-                .classed('fa-compress-arrows-alt', !this._is_compact)
-                .classed('fa-expand-arrows-alt', this._is_compact);
+                .classed('fa-compress-arrows-alt', !is_compact)
+                .classed('fa-expand-arrows-alt', is_compact);
             // Update the text
             this._compact_button
                 .select('.text')
-                .text(() => this._is_compact ? 'Expanded View' : 'Compact View');
+                .text(() => is_compact ? 'Normal View' : 'Compact View');
         }
         _on_toggle_builtin() {
             // Toggle state
-            this._show_builtins = !this._show_builtins;
+            let show_builtins = this._layout.toggle_builtins();
             // Update the icon
             this._builtin_button
                 .select('i')
-                .classed('fa-eye-slash', !this._show_builtins)
-                .classed('fa-eye', this._show_builtins);
+                .classed('fa-eye-slash', show_builtins)
+                .classed('fa-eye', !show_builtins);
             // Update text
             this._builtin_button
                 .select('.text')
-                .text(() => this._show_builtins ? 'Show Built-in Signatures' : 'Hide Built-in Signatures');
+                .text(() => show_builtins ? 'Hide Built-in Signatures' : 'Show Built-in Signatures');
         }
         _on_toggle_empty() {
             // Toggle state
-            this._show_emptys = !this._show_emptys;
+            let show_emptys = this._layout.toggle_emptys();
             // Update the icon
             this._empty_button
                 .select('i')
-                .classed('fa-eye-slash', !this._show_emptys)
-                .classed('fa-eye', this._show_emptys);
+                .classed('fa-eye-slash', show_emptys)
+                .classed('fa-eye', !show_emptys);
             // Update text
             this._empty_button
                 .select('.text')
-                .text(() => this._show_emptys ? 'Show Empty Tables' : 'Hide Empty Tables');
+                .text(() => show_emptys ? 'Hide Empty Tables' : 'Show Empty Tables');
         }
     }
 

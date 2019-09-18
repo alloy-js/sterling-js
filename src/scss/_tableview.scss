@@ -1,6 +1,15 @@
+.table-container {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
 .table-view {
   display: flex;
+  flex-wrap: wrap;
   table {
     margin: 1em;
+    border-collapse: collapse;
+    font-family: monospace;
   }
 }

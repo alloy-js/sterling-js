@@ -9,6 +9,8 @@ export class TableLayout {
     _fields;
 
     _is_compact: boolean;
+    _show_builtins: boolean;
+    _show_emptys: boolean;
 
     constructor (selection, preferences?: TableLayoutPreferences) {
 
@@ -23,17 +25,15 @@ export class TableLayout {
             .attr('class', 'table-view');
 
         this._is_compact = true;
+        this._show_builtins = false;
+        this._show_emptys = false;
 
     }
 
     set_fields (fields: Array<Field>) {
 
         // Sort fields
-        fields.sort((a, b) => {
-            let c = b.tuples().length - a.tuples().length;
-            if (c !== 0) return c;
-            return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
-        });
+        this._sort_fields(fields);
 
         // Bind data
         let tables = this._fields
@@ -45,44 +45,115 @@ export class TableLayout {
             .exit()
             .remove();
 
-        let enter = tables
+        tables = tables
             .enter()
-            .append('table');
+            .append('table')
+            .merge(tables);
 
-        let hdr = enter
-            .append('thead');
+        let headers = tables
+            .selectAll('thead')
+            .data(d => [d]);
 
-        hdr
+        headers
+            .exit()
+            .remove();
+
+        headers = headers
+            .enter()
+            .append('thead')
+            .merge(headers);
+
+        let titles = headers
+            .selectAll('.title')
+            .data(d => [d]);
+
+        titles
+            .exit()
+            .remove();
+
+        titles
+            .enter()
             .append('tr')
             .append('th')
-            .attr('colspan', d => d.size())
+            .attr('class', 'title')
+            .merge(titles)
             .text(d => d.label());
 
-        hdr
+        let cols = headers
+            .selectAll('.columns')
+            .data(d => [d]);
+
+        cols
+            .exit()
+            .remove();
+
+        cols = cols
+            .enter()
             .append('tr')
+            .attr('class', 'columns')
+            .merge(cols);
+
+        let ch = cols
             .selectAll('th')
-            .data(d => d.types())
+            .data(d => d.types());
+
+        ch
+            .exit()
+            .remove();
+
+        ch
             .enter()
             .append('th')
+            .merge(ch)
             .text(d => d.label());
 
-        enter
+        let bodys = tables
+            .selectAll('tbody')
+            .data(d => [d]);
+
+        bodys
+            .exit()
+            .remove();
+
+        bodys = bodys
+            .enter()
             .append('tbody')
+            .merge(bodys);
+
+        let rows = bodys
             .selectAll('tr')
-            .data(d => d.tuples())
+            .data(d => d.tuples());
+
+        rows
+            .exit()
+            .remove();
+
+        rows = rows
+            .enter()
+            .append('tr')
+            .merge(rows);
+
+        let cells = rows
+            .selectAll('td')
+            .data(d => d.atoms());
+
+        cells
+            .exit()
+            .remove();
+
+        cells
+            .enter()
+            .append('td')
+            .merge(cells)
+            .text(d => d.label());
+
+        this._update_fields();
 
     }
 
     set_signatures (signatures: Array<Signature>) {
 
-        // Sort signatures
-        signatures.sort((a, b) => {
-            if (a.builtin() && !b.builtin()) return 1;
-            if (b.builtin() && !a.builtin()) return -1;
-            let c = b.atoms().length - a.atoms().length;
-            if (c !== 0) return c;
-            return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
-        });
+        this._sort_signatures(signatures);
 
         // Bind data
         let tables = this._signatures
@@ -94,29 +165,149 @@ export class TableLayout {
             .exit()
             .remove();
 
-        // Add new tables
-        let enter = tables
+        tables = tables
             .enter()
-            .append('table');
+            .append('table')
+            .merge(tables);
 
-        enter
+        let headers = tables
+            .selectAll('th')
+            .data(d => [d]);
+
+        headers
+            .exit()
+            .remove();
+
+        headers
+            .enter()
             .append('thead')
             .append('tr')
             .append('th')
+            .merge(headers)
             .text(d => d.label());
 
-        enter
+        let bodys = tables
+            .selectAll('tbody')
+            .data(d => [d]);
+
+        bodys
+            .exit()
+            .remove();
+
+        bodys = bodys
+            .enter()
             .append('tbody')
+            .merge(bodys);
+
+        let rows = bodys
             .selectAll('tr')
-            .data(d => d.atoms())
+            .data(d => d.atoms());
+
+        rows
+            .exit()
+            .remove();
+
+        rows = rows
             .enter()
             .append('tr')
-            .append('td')
-            .text(d => d);
+            .merge(rows);
 
-        // Update all signatures
+        let cells = rows
+            .selectAll('td')
+            .data(d => [d]);
+
+        cells
+            .exit()
+            .remove();
+
+        cells
+            .enter()
+            .append('td')
+            .merge(cells)
+            .text(d => d.label());
+
         this._update_signatures();
-        return;
+
+    }
+
+    toggle_builtins (): boolean {
+
+        this._show_builtins = !this._show_builtins;
+        this._update();
+        return this._show_builtins;
+
+    }
+
+    toggle_compact (): boolean {
+
+        this._is_compact = !this._is_compact;
+        this._update();
+        return this._is_compact;
+
+    }
+
+    toggle_emptys (): boolean {
+
+        this._show_emptys = !this._show_emptys;
+        this._update();
+        return this._show_emptys;
+
+    }
+
+    _sort_fields (fields: Array<Field>) {
+
+        return fields.sort((a, b) => {
+            return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
+        });
+
+    }
+
+    _sort_signatures (signatures: Array<Signature>) {
+
+        return signatures.sort((a, b) => {
+            if (a.builtin() && !b.builtin()) return 1;
+            if (b.builtin() && !a.builtin()) return -1;
+            return b.label().toLowerCase() < a.label().toLowerCase() ? 1 : -1;
+        });
+
+    }
+
+    _update () {
+
+        this._update_fields();
+        this._update_signatures();
+
+    }
+
+    _update_fields () {
+
+        let bc = this._prefs.border_color,
+            bgc = this._prefs.background_color,
+            p = this._prefs.padding_normal,
+            pc = this._prefs.padding_compact,
+            tc = this._prefs.text_color;
+
+        let showfld = d => {
+            return this._show_emptys || d.tuples().length ? null : 'none';
+        };
+
+        this._fields
+            .selectAll('table, td, th')
+            .attr('align', 'center')
+            .style('border', '1px solid ' + bc)
+            .style('padding', this._is_compact ? pc : p)
+            .style('color', tc);
+
+        this._fields
+            .selectAll('.title')
+            .attr('colspan', d => d.size());
+
+        this._fields
+            .selectAll('table')
+            .style('display', showfld)
+            .selectAll('tbody')
+            .selectAll('tr')
+            .style('background-color', (d, i) => i%2 === 0 ? bgc : null);
 
     }
 
@@ -131,10 +322,18 @@ export class TableLayout {
             tc = this._prefs.text_color,
             tcd = this._prefs.text_color_dim;
 
+        let showsig = d => {
+            let bi = d.builtin(),
+                em = d.atoms().length === 0,
+                vi = (this._show_builtins || !bi) && (this._show_emptys || !em);
+            return vi ? null : 'none';
+        };
+
         this._signatures
             .selectAll('table')
             .style('border', d => '1px solid ' + (d.builtin() ? bcd : bc))
-            .style('color', d => d.builtin() ? tcd : tc);
+            .style('color', d => d.builtin() ? tcd : tc)
+            .style('display', showsig);
 
         this._signatures
             .selectAll('th')
@@ -160,4 +359,5 @@ export class TableLayout {
             .style('padding', this._is_compact ? pc : p);
 
     }
+
 }

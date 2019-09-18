@@ -6008,7 +6008,6 @@ readers do not read off random characters that represent icons */
   flex-direction: column;
   flex: 1 0 auto;
   height: calc(100vh - 70px - 25px);
-  overflow: hidden;
   margin: 0;
   width: 100%;
 }
@@ -6070,11 +6069,20 @@ readers do not read off random characters that represent icons */
   color: #ffffff;
 }
 
+.table-container {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
 .table-view {
   display: flex;
+  flex-wrap: wrap;
 }
 .table-view table {
   margin: 1em;
+  border-collapse: collapse;
+  font-family: monospace;
 }
 
 .fileview {

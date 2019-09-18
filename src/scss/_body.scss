@@ -14,7 +14,7 @@
   flex-direction: column;
   flex: 1 0 auto;
   height: calc(100vh - #{$nav-height} - #{$status-bar-height});
-  overflow: hidden;
+  //overflow: hidden;
   margin: 0;
   width: 100%;
 }
