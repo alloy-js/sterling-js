@@ -109,6 +109,7 @@ export class UI {
         });
 
         if (this._status_bar) this._status_bar.set_command(instance.command());
+        if (this._graph_view) this._graph_view.set_instance(instance);
         if (this._table_view) this._table_view.set_instance(instance);
         if (this._tree_view) this._tree_view.set_instance(instance);
         if (this._source_view) this._source_view.set_files(sources);

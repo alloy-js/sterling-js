@@ -35,6 +35,13 @@ export class Instance {
 
     }
 
+    atoms (): Array<Atom> {
+        return this.signatures()
+            .filter(s => s.label() !== 'seq/Int')
+            .map(sig => sig.atoms())
+            .reduce((acc, cur) => acc.concat(cur), []);
+    }
+
     bitwidth (): number {
         return this._bitwidth;
     }
@@ -48,7 +55,7 @@ export class Instance {
     }
 
     fields (): Array<Field> {
-        return Array.from(this._fields.values());
+        return this._fields.slice();
     }
 
     filename (): string {
@@ -64,15 +71,21 @@ export class Instance {
     }
 
     signatures (): Array<Signature> {
-        return Array.from(this._signatures.values());
+        return this._signatures.slice();
     }
 
     skolems (): Array<Skolem> {
-        return Array.from(this._skolem.values());
+        return this._skolem.slice();
     }
 
     sources (): Map<string, string> {
         return this._sources;
+    }
+
+    tuples (): Array<Tuple> {
+        return this.fields()
+            .map(fld => fld.tuples())
+            .reduce((acc, cur) => acc.concat(cur), []);
     }
 
     toString (): string {

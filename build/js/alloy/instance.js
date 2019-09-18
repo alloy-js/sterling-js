@@ -17,6 +17,12 @@ export class Instance {
         this._fields = [];
         this._skolem = [];
     }
+    atoms() {
+        return this.signatures()
+            .filter(s => s.label() !== 'seq/Int')
+            .map(sig => sig.atoms())
+            .reduce((acc, cur) => acc.concat(cur), []);
+    }
     bitwidth() {
         return this._bitwidth;
     }
@@ -27,7 +33,7 @@ export class Instance {
         return this._command;
     }
     fields() {
-        return Array.from(this._fields.values());
+        return this._fields.slice();
     }
     filename() {
         return this._filename;
@@ -39,13 +45,18 @@ export class Instance {
         return this._maxseq;
     }
     signatures() {
-        return Array.from(this._signatures.values());
+        return this._signatures.slice();
     }
     skolems() {
-        return Array.from(this._skolem.values());
+        return this._skolem.slice();
     }
     sources() {
         return this._sources;
+    }
+    tuples() {
+        return this.fields()
+            .map(fld => fld.tuples())
+            .reduce((acc, cur) => acc.concat(cur), []);
     }
     toString() {
         return 'Instance';

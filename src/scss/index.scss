@@ -5,9 +5,10 @@
 @import "optionsbar";
 @import "body";
 @import "filetree";
+@import "graphview";
 @import "tableview";
-@import "fileview";
 @import "treeview";
+@import "fileview";
 
 html, body {
   display: flex;

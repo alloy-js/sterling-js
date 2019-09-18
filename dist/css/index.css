@@ -6069,10 +6069,16 @@ readers do not read off random characters that represent icons */
   color: #ffffff;
 }
 
+.graph-view {
+  width: 100%;
+  height: 100%;
+}
+
 .table-container {
   display: flex;
   flex-direction: column;
   overflow: auto;
+  padding: 1em;
 }
 
 .table-view {
@@ -6083,37 +6089,6 @@ readers do not read off random characters that represent icons */
   margin: 1em;
   border-collapse: collapse;
   font-family: monospace;
-}
-
-.fileview {
-  display: flex;
-  width: 100%;
-  padding-top: 0.5em;
-  overflow-y: auto;
-}
-.fileview .gutter .line-number {
-  min-width: 20px;
-  text-align: right;
-  padding: 0 0.35em;
-  margin-right: 0.65em;
-  border-right: 1px solid #e1e2e1;
-}
-.fileview .editor {
-  width: 100%;
-}
-.fileview .editor pre {
-  padding-bottom: 4em;
-}
-.fileview .editor .message {
-  padding: 2em;
-  text-align: center;
-  font-size: 1.25em;
-  font-weight: bold;
-  color: #1b3039;
-}
-.fileview pre, .fileview code {
-  margin: 0;
-  padding: 0;
 }
 
 .treeview {
@@ -6173,6 +6148,37 @@ readers do not read off random characters that represent icons */
 }
 .treeview .tuple .lower {
   stroke: white;
+}
+
+.fileview {
+  display: flex;
+  width: 100%;
+  padding-top: 0.5em;
+  overflow-y: auto;
+}
+.fileview .gutter .line-number {
+  min-width: 20px;
+  text-align: right;
+  padding: 0 0.35em;
+  margin-right: 0.65em;
+  border-right: 1px solid #e1e2e1;
+}
+.fileview .editor {
+  width: 100%;
+}
+.fileview .editor pre {
+  padding-bottom: 4em;
+}
+.fileview .editor .message {
+  padding: 2em;
+  text-align: center;
+  font-size: 1.25em;
+  font-weight: bold;
+  color: #1b3039;
+}
+.fileview pre, .fileview code {
+  margin: 0;
+  padding: 0;
 }
 
 html, body {

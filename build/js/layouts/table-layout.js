@@ -8,7 +8,7 @@ export class TableLayout {
         this._fields = selection
             .append('div')
             .attr('class', 'table-view');
-        this._is_compact = true;
+        this._is_compact = false;
         this._show_builtins = false;
         this._show_emptys = false;
     }
