@@ -27,7 +27,8 @@ export class TreeLayout {
 
         // Initialize svg
         this._svg = svg
-            .style('user-select', 'none');
+            .style('user-select', 'none')
+            .style('cursor', 'grab');
 
         // Initialize link group
         this._gLink = svg
@@ -61,7 +62,9 @@ export class TreeLayout {
             .on('zoom', () => {
                 this._gLink.attr('transform', d3.event.transform);
                 this._gNode.attr('transform', d3.event.transform);
-            });
+            })
+            .on('start', () => this._svg.style('cursor', 'grabbing'))
+            .on('end', () => this._svg.style('cursor', 'grab'));
 
         this._svg
             .call(zoom)
@@ -94,8 +97,10 @@ export class TreeLayout {
     set_instance (instance: Instance) {
 
         let root = to_hierarchy(instance, this._prefs);
-
         this._set_root(root);
+
+
+
         this._update(this._instance ? null : root);
 
         this._instance = instance;
@@ -139,7 +144,7 @@ export class TreeLayout {
 
     _update (source?) {
 
-        // Update node size based on margins and visible tree depth
+        // Update node size based on margins and tree depth
         let hmargin = this._prefs.margin.left + this._prefs.margin.right;
         let theight = this._root.height;
         let nodewidth = this._prefs.font_size;
