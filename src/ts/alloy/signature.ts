@@ -9,6 +9,8 @@ export class Signature {
     _parent: Signature;
 
     _builtin: boolean;
+    _private: boolean;
+    _meta: boolean;
     _one: boolean;
     _subset: boolean;
 
@@ -19,6 +21,8 @@ export class Signature {
 
     constructor (label: string,
                  isbuiltin: boolean = false,
+                 isprivate: boolean = false,
+                 ismeta: boolean = false,
                  isone: boolean = false,
                  issubset: boolean = false) {
 
@@ -26,6 +30,8 @@ export class Signature {
         this._parent = null;
 
         this._builtin = isbuiltin;
+        this._private = isprivate;
+        this._meta = ismeta;
         this._one = isone;
         this._subset = issubset;
 
@@ -62,6 +68,14 @@ export class Signature {
 
     label (): string {
         return this._label;
+    }
+
+    meta (): boolean {
+        return this._meta;
+    }
+
+    private (): boolean {
+        return this._private;
     }
 
     signature (label: string, nest: boolean = false) {

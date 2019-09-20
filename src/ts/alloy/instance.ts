@@ -254,7 +254,12 @@ function parseField (parents: Map<number, number>,
             .map(parseType)
             .map(id => signatures.get(id));
 
-        let field: Field = new Field(label, types);
+        let field: Field = new Field(
+            label,
+            types,
+            f.attr('private') === 'yes',
+            f.attr('meta') === 'yes'
+        );
 
         f.selectAll('tuple')
             .nodes()
@@ -286,6 +291,8 @@ function parseSubset (instance: Instance,
         let sig = new Signature(
             s.attr('label'),
             s.attr('builtin') === 'yes',
+            s.attr('private') === 'yes',
+            s.attr('meta') === 'yes',
             s.attr('one') === 'yes',
             true
         );
@@ -335,6 +342,8 @@ function parseSig (instance: Instance,
         let sig = new Signature(
             s.attr('label'),
             s.attr('builtin') === 'yes',
+            s.attr('private') === 'yes',
+            s.attr('meta') === 'yes',
             s.attr('one') === 'yes'
         );
 

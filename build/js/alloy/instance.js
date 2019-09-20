@@ -176,7 +176,7 @@ function parseField(parents, signatures, fields) {
             .nodes()
             .map(parseType)
             .map(id => signatures.get(id));
-        let field = new Field(label, types);
+        let field = new Field(label, types, f.attr('private') === 'yes', f.attr('meta') === 'yes');
         f.selectAll('tuple')
             .nodes()
             .map(parseTuple)
@@ -195,7 +195,7 @@ function parseSubset(instance, signatures) {
             .nodes()
             .map(parseType)
             .map(id => signatures.get(id));
-        let sig = new Signature(s.attr('label'), s.attr('builtin') === 'yes', s.attr('one') === 'yes', true);
+        let sig = new Signature(s.attr('label'), s.attr('builtin') === 'yes', s.attr('private') === 'yes', s.attr('meta') === 'yes', s.attr('one') === 'yes', true);
         signatures.set(id, sig);
         // Sequences aren't explicitly made subset signatures, but in reality
         // that is how they act, so get up to maxseq atoms from int
@@ -228,7 +228,7 @@ function parseSig(instance, parents, signatures) {
         let s = d3.select(this);
         let id = parseInt(s.attr('ID'));
         let parent = parseInt(s.attr('parentID'));
-        let sig = new Signature(s.attr('label'), s.attr('builtin') === 'yes', s.attr('one') === 'yes');
+        let sig = new Signature(s.attr('label'), s.attr('builtin') === 'yes', s.attr('private') === 'yes', s.attr('meta') === 'yes', s.attr('one') === 'yes');
         parents.set(id, parent);
         signatures.set(id, sig);
         s.selectAll('atom')

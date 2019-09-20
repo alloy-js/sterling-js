@@ -11,12 +11,20 @@ export class Field {
     _tuples: Array<Tuple>;
     _types: Array<Signature>;
 
-    constructor (label: string, types: Array<Signature>) {
+    _private: boolean;
+    _meta: boolean;
+
+    constructor (label: string,
+                 types: Array<Signature>,
+                 isprivate: boolean = false,
+                 ismeta: boolean = false) {
 
         this._label = label;
         this._parent = null;
         this._tuples = [];
         this._types = types;
+        this._private = isprivate;
+        this._meta = ismeta;
 
     }
 
@@ -30,6 +38,14 @@ export class Field {
 
     label (): string {
         return this._label;
+    }
+
+    meta (): boolean {
+        return this._meta;
+    }
+
+    private (): boolean {
+        return this._private;
     }
 
     size (): number {

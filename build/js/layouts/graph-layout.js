@@ -1,124 +1,107 @@
 import * as d3 from 'd3';
+import { rectangle } from './graph-node-shapes/rectangle';
+import { DagreLayout } from './graph-layout-algorithms/dagre-layout';
+import { line } from './graph-link-shapes/line';
+import { text } from './graph-node-shapes/text';
 export class GraphLayout {
     constructor(selection) {
+        this._show_builtin = false;
+        this._show_disconnected = true;
+        this._show_meta = false;
+        this._show_private = false;
         this._svg = selection
             .style('user-select', 'none')
             .style('font-family', 'monospace')
-            .style('font-size', '10px')
-            .call(d3.zoom()
+            .style('font-size', '10px');
+        this._gLink = selection.append('g')
+            .attr('class', 'links');
+        this._gNode = selection.append('g')
+            .attr('class', 'nodes');
+        this._zoom = d3.zoom()
             .on('zoom', () => {
             this._gLink.attr('transform', d3.event.transform);
             this._gNode.attr('transform', d3.event.transform);
-        }));
-        this._gLink = selection.append('g')
-            .attr('class', 'links')
-            .style('stroke', '#aaa')
-            .style('fill', 'none');
-        this._gNode = selection.append('g')
-            .attr('class', 'nodes');
+        });
+        this._svg.call(this._zoom);
     }
     resize() {
     }
     set_instance(instance) {
-        function to_node(atom) {
-            return Object.assign(atom, {
-                atom: atom,
-                width: 20,
-                height: 20
-            });
-        }
-        let nodes = instance.atoms().map(to_node), links = instance.tuples().map(to_link), g = new dagre.graphlib.Graph(), graph = {
-            width: parseInt(this._svg.style('width')),
-            height: parseInt(this._svg.style('height')),
-            marginx: 50,
-            marginy: 50,
-            ranksep: 100
-        };
-        let counts = new Map();
-        links.forEach(link => {
-            let s = link.source.label(), t = link.target.label();
-            counts.set(s, (counts.get(s) || 0) + 1);
-            counts.set(t, (counts.get(t) || 0) + 1);
-        });
-        nodes = nodes
-            .filter(n => counts.get(n.label()) > 0 || !n.signature().builtin());
-        g.setGraph(graph);
-        g.setDefaultEdgeLabel(function () { return {}; });
-        nodes.forEach(node => {
-            g.setNode(node.label(), node);
-        });
-        links.forEach(link => {
-            g.setEdge(link.source.label(), link.target.label());
-        });
-        dagre.layout(g);
-        let width = graph.width, height = graph.height;
-        this._svg
-            .attr('viewBox', `0 0 ${width} ${height}`);
-        let linksel = this._gLink
-            .selectAll('path')
-            .data(g.edges().map(e => g.edge(e).points));
-        linksel
-            .exit()
-            .remove();
-        let line = d3.line()
-            .x(d => d.x)
-            .y(d => d.y);
-        linksel = linksel
-            .enter()
-            .append('path')
-            .merge(linksel)
-            .attr('d', line);
-        let nodesel = this._gNode
-            .selectAll('g')
+        let { atoms, tuples } = this._read_instance(instance);
+        let dag = new DagreLayout();
+        dag.layout(atoms, tuples);
+        this.zoom_to(dag.width(), dag.height());
+        let nodes = dag.nodes(), links = dag.links();
+        let rect = rectangle();
+        let label = text();
+        let path = line();
+        let gNode = this._gNode
+            .selectAll('.node')
             .data(nodes);
-        nodesel
+        gNode
             .exit()
             .remove();
-        nodesel = nodesel
+        gNode
             .enter()
             .append('g')
-            .merge(nodesel);
-        circle_nodes(nodesel);
-        nodesel
+            .attr('class', 'node')
+            .merge(gNode)
+            .call(rect)
+            .call(label)
             .attr('transform', d => `translate(${d.x},${d.y})`);
+        let gLink = this._gLink
+            .selectAll('.link')
+            .data(links);
+        gLink
+            .exit()
+            .remove();
+        gLink
+            .enter()
+            .append('g')
+            .attr('class', 'link')
+            .merge(gLink)
+            .call(path);
     }
-}
-function circle_nodes(selection) {
-    let circles = selection
-        .selectAll('circle')
-        .data(d => [d]);
-    circles
-        .exit()
-        .remove();
-    circles = circles
-        .enter()
-        .append('circle')
-        .merge(circles);
-    circles
-        .attr('cx', 0)
-        .attr('cy', 0)
-        .attr('r', 25)
-        .style('fill', 'white')
-        .style('stroke', 'black');
-    let text = selection
-        .selectAll('text')
-        .data(d => [d]);
-    text
-        .exit()
-        .remove();
-    text = text
-        .enter()
-        .append('text')
-        .merge(text)
-        .text(d => d.label());
-    text.attr('text-anchor', 'middle')
-        .attr('dy', '0.31em');
-}
-function to_link(tuple) {
-    let atoms = tuple.atoms();
-    return {
-        source: atoms[0],
-        target: atoms[atoms.length - 1],
-        tuple: tuple
-    };
+    zoom_to(width, height) {
+        let w = parseInt(this._svg.style('width')), h = parseInt(this._svg.style('height'));
+        let scale = 0.9 / Math.max(width / w, height / h);
+        this._svg
+            .transition()
+            .duration(750)
+            .call(this._zoom.transform, d3.zoomIdentity
+            .translate(w / 2, h / 2)
+            .scale(scale)
+            .translate(-width / 2, -height / 2));
+    }
+    _read_instance(instance) {
+        // Retrive all atoms and filter out as necessary
+        let atoms = instance
+            .atoms()
+            .filter(atom => this._show_builtin ? true : !atom.signature().builtin())
+            .filter(atom => this._show_meta ? true : !atom.signature().meta())
+            .filter(atom => this._show_private ? true : !atom.signature().private());
+        // Retrieve all tuples and filter out as necessary
+        let tuples = instance
+            .fields()
+            .filter(field => this._show_meta ? true : !field.meta())
+            .filter(field => this._show_private ? true : !field.private())
+            .map(field => field.tuples())
+            .reduce((acc, cur) => acc.concat(cur), []);
+        // Add back in any atoms that are still part of a relation
+        // Not the most efficient, but instances are generally small-ish
+        tuples.forEach(tuple => {
+            let atms = tuple.atoms(), frst = atms[0], last = atms[atms.length - 1];
+            if (!atoms.includes(frst))
+                atoms.push(frst);
+            if (!atoms.includes(last))
+                atoms.push(last);
+        });
+        // Remove atoms that aren't connected
+        if (!this._show_disconnected) {
+        }
+        return {
+            atoms: atoms,
+            tuples: tuples
+        };
+    }
 }

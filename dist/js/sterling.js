@@ -44,12 +44,14 @@
     }
 
     class Field {
-        constructor(label, types) {
+        constructor(label, types, isprivate = false, ismeta = false) {
             this.expressionType = () => 'field';
             this._label = label;
             this._parent = null;
             this._tuples = [];
             this._types = types;
+            this._private = isprivate;
+            this._meta = ismeta;
         }
         has(...atoms) {
             return !!this._tuples.find(t => {
@@ -58,6 +60,12 @@
         }
         label() {
             return this._label;
+        }
+        meta() {
+            return this._meta;
+        }
+        private() {
+            return this._private;
         }
         size() {
             return this._types.length;
@@ -74,11 +82,13 @@
     }
 
     class Signature {
-        constructor(label, isbuiltin = false, isone = false, issubset = false) {
+        constructor(label, isbuiltin = false, isprivate = false, ismeta = false, isone = false, issubset = false) {
             this.expressionType = () => 'signature';
             this._label = label;
             this._parent = null;
             this._builtin = isbuiltin;
+            this._private = isprivate;
+            this._meta = ismeta;
             this._one = isone;
             this._subset = issubset;
             this._atoms = new Array();
@@ -103,6 +113,12 @@
         }
         label() {
             return this._label;
+        }
+        meta() {
+            return this._meta;
+        }
+        private() {
+            return this._private;
         }
         signature(label, nest = false) {
             return this.signatures(nest).find(s => s.label() === label);
@@ -3227,12 +3243,12 @@
       return map;
     }
 
-    function Set() {}
+    function Set$1() {}
 
     var proto = map.prototype;
 
-    Set.prototype = set$2.prototype = {
-      constructor: Set,
+    Set$1.prototype = set$2.prototype = {
+      constructor: Set$1,
       has: proto.has,
       add: function(value) {
         value += "";
@@ -3248,10 +3264,10 @@
     };
 
     function set$2(object, f) {
-      var set = new Set;
+      var set = new Set$1;
 
       // Copy constructor.
-      if (object instanceof Set) object.each(function(value) { set.add(value); });
+      if (object instanceof Set$1) object.each(function(value) { set.add(value); });
 
       // Otherwise, assume it’s an array.
       else if (object) {
@@ -5740,6 +5756,58 @@
       return link(curveHorizontal);
     }
 
+    function point$1(that, x, y) {
+      that._context.bezierCurveTo(
+        (2 * that._x0 + that._x1) / 3,
+        (2 * that._y0 + that._y1) / 3,
+        (that._x0 + 2 * that._x1) / 3,
+        (that._y0 + 2 * that._y1) / 3,
+        (that._x0 + 4 * that._x1 + x) / 6,
+        (that._y0 + 4 * that._y1 + y) / 6
+      );
+    }
+
+    function Basis(context) {
+      this._context = context;
+    }
+
+    Basis.prototype = {
+      areaStart: function() {
+        this._line = 0;
+      },
+      areaEnd: function() {
+        this._line = NaN;
+      },
+      lineStart: function() {
+        this._x0 = this._x1 =
+        this._y0 = this._y1 = NaN;
+        this._point = 0;
+      },
+      lineEnd: function() {
+        switch (this._point) {
+          case 3: point$1(this, this._x1, this._y1); // proceed
+          case 2: this._context.lineTo(this._x1, this._y1); break;
+        }
+        if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
+        this._line = 1 - this._line;
+      },
+      point: function(x, y) {
+        x = +x, y = +y;
+        switch (this._point) {
+          case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
+          case 1: this._point = 2; break;
+          case 2: this._point = 3; this._context.lineTo((5 * this._x0 + this._x1) / 6, (5 * this._y0 + this._y1) / 6); // proceed
+          default: point$1(this, x, y); break;
+        }
+        this._x0 = this._x1, this._x1 = x;
+        this._y0 = this._y1, this._y1 = y;
+      }
+    };
+
+    function basis(context) {
+      return new Basis(context);
+    }
+
     function sign(x) {
       return x < 0 ? -1 : 1;
     }
@@ -5766,7 +5834,7 @@
     // According to https://en.wikipedia.org/wiki/Cubic_Hermite_spline#Representations
     // "you can express cubic Hermite interpolation in terms of cubic Bézier curves
     // with respect to the four values p0, p0 + m0 / 3, p1 - m1 / 3, p1".
-    function point$1(that, t0, t1) {
+    function point$2(that, t0, t1) {
       var x0 = that._x0,
           y0 = that._y0,
           x1 = that._x1,
@@ -5795,7 +5863,7 @@
       lineEnd: function() {
         switch (this._point) {
           case 2: this._context.lineTo(this._x1, this._y1); break;
-          case 3: point$1(this, this._t0, slope2(this, this._t0)); break;
+          case 3: point$2(this, this._t0, slope2(this, this._t0)); break;
         }
         if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
         this._line = 1 - this._line;
@@ -5808,8 +5876,8 @@
         switch (this._point) {
           case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
           case 1: this._point = 2; break;
-          case 2: this._point = 3; point$1(this, slope2(this, t1 = slope3(this, x, y)), t1); break;
-          default: point$1(this, this._t0, t1 = slope3(this, x, y)); break;
+          case 2: this._point = 3; point$2(this, slope2(this, t1 = slope3(this, x, y)), t1); break;
+          default: point$2(this, this._t0, t1 = slope3(this, x, y)); break;
         }
 
         this._x0 = this._x1, this._x1 = x;
@@ -6485,7 +6553,7 @@
                 .nodes()
                 .map(parseType)
                 .map(id => signatures.get(id));
-            let field = new Field(label, types);
+            let field = new Field(label, types, f.attr('private') === 'yes', f.attr('meta') === 'yes');
             f.selectAll('tuple')
                 .nodes()
                 .map(parseTuple)
@@ -6504,7 +6572,7 @@
                 .nodes()
                 .map(parseType)
                 .map(id => signatures.get(id));
-            let sig = new Signature(s.attr('label'), s.attr('builtin') === 'yes', s.attr('one') === 'yes', true);
+            let sig = new Signature(s.attr('label'), s.attr('builtin') === 'yes', s.attr('private') === 'yes', s.attr('meta') === 'yes', s.attr('one') === 'yes', true);
             signatures.set(id, sig);
             // Sequences aren't explicitly made subset signatures, but in reality
             // that is how they act, so get up to maxseq atoms from int
@@ -6537,7 +6605,7 @@
             let s = select(this);
             let id = parseInt(s.attr('ID'));
             let parent = parseInt(s.attr('parentID'));
-            let sig = new Signature(s.attr('label'), s.attr('builtin') === 'yes', s.attr('one') === 'yes');
+            let sig = new Signature(s.attr('label'), s.attr('builtin') === 'yes', s.attr('private') === 'yes', s.attr('meta') === 'yes', s.attr('one') === 'yes');
             parents.set(id, parent);
             signatures.set(id, sig);
             s.selectAll('atom')
@@ -6797,128 +6865,283 @@
         }
     }
 
+    function rectangle() {
+        let _rectangles, _width = 150, _height = 50, _stroke = '#000', _stroke_width = 1, _fill = '#fff', _shape_rendering = 'geometricPrecision';
+        function _rectangle(selection) {
+            _rectangles = selection
+                .selectAll('rect')
+                .data(d => [d]);
+            _rectangles
+                .exit()
+                .remove();
+            _rectangles = _rectangles
+                .enter()
+                .append('rect')
+                .merge(_rectangles);
+            _rectangles
+                .attr('x', -_width / 2)
+                .attr('y', -_height / 2)
+                .attr('width', _width)
+                .attr('height', _height)
+                .attr('shape-rendering', _shape_rendering);
+            _rectangles
+                .style('stroke', _stroke)
+                .style('stroke-width', _stroke_width)
+                .style('fill', _fill);
+            return _rectangles;
+        }
+        _rectangle.height = function (height) {
+            if (!arguments.length)
+                return _height;
+            _height = +height;
+            return _rectangle;
+        };
+        _rectangle.width = function (width) {
+            if (!arguments.length)
+                return _width;
+            _width = +width;
+            return _rectangle;
+        };
+        return _rectangle;
+    }
+
+    class DagreLayout {
+        constructor() {
+            this._include_private_nodes = false;
+            this._to_node = to_node();
+            this._to_link = to_link();
+            this._rank_sep = 150;
+        }
+        height() {
+            return this._props ? this._props.height : 0;
+        }
+        layout(atoms, tuples) {
+            // TODO: A little refactoring needs to happen to make compound graphs work.
+            // TODO: Let's try having a to_graph(...projections) method on an instance
+            // TODO: that returns a list of nodes and links.  That way we can do all of
+            // TODO: the projecting and building of hierarchical structures in the same
+            // TODO: place.
+            let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
+            let props = this._graph_properties();
+            let nodes = atoms.map(atom => this._to_node(atom));
+            let links = tuples.map(tuple => this._to_link(tuple));
+            graph.setGraph(props);
+            graph.setDefaultEdgeLabel(function () { return {}; });
+            nodes.forEach(node => graph.setNode(node.label(), node));
+            links.forEach(link => graph.setEdge(link.source.label(), link.target.label(), link.tuple));
+            let signatures = new Set();
+            atoms.forEach(atom => signatures.add(atom.signature()));
+            signatures.forEach(sig => graph.setNode(sig.label(), sig));
+            atoms.forEach(atom => graph.setParent(atom.label(), atom.signature().label()));
+            dagre.layout(graph);
+            this._props = props;
+            this._nodes = nodes;
+            this._links = graph.edges().map(e => graph.edge(e));
+            console.log(links.map(link => link.tuple));
+            console.log(graph.edges());
+        }
+        nodes() {
+            return this._nodes;
+        }
+        links() {
+            return this._links;
+        }
+        width() {
+            return this._props ? this._props.width : 0;
+        }
+        _graph_properties() {
+            return {
+                ranksep: this._rank_sep
+            };
+        }
+    }
+    function to_node() {
+        let _width = 150, _height = 50;
+        function _to_node(atom) {
+            return Object.assign(atom, {
+                width: _width,
+                height: _height
+            });
+        }
+        _to_node.width = function (width) {
+            if (!arguments.length)
+                return _width;
+            _width = +width;
+            return _to_node;
+        };
+        _to_node.height = function (height) {
+            if (!arguments.length)
+                return _height;
+            _height = +height;
+            return _to_node;
+        };
+        return _to_node;
+    }
+    function to_link() {
+        // No configuration needed yet, but probably will be once things
+        // like projections start happening
+        return function (tuple) {
+            let atoms = tuple.atoms();
+            return {
+                source: atoms[0],
+                target: atoms[atoms.length - 1],
+                tuple: tuple
+            };
+        };
+    }
+
+    function line$1() {
+        let _l = line()
+            .x(d => d.x)
+            .y(d => d.y)
+            .curve(basis);
+        let _lines, _stroke = '#000', _stroke_width = 1;
+        function _line(selection) {
+            _lines = selection
+                .selectAll('path')
+                .data(d => [d.points]);
+            _lines
+                .exit()
+                .remove();
+            _lines = _lines
+                .enter()
+                .append('path')
+                .merge(_lines);
+            _lines
+                .attr('d', _l);
+            _lines
+                .style('fill', 'none')
+                .style('stroke', _stroke)
+                .style('stroke-width', _stroke_width);
+            return _lines;
+        }
+        return _line;
+    }
+
+    function text() {
+        let _texts, _font_size = 16, _text_rendering = 'geometricPrecision';
+        function _text(selection) {
+            _texts = selection
+                .selectAll('text')
+                .data(d => [d]);
+            _texts
+                .exit()
+                .remove();
+            _texts = _texts
+                .enter()
+                .append('text')
+                .merge(_texts)
+                .text(d => d.label())
+                .attr('text-rendering', _text_rendering)
+                .attr('text-anchor', 'middle')
+                .attr('dy', '0.31em');
+            _texts
+                .style('font-size', _font_size + 'px');
+            return _texts;
+        }
+        return _text;
+    }
+
     class GraphLayout {
         constructor(selection) {
+            this._show_builtin = false;
+            this._show_disconnected = true;
+            this._show_meta = false;
+            this._show_private = false;
             this._svg = selection
                 .style('user-select', 'none')
                 .style('font-family', 'monospace')
-                .style('font-size', '10px')
-                .call(zoom()
+                .style('font-size', '10px');
+            this._gLink = selection.append('g')
+                .attr('class', 'links');
+            this._gNode = selection.append('g')
+                .attr('class', 'nodes');
+            this._zoom = zoom()
                 .on('zoom', () => {
                 this._gLink.attr('transform', event.transform);
                 this._gNode.attr('transform', event.transform);
-            }));
-            this._gLink = selection.append('g')
-                .attr('class', 'links')
-                .style('stroke', '#aaa')
-                .style('fill', 'none');
-            this._gNode = selection.append('g')
-                .attr('class', 'nodes');
+            });
+            this._svg.call(this._zoom);
         }
         resize() {
         }
         set_instance(instance) {
-            function to_node(atom) {
-                return Object.assign(atom, {
-                    atom: atom,
-                    width: 20,
-                    height: 20
-                });
-            }
-            let nodes = instance.atoms().map(to_node), links = instance.tuples().map(to_link), g = new dagre.graphlib.Graph(), graph = {
-                width: parseInt(this._svg.style('width')),
-                height: parseInt(this._svg.style('height')),
-                marginx: 50,
-                marginy: 50,
-                ranksep: 100
-            };
-            let counts = new Map();
-            links.forEach(link => {
-                let s = link.source.label(), t = link.target.label();
-                counts.set(s, (counts.get(s) || 0) + 1);
-                counts.set(t, (counts.get(t) || 0) + 1);
-            });
-            nodes = nodes
-                .filter(n => counts.get(n.label()) > 0 || !n.signature().builtin());
-            g.setGraph(graph);
-            g.setDefaultEdgeLabel(function () { return {}; });
-            nodes.forEach(node => {
-                g.setNode(node.label(), node);
-            });
-            links.forEach(link => {
-                g.setEdge(link.source.label(), link.target.label());
-            });
-            dagre.layout(g);
-            let width = graph.width, height = graph.height;
-            this._svg
-                .attr('viewBox', `0 0 ${width} ${height}`);
-            let linksel = this._gLink
-                .selectAll('path')
-                .data(g.edges().map(e => g.edge(e).points));
-            linksel
-                .exit()
-                .remove();
-            let line$1 = line()
-                .x(d => d.x)
-                .y(d => d.y);
-            linksel = linksel
-                .enter()
-                .append('path')
-                .merge(linksel)
-                .attr('d', line$1);
-            let nodesel = this._gNode
-                .selectAll('g')
+            let { atoms, tuples } = this._read_instance(instance);
+            let dag = new DagreLayout();
+            dag.layout(atoms, tuples);
+            this.zoom_to(dag.width(), dag.height());
+            let nodes = dag.nodes(), links = dag.links();
+            let rect = rectangle();
+            let label = text();
+            let path = line$1();
+            let gNode = this._gNode
+                .selectAll('.node')
                 .data(nodes);
-            nodesel
+            gNode
                 .exit()
                 .remove();
-            nodesel = nodesel
+            gNode
                 .enter()
                 .append('g')
-                .merge(nodesel);
-            circle_nodes(nodesel);
-            nodesel
+                .attr('class', 'node')
+                .merge(gNode)
+                .call(rect)
+                .call(label)
                 .attr('transform', d => `translate(${d.x},${d.y})`);
+            let gLink = this._gLink
+                .selectAll('.link')
+                .data(links);
+            gLink
+                .exit()
+                .remove();
+            gLink
+                .enter()
+                .append('g')
+                .attr('class', 'link')
+                .merge(gLink)
+                .call(path);
         }
-    }
-    function circle_nodes(selection) {
-        let circles = selection
-            .selectAll('circle')
-            .data(d => [d]);
-        circles
-            .exit()
-            .remove();
-        circles = circles
-            .enter()
-            .append('circle')
-            .merge(circles);
-        circles
-            .attr('cx', 0)
-            .attr('cy', 0)
-            .attr('r', 25)
-            .style('fill', 'white')
-            .style('stroke', 'black');
-        let text = selection
-            .selectAll('text')
-            .data(d => [d]);
-        text
-            .exit()
-            .remove();
-        text = text
-            .enter()
-            .append('text')
-            .merge(text)
-            .text(d => d.label());
-        text.attr('text-anchor', 'middle')
-            .attr('dy', '0.31em');
-    }
-    function to_link(tuple) {
-        let atoms = tuple.atoms();
-        return {
-            source: atoms[0],
-            target: atoms[atoms.length - 1],
-            tuple: tuple
-        };
+        zoom_to(width, height) {
+            let w = parseInt(this._svg.style('width')), h = parseInt(this._svg.style('height'));
+            let scale = 0.9 / Math.max(width / w, height / h);
+            this._svg
+                .transition()
+                .duration(750)
+                .call(this._zoom.transform, identity$2
+                .translate(w / 2, h / 2)
+                .scale(scale)
+                .translate(-width / 2, -height / 2));
+        }
+        _read_instance(instance) {
+            // Retrive all atoms and filter out as necessary
+            let atoms = instance
+                .atoms()
+                .filter(atom => this._show_builtin ? true : !atom.signature().builtin())
+                .filter(atom => this._show_meta ? true : !atom.signature().meta())
+                .filter(atom => this._show_private ? true : !atom.signature().private());
+            // Retrieve all tuples and filter out as necessary
+            let tuples = instance
+                .fields()
+                .filter(field => this._show_meta ? true : !field.meta())
+                .filter(field => this._show_private ? true : !field.private())
+                .map(field => field.tuples())
+                .reduce((acc, cur) => acc.concat(cur), []);
+            // Add back in any atoms that are still part of a relation
+            // Not the most efficient, but instances are generally small-ish
+            tuples.forEach(tuple => {
+                let atms = tuple.atoms(), frst = atms[0], last = atms[atms.length - 1];
+                if (!atoms.includes(frst))
+                    atoms.push(frst);
+                if (!atoms.includes(last))
+                    atoms.push(last);
+            });
+            // Remove atoms that aren't connected
+            if (!this._show_disconnected) ;
+            return {
+                atoms: atoms,
+                tuples: tuples
+            };
+        }
     }
 
     class GraphView extends View {

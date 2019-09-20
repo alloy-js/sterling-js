@@ -1,9 +1,11 @@
 export class Signature {
-    constructor(label, isbuiltin = false, isone = false, issubset = false) {
+    constructor(label, isbuiltin = false, isprivate = false, ismeta = false, isone = false, issubset = false) {
         this.expressionType = () => 'signature';
         this._label = label;
         this._parent = null;
         this._builtin = isbuiltin;
+        this._private = isprivate;
+        this._meta = ismeta;
         this._one = isone;
         this._subset = issubset;
         this._atoms = new Array();
@@ -28,6 +30,12 @@ export class Signature {
     }
     label() {
         return this._label;
+    }
+    meta() {
+        return this._meta;
+    }
+    private() {
+        return this._private;
     }
     signature(label, nest = false) {
         return this.signatures(nest).find(s => s.label() === label);

@@ -1,10 +1,12 @@
 export class Field {
-    constructor(label, types) {
+    constructor(label, types, isprivate = false, ismeta = false) {
         this.expressionType = () => 'field';
         this._label = label;
         this._parent = null;
         this._tuples = [];
         this._types = types;
+        this._private = isprivate;
+        this._meta = ismeta;
     }
     has(...atoms) {
         return !!this._tuples.find(t => {
@@ -13,6 +15,12 @@ export class Field {
     }
     label() {
         return this._label;
+    }
+    meta() {
+        return this._meta;
+    }
+    private() {
+        return this._private;
     }
     size() {
         return this._types.length;
