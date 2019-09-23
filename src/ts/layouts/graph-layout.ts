@@ -2,8 +2,9 @@ import * as d3 from 'd3';
 import { Instance } from '..';
 import { rectangle } from './graph-node-shapes/rectangle';
 import { DagreLayout } from './graph-layout-algorithms/dagre-layout';
-import { line } from './graph-link-shapes/line';
+import { line } from './graph-edge-shapes/line';
 import { text } from './graph-node-shapes/text';
+import { GraphLayoutPreferences } from './graph-layout-preferences';
 
 export class GraphLayout {
 
@@ -12,10 +13,7 @@ export class GraphLayout {
     _gNode;
     _zoom;
 
-    _show_builtin: boolean = false;
-    _show_disconnected: boolean = true;
-    _show_meta: boolean = false;
-    _show_private: boolean = false;
+    _prefs: GraphLayoutPreferences;
 
     constructor (selection) {
 
@@ -38,6 +36,8 @@ export class GraphLayout {
 
         this._svg.call(this._zoom);
 
+        this._prefs = new GraphLayoutPreferences();
+
     }
 
     resize () {
@@ -46,15 +46,16 @@ export class GraphLayout {
 
     set_instance (instance: Instance) {
 
-        let { atoms, tuples } = this._read_instance(instance);
+        // let { atoms, tuples } = this._read_instance(instance);
         let dag = new DagreLayout();
 
-        dag.layout(atoms, tuples);
+        dag.layout_new(instance, this._prefs);
+        // dag.layout(atoms, tuples);
 
         this.zoom_to(dag.width(), dag.height());
 
         let nodes = dag.nodes(),
-            links = dag.links();
+            edges = dag.edges();
 
         let rect = rectangle();
         let label = text();
@@ -79,7 +80,7 @@ export class GraphLayout {
 
         let gLink = this._gLink
             .selectAll('.link')
-            .data(links);
+            .data(edges);
 
         gLink
             .exit()
@@ -113,18 +114,23 @@ export class GraphLayout {
 
     _read_instance (instance) {
 
+        let sb = this._prefs.show_builtin,
+            sm = this._prefs.show_meta,
+            sp = this._prefs.show_private,
+            sd = this._prefs.show_disconnected;
+
         // Retrive all atoms and filter out as necessary
         let atoms = instance
             .atoms()
-            .filter(atom => this._show_builtin ? true : !atom.signature().builtin())
-            .filter(atom => this._show_meta ? true : !atom.signature().meta())
-            .filter(atom => this._show_private ? true : !atom.signature().private());
+            .filter(atom => sb ? true : !atom.signature().builtin())
+            .filter(atom => sm ? true : !atom.signature().meta())
+            .filter(atom => sp ? true : !atom.signature().private());
 
         // Retrieve all tuples and filter out as necessary
         let tuples = instance
             .fields()
-            .filter(field => this._show_meta ? true : !field.meta())
-            .filter(field => this._show_private ? true : !field.private())
+            .filter(field => sm ? true : !field.meta())
+            .filter(field => sp ? true : !field.private())
             .map(field => field.tuples())
             .reduce((acc, cur) => acc.concat(cur), []);
 
@@ -139,7 +145,7 @@ export class GraphLayout {
         });
 
         // Remove atoms that aren't connected
-        if (!this._show_disconnected) {
+        if (!sd) {
 
         }
 

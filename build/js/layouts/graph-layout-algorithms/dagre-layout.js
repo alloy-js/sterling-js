@@ -1,3 +1,5 @@
+import { Node } from '../graph-node-shapes/node';
+import { Edge } from '../graph-edge-shapes/edge';
 export class DagreLayout {
     constructor() {
         this._include_private_nodes = false;
@@ -8,12 +10,24 @@ export class DagreLayout {
     height() {
         return this._props ? this._props.height : 0;
     }
+    layout_new(instance, preferences) {
+        let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
+        let props = this._graph_properties();
+        let { nodes, edges } = build_dagre_data(instance, preferences);
+        graph.setGraph(props);
+        graph.setDefaultEdgeLabel(function () { return {}; });
+        nodes.forEach(node => graph.setNode(node.label(), node));
+        edges.forEach(edge => graph.setEdge(edge.source(), edge.target(), edge, edge.label()));
+        nodes.forEach(node => {
+            if (node.parent())
+                graph.setParent(node.label(), node.parent());
+        });
+        dagre.layout(graph);
+        this._props = props;
+        this._nodes = nodes;
+        this._edges = edges;
+    }
     layout(atoms, tuples) {
-        // TODO: A little refactoring needs to happen to make compound graphs work.
-        // TODO: Let's try having a to_graph(...projections) method on an instance
-        // TODO: that returns a list of nodes and links.  That way we can do all of
-        // TODO: the projecting and building of hierarchical structures in the same
-        // TODO: place.
         let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
         let props = this._graph_properties();
         let nodes = atoms.map(atom => this._to_node(atom));
@@ -21,7 +35,7 @@ export class DagreLayout {
         graph.setGraph(props);
         graph.setDefaultEdgeLabel(function () { return {}; });
         nodes.forEach(node => graph.setNode(node.label(), node));
-        links.forEach(link => graph.setEdge(link.source.label(), link.target.label(), link.tuple));
+        links.forEach(link => graph.setEdge(link.source.label(), link.target.label(), link, link.label));
         let signatures = new Set();
         atoms.forEach(atom => signatures.add(atom.signature()));
         signatures.forEach(sig => graph.setNode(sig.label(), sig));
@@ -30,8 +44,9 @@ export class DagreLayout {
         this._props = props;
         this._nodes = nodes;
         this._links = graph.edges().map(e => graph.edge(e));
-        console.log(links.map(link => link.tuple));
-        console.log(graph.edges());
+    }
+    edges() {
+        return this._edges;
     }
     nodes() {
         return this._nodes;
@@ -47,6 +62,45 @@ export class DagreLayout {
             ranksep: this._rank_sep
         };
     }
+}
+function build_dagre_data(instance, prefs) {
+    let sigs = instance.signatures();
+    let fields = instance.fields();
+    let nodes = [];
+    let edges = [];
+    // Convert all signatures to nodes
+    sigs
+        .filter(sig => prefs.show_builtin ? true : !sig.builtin())
+        .filter(sig => prefs.show_meta ? true : !sig.meta())
+        .filter(sig => prefs.show_private ? true : !sig.private())
+        .map(sig => new Node()
+        .datum(sig)
+        .label(sig.label())
+        .parent(sig.parent() ? sig.parent().label() : null))
+        .forEach(node => nodes.push(node));
+    // Convert all atoms to nodes
+    sigs
+        .map(sig => sig.atoms())
+        .reduce((acc, cur) => acc.concat(cur), [])
+        .map(atom => new Node()
+        .datum(atom)
+        .label(atom.label())
+        .parent(atom.signature()))
+        .forEach(node => nodes.push(node));
+    // Convert all tuples to edges
+    fields.forEach(field => {
+        field.tuples()
+            .map(tuple => {
+            let atoms = tuple.atoms();
+            return new Edge()
+                .datum(tuple)
+                .label(field.toString() + ':' + atoms.join('->'))
+                .source(atoms[0].label())
+                .target(atoms[atoms.length - 1].label());
+        })
+            .forEach(edge => edges.push(edge));
+    });
+    return { nodes, edges };
 }
 function to_node() {
     let _width = 150, _height = 50;
@@ -73,12 +127,14 @@ function to_node() {
 function to_link() {
     // No configuration needed yet, but probably will be once things
     // like projections start happening
-    return function (tuple) {
+    function _link(tuple) {
         let atoms = tuple.atoms();
         return {
             source: atoms[0],
             target: atoms[atoms.length - 1],
-            tuple: tuple
+            tuple: tuple,
+            label: atoms.map(a => a.toString()).join('->')
         };
-    };
+    }
+    return _link;
 }

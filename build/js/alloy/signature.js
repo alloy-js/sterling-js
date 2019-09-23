@@ -34,6 +34,9 @@ export class Signature {
     meta() {
         return this._meta;
     }
+    parent() {
+        return this._parent;
+    }
     private() {
         return this._private;
     }

@@ -117,6 +117,9 @@
         meta() {
             return this._meta;
         }
+        parent() {
+            return this._parent;
+        }
         private() {
             return this._private;
         }
@@ -6905,6 +6908,65 @@
         return _rectangle;
     }
 
+    class Node$1 {
+        constructor() {
+            this._datum = null;
+            this._label = '';
+            this._parent = null;
+        }
+        datum(datum) {
+            if (!arguments.length)
+                return this._datum;
+            this._datum = datum;
+            return this;
+        }
+        label(label) {
+            if (!arguments.length)
+                return this._label;
+            this._label = label;
+            return this;
+        }
+        parent(parent) {
+            if (!arguments.length)
+                return this._parent;
+            this._parent = parent;
+            return this;
+        }
+    }
+
+    class Edge {
+        constructor() {
+            this._datum = null;
+            this._label = '';
+            this._source = null;
+            this._target = null;
+        }
+        datum(datum) {
+            if (!arguments.length)
+                return this._datum;
+            this._datum = datum;
+            return this;
+        }
+        label(label) {
+            if (!arguments.length)
+                return this._label;
+            this._label = label;
+            return this;
+        }
+        source(source) {
+            if (!arguments.length)
+                return this._source;
+            this._source = source;
+            return this;
+        }
+        target(target) {
+            if (!arguments.length)
+                return this._target;
+            this._target = target;
+            return this;
+        }
+    }
+
     class DagreLayout {
         constructor() {
             this._include_private_nodes = false;
@@ -6915,12 +6977,24 @@
         height() {
             return this._props ? this._props.height : 0;
         }
+        layout_new(instance, preferences) {
+            let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
+            let props = this._graph_properties();
+            let { nodes, edges } = build_dagre_data(instance, preferences);
+            graph.setGraph(props);
+            graph.setDefaultEdgeLabel(function () { return {}; });
+            nodes.forEach(node => graph.setNode(node.label(), node));
+            edges.forEach(edge => graph.setEdge(edge.source(), edge.target(), edge, edge.label()));
+            nodes.forEach(node => {
+                if (node.parent())
+                    graph.setParent(node.label(), node.parent());
+            });
+            dagre.layout(graph);
+            this._props = props;
+            this._nodes = nodes;
+            this._edges = edges;
+        }
         layout(atoms, tuples) {
-            // TODO: A little refactoring needs to happen to make compound graphs work.
-            // TODO: Let's try having a to_graph(...projections) method on an instance
-            // TODO: that returns a list of nodes and links.  That way we can do all of
-            // TODO: the projecting and building of hierarchical structures in the same
-            // TODO: place.
             let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
             let props = this._graph_properties();
             let nodes = atoms.map(atom => this._to_node(atom));
@@ -6928,7 +7002,7 @@
             graph.setGraph(props);
             graph.setDefaultEdgeLabel(function () { return {}; });
             nodes.forEach(node => graph.setNode(node.label(), node));
-            links.forEach(link => graph.setEdge(link.source.label(), link.target.label(), link.tuple));
+            links.forEach(link => graph.setEdge(link.source.label(), link.target.label(), link, link.label));
             let signatures = new Set();
             atoms.forEach(atom => signatures.add(atom.signature()));
             signatures.forEach(sig => graph.setNode(sig.label(), sig));
@@ -6937,8 +7011,9 @@
             this._props = props;
             this._nodes = nodes;
             this._links = graph.edges().map(e => graph.edge(e));
-            console.log(links.map(link => link.tuple));
-            console.log(graph.edges());
+        }
+        edges() {
+            return this._edges;
         }
         nodes() {
             return this._nodes;
@@ -6954,6 +7029,45 @@
                 ranksep: this._rank_sep
             };
         }
+    }
+    function build_dagre_data(instance, prefs) {
+        let sigs = instance.signatures();
+        let fields = instance.fields();
+        let nodes = [];
+        let edges = [];
+        // Convert all signatures to nodes
+        sigs
+            .filter(sig => prefs.show_builtin ? true : !sig.builtin())
+            .filter(sig => prefs.show_meta ? true : !sig.meta())
+            .filter(sig => prefs.show_private ? true : !sig.private())
+            .map(sig => new Node$1()
+            .datum(sig)
+            .label(sig.label())
+            .parent(sig.parent() ? sig.parent().label() : null))
+            .forEach(node => nodes.push(node));
+        // Convert all atoms to nodes
+        sigs
+            .map(sig => sig.atoms())
+            .reduce((acc, cur) => acc.concat(cur), [])
+            .map(atom => new Node$1()
+            .datum(atom)
+            .label(atom.label())
+            .parent(atom.signature()))
+            .forEach(node => nodes.push(node));
+        // Convert all tuples to edges
+        fields.forEach(field => {
+            field.tuples()
+                .map(tuple => {
+                let atoms = tuple.atoms();
+                return new Edge()
+                    .datum(tuple)
+                    .label(field.toString() + ':' + atoms.join('->'))
+                    .source(atoms[0].label())
+                    .target(atoms[atoms.length - 1].label());
+            })
+                .forEach(edge => edges.push(edge));
+        });
+        return { nodes, edges };
     }
     function to_node() {
         let _width = 150, _height = 50;
@@ -6980,14 +7094,16 @@
     function to_link() {
         // No configuration needed yet, but probably will be once things
         // like projections start happening
-        return function (tuple) {
+        function _link(tuple) {
             let atoms = tuple.atoms();
             return {
                 source: atoms[0],
                 target: atoms[atoms.length - 1],
-                tuple: tuple
+                tuple: tuple,
+                label: atoms.map(a => a.toString()).join('->')
             };
-        };
+        }
+        return _link;
     }
 
     function line$1() {
@@ -7042,12 +7158,17 @@
         return _text;
     }
 
+    class GraphLayoutPreferences {
+        constructor() {
+            this.show_builtin = false;
+            this.show_disconnected = true;
+            this.show_meta = false;
+            this.show_private = false;
+        }
+    }
+
     class GraphLayout {
         constructor(selection) {
-            this._show_builtin = false;
-            this._show_disconnected = true;
-            this._show_meta = false;
-            this._show_private = false;
             this._svg = selection
                 .style('user-select', 'none')
                 .style('font-family', 'monospace')
@@ -7062,15 +7183,17 @@
                 this._gNode.attr('transform', event.transform);
             });
             this._svg.call(this._zoom);
+            this._prefs = new GraphLayoutPreferences();
         }
         resize() {
         }
         set_instance(instance) {
-            let { atoms, tuples } = this._read_instance(instance);
+            // let { atoms, tuples } = this._read_instance(instance);
             let dag = new DagreLayout();
-            dag.layout(atoms, tuples);
+            dag.layout_new(instance, this._prefs);
+            // dag.layout(atoms, tuples);
             this.zoom_to(dag.width(), dag.height());
-            let nodes = dag.nodes(), links = dag.links();
+            let nodes = dag.nodes(), edges = dag.edges();
             let rect = rectangle();
             let label = text();
             let path = line$1();
@@ -7090,7 +7213,7 @@
                 .attr('transform', d => `translate(${d.x},${d.y})`);
             let gLink = this._gLink
                 .selectAll('.link')
-                .data(links);
+                .data(edges);
             gLink
                 .exit()
                 .remove();
@@ -7113,17 +7236,18 @@
                 .translate(-width / 2, -height / 2));
         }
         _read_instance(instance) {
+            let sb = this._prefs.show_builtin, sm = this._prefs.show_meta, sp = this._prefs.show_private, sd = this._prefs.show_disconnected;
             // Retrive all atoms and filter out as necessary
             let atoms = instance
                 .atoms()
-                .filter(atom => this._show_builtin ? true : !atom.signature().builtin())
-                .filter(atom => this._show_meta ? true : !atom.signature().meta())
-                .filter(atom => this._show_private ? true : !atom.signature().private());
+                .filter(atom => sb ? true : !atom.signature().builtin())
+                .filter(atom => sm ? true : !atom.signature().meta())
+                .filter(atom => sp ? true : !atom.signature().private());
             // Retrieve all tuples and filter out as necessary
             let tuples = instance
                 .fields()
-                .filter(field => this._show_meta ? true : !field.meta())
-                .filter(field => this._show_private ? true : !field.private())
+                .filter(field => sm ? true : !field.meta())
+                .filter(field => sp ? true : !field.private())
                 .map(field => field.tuples())
                 .reduce((acc, cur) => acc.concat(cur), []);
             // Add back in any atoms that are still part of a relation
@@ -7135,8 +7259,6 @@
                 if (!atoms.includes(last))
                     atoms.push(last);
             });
-            // Remove atoms that aren't connected
-            if (!this._show_disconnected) ;
             return {
                 atoms: atoms,
                 tuples: tuples

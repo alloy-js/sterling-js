@@ -1,14 +1,11 @@
 import * as d3 from 'd3';
 import { rectangle } from './graph-node-shapes/rectangle';
 import { DagreLayout } from './graph-layout-algorithms/dagre-layout';
-import { line } from './graph-link-shapes/line';
+import { line } from './graph-edge-shapes/line';
 import { text } from './graph-node-shapes/text';
+import { GraphLayoutPreferences } from './graph-layout-preferences';
 export class GraphLayout {
     constructor(selection) {
-        this._show_builtin = false;
-        this._show_disconnected = true;
-        this._show_meta = false;
-        this._show_private = false;
         this._svg = selection
             .style('user-select', 'none')
             .style('font-family', 'monospace')
@@ -23,15 +20,17 @@ export class GraphLayout {
             this._gNode.attr('transform', d3.event.transform);
         });
         this._svg.call(this._zoom);
+        this._prefs = new GraphLayoutPreferences();
     }
     resize() {
     }
     set_instance(instance) {
-        let { atoms, tuples } = this._read_instance(instance);
+        // let { atoms, tuples } = this._read_instance(instance);
         let dag = new DagreLayout();
-        dag.layout(atoms, tuples);
+        dag.layout_new(instance, this._prefs);
+        // dag.layout(atoms, tuples);
         this.zoom_to(dag.width(), dag.height());
-        let nodes = dag.nodes(), links = dag.links();
+        let nodes = dag.nodes(), edges = dag.edges();
         let rect = rectangle();
         let label = text();
         let path = line();
@@ -51,7 +50,7 @@ export class GraphLayout {
             .attr('transform', d => `translate(${d.x},${d.y})`);
         let gLink = this._gLink
             .selectAll('.link')
-            .data(links);
+            .data(edges);
         gLink
             .exit()
             .remove();
@@ -74,17 +73,18 @@ export class GraphLayout {
             .translate(-width / 2, -height / 2));
     }
     _read_instance(instance) {
+        let sb = this._prefs.show_builtin, sm = this._prefs.show_meta, sp = this._prefs.show_private, sd = this._prefs.show_disconnected;
         // Retrive all atoms and filter out as necessary
         let atoms = instance
             .atoms()
-            .filter(atom => this._show_builtin ? true : !atom.signature().builtin())
-            .filter(atom => this._show_meta ? true : !atom.signature().meta())
-            .filter(atom => this._show_private ? true : !atom.signature().private());
+            .filter(atom => sb ? true : !atom.signature().builtin())
+            .filter(atom => sm ? true : !atom.signature().meta())
+            .filter(atom => sp ? true : !atom.signature().private());
         // Retrieve all tuples and filter out as necessary
         let tuples = instance
             .fields()
-            .filter(field => this._show_meta ? true : !field.meta())
-            .filter(field => this._show_private ? true : !field.private())
+            .filter(field => sm ? true : !field.meta())
+            .filter(field => sp ? true : !field.private())
             .map(field => field.tuples())
             .reduce((acc, cur) => acc.concat(cur), []);
         // Add back in any atoms that are still part of a relation
@@ -97,7 +97,7 @@ export class GraphLayout {
                 atoms.push(last);
         });
         // Remove atoms that aren't connected
-        if (!this._show_disconnected) {
+        if (!sd) {
         }
         return {
             atoms: atoms,

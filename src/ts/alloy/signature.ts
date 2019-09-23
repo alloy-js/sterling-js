@@ -74,6 +74,10 @@ export class Signature {
         return this._meta;
     }
 
+    parent (): Signature {
+        return this._parent;
+    }
+
     private (): boolean {
         return this._private;
     }
