@@ -22,21 +22,20 @@ export class GraphLayout {
             this._g1.attr('transform', d3.event.transform);
             this._g2.attr('transform', d3.event.transform);
         });
+        this._transition = this._svg.transition().duration(500);
         this._svg.call(this._zoom);
         this._prefs = new GraphLayoutPreferences();
     }
     resize() {
     }
     set_instance(instance) {
-        // let { atoms, tuples } = this._read_instance(instance);
         let dag = new DagreLayout();
-        dag.layout_new(instance, this._prefs);
-        // dag.layout(atoms, tuples);
+        dag.layout(instance, this._prefs);
         this.zoom_to(dag.width(), dag.height());
         let nodes = dag.nodes(), signodes = nodes.filter(node => node.datum().expressionType() === 'signature'), atmnodes = nodes.filter(node => node.datum().expressionType() === 'atom'), edges = dag.edges();
         let rect = rectangle();
         let label = text();
-        let path = line();
+        let path = line().transition(this._transition);
         let g2 = this._g2
             .selectAll('.node')
             .data(atmnodes);
@@ -50,6 +49,7 @@ export class GraphLayout {
             .merge(g2)
             .call(rect)
             .call(label)
+            .transition(this._transition)
             .attr('transform', d => `translate(${d.x},${d.y})`);
         let g1 = this._g1
             .selectAll('.link')
@@ -76,6 +76,8 @@ export class GraphLayout {
             .merge(g0)
             .call(rect)
             .call(label)
+            .call(this._style_sig_nodes)
+            .transition(this._transition)
             .attr('transform', d => `translate(${d.x},${d.y})`);
     }
     zoom_to(width, height) {
@@ -89,36 +91,10 @@ export class GraphLayout {
             .scale(scale)
             .translate(-width / 2, -height / 2));
     }
-    _read_instance(instance) {
-        let sb = this._prefs.show_builtin, sm = this._prefs.show_meta, sp = this._prefs.show_private, sd = this._prefs.show_disconnected;
-        // Retrive all atoms and filter out as necessary
-        let atoms = instance
-            .atoms()
-            .filter(atom => sb ? true : !atom.signature().builtin())
-            .filter(atom => sm ? true : !atom.signature().meta())
-            .filter(atom => sp ? true : !atom.signature().private());
-        // Retrieve all tuples and filter out as necessary
-        let tuples = instance
-            .fields()
-            .filter(field => sm ? true : !field.meta())
-            .filter(field => sp ? true : !field.private())
-            .map(field => field.tuples())
-            .reduce((acc, cur) => acc.concat(cur), []);
-        // Add back in any atoms that are still part of a relation
-        // Not the most efficient, but instances are generally small-ish
-        tuples.forEach(tuple => {
-            let atms = tuple.atoms(), frst = atms[0], last = atms[atms.length - 1];
-            if (!atoms.includes(frst))
-                atoms.push(frst);
-            if (!atoms.includes(last))
-                atoms.push(last);
-        });
-        // Remove atoms that aren't connected
-        if (!sd) {
-        }
-        return {
-            atoms: atoms,
-            tuples: tuples
-        };
+    _style_sig_nodes(selection) {
+        selection
+            .selectAll('rect')
+            .style('stroke', '#444')
+            .style('fill', '#eee');
     }
 }

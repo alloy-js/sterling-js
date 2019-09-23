@@ -3,9 +3,11 @@ import * as d3 from 'd3';
 export function line () {
 
     let _l = d3.line()
-        .x(d => d.x)
-        .y(d => d.y)
+        .x(d => (d as any).x)
+        .y(d => (d as any).y)
         .curve(d3.curveBasis);
+
+    let _transition;
 
     let _lines,
         _stroke = '#000',
@@ -27,6 +29,7 @@ export function line () {
             .merge(_lines);
 
         _lines
+            .transition(_transition)
             .attr('d', _l);
 
         _lines
@@ -37,6 +40,12 @@ export function line () {
         return _lines;
 
     }
+
+    (_line as any).transition = function (transition?) {
+        if (!arguments.length) return _transition;
+        _transition = transition;
+        return this;
+    };
 
     return _line;
 

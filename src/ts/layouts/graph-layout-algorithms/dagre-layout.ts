@@ -19,7 +19,7 @@ export class DagreLayout {
         return this._props ? this._props.height : 0;
     }
 
-    layout_new (instance: Instance, preferences: GraphLayoutPreferences) {
+    layout (instance: Instance, preferences: GraphLayoutPreferences) {
 
         let graph = new dagre.graphlib.Graph({multigraph: true, compound: true});
         let props = this._graph_properties();
