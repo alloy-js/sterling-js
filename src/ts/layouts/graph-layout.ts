@@ -9,8 +9,9 @@ import { GraphLayoutPreferences } from './graph-layout-preferences';
 export class GraphLayout {
 
     _svg;
-    _gLink;
-    _gNode;
+    _g0;
+    _g1;
+    _g2;
     _zoom;
 
     _prefs: GraphLayoutPreferences;
@@ -22,16 +23,20 @@ export class GraphLayout {
             .style('font-family', 'monospace')
             .style('font-size', '10px');
 
-        this._gLink = selection.append('g')
+        this._g0 = selection.append('g')
+            .attr('class', 'nodes');
+
+        this._g1 = selection.append('g')
             .attr('class', 'links');
 
-        this._gNode = selection.append('g')
+        this._g2 = selection.append('g')
             .attr('class', 'nodes');
 
         this._zoom = d3.zoom()
             .on('zoom', () => {
-                this._gLink.attr('transform', d3.event.transform);
-                this._gNode.attr('transform', d3.event.transform);
+                this._g0.attr('transform', d3.event.transform);
+                this._g1.attr('transform', d3.event.transform);
+                this._g2.attr('transform', d3.event.transform);
             });
 
         this._svg.call(this._zoom);
@@ -55,43 +60,62 @@ export class GraphLayout {
         this.zoom_to(dag.width(), dag.height());
 
         let nodes = dag.nodes(),
+            signodes = nodes.filter(node => node.datum().expressionType() === 'signature'),
+            atmnodes = nodes.filter(node => node.datum().expressionType() === 'atom'),
             edges = dag.edges();
 
         let rect = rectangle();
         let label = text();
         let path = line();
 
-        let gNode = this._gNode
+        let g2 = this._g2
             .selectAll('.node')
-            .data(nodes);
+            .data(atmnodes);
 
-        gNode
+        g2
             .exit()
             .remove();
 
-        gNode
+        g2
             .enter()
             .append('g')
             .attr('class', 'node')
-            .merge(gNode)
+            .merge(g2)
             .call(rect)
             .call(label)
             .attr('transform', d => `translate(${d.x},${d.y})`);
 
-        let gLink = this._gLink
+        let g1 = this._g1
             .selectAll('.link')
             .data(edges);
 
-        gLink
+        g1
             .exit()
             .remove();
 
-        gLink
+        g1
             .enter()
             .append('g')
             .attr('class', 'link')
-            .merge(gLink)
+            .merge(g1)
             .call(path);
+
+        let g0 = this._g0
+            .selectAll('.node')
+            .data(signodes);
+
+        g0
+            .exit()
+            .remove();
+
+        g0
+            .enter()
+            .append('g')
+            .attr('class', 'node')
+            .merge(g0)
+            .call(rect)
+            .call(label)
+            .attr('transform', d => `translate(${d.x},${d.y})`);
 
     }
 

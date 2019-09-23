@@ -12,10 +12,10 @@ export function rectangle() {
             .append('rect')
             .merge(_rectangles);
         _rectangles
-            .attr('x', -_width / 2)
-            .attr('y', -_height / 2)
-            .attr('width', _width)
-            .attr('height', _height)
+            .attr('x', d => d.width ? -d.width / 2 : -_width / 2)
+            .attr('y', d => d.height ? -d.height / 2 : -_height / 2)
+            .attr('width', d => d.width ? d.width : _width)
+            .attr('height', d => d.height ? d.height : _height)
             .attr('shape-rendering', _shape_rendering);
         _rectangles
             .style('stroke', _stroke)

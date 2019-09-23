@@ -1,4 +1,4 @@
-import { Atom, Instance, Signature, Tuple } from '../..';
+import { Atom, Instance, Signature } from '../..';
 import { GraphLayoutPreferences } from '../graph-layout-preferences';
 import { Node } from '../graph-node-shapes/node';
 import { Edge } from '../graph-edge-shapes/edge';
@@ -7,9 +7,6 @@ declare const dagre: any;
 export class DagreLayout {
 
     _include_private_nodes: boolean = false;
-
-    _to_node: Function = to_node();
-    _to_link: Function = to_link();
 
     _props;
     _nodes;
@@ -46,33 +43,6 @@ export class DagreLayout {
 
     }
 
-    layout (atoms: Array<Atom>, tuples: Array<Tuple>) {
-
-        let graph = new dagre.graphlib.Graph({multigraph: true, compound: true});
-        let props = this._graph_properties();
-        let nodes = atoms.map(atom => this._to_node(atom));
-        let links = tuples.map(tuple => this._to_link(tuple));
-
-        graph.setGraph(props);
-        graph.setDefaultEdgeLabel(function () { return {}});
-        nodes.forEach(node => graph.setNode(node.label(), node));
-        links.forEach(link => graph.setEdge(link.source.label(), link.target.label(), link, link.label));
-
-        let signatures: Set<Signature> = new Set();
-        atoms.forEach(atom => signatures.add(atom.signature()));
-
-        signatures.forEach(sig => graph.setNode(sig.label(), sig));
-
-        atoms.forEach(atom => graph.setParent(atom.label(), atom.signature().label()));
-
-        dagre.layout(graph);
-
-        this._props = props;
-        this._nodes = nodes;
-        this._links = graph.edges().map(e => graph.edge(e));
-
-    }
-
     edges () {
         return this._edges;
     }
@@ -97,38 +67,73 @@ export class DagreLayout {
 
 }
 
+function to_node (item: Signature | Atom, prefs: GraphLayoutPreferences): Node {
+    if (item.expressionType() === 'signature') {
+        let node = new Node()
+            .datum(item)
+            .label(item.label())
+            .parent((item as Signature).parent()
+                ? (item as Signature).parent().label()
+                : null);
+        node.width = prefs.node_width;
+        node.height = prefs.node_height;
+        node.label_placement = prefs.sig_label_placement;
+        return node;
+    } else {
+        let node = new Node()
+            .datum(item)
+            .label(item.label())
+            .parent((item as Atom).signature());
+        node.width = prefs.node_width;
+        node.height = prefs.node_height;
+        node.label_placement = prefs.atom_label_placement;
+        return node;
+    }
+}
+
 function build_dagre_data (instance: Instance, prefs: GraphLayoutPreferences) {
 
     let sigs = instance.signatures();
     let fields = instance.fields();
 
-    let nodes = [];
-    let edges = [];
+    let nodes = new Map();
+    let edges = new Map();
 
     // Convert all signatures to nodes
     sigs
         .filter(sig => prefs.show_builtin ? true : !sig.builtin())
         .filter(sig => prefs.show_meta ? true : !sig.meta())
         .filter(sig => prefs.show_private ? true : !sig.private())
-        .map(sig =>
-            new Node()
-                .datum(sig)
-                .label(sig.label())
-                .parent(sig.parent() ? sig.parent().label() : null)
-        )
-        .forEach(node => nodes.push(node));
+        .map(sig => to_node(sig, prefs))
+        .forEach(node => nodes.set(node.label(), node));
 
     // Convert all atoms to nodes
     sigs
+        .filter(sig => prefs.show_builtin ? true : !sig.builtin())
+        .filter(sig => prefs.show_meta ? true : !sig.meta())
+        .filter(sig => prefs.show_private ? true : !sig.private())
         .map(sig => sig.atoms())
         .reduce((acc, cur) => acc.concat(cur), [])
-        .map(atom =>
-            new Node()
-                .datum(atom)
-                .label(atom.label())
-                .parent(atom.signature())
-        )
-        .forEach(node => nodes.push(node));
+        .map(atom => to_node(atom, prefs))
+        .forEach(node => nodes.set(node.label(), node));
+
+    // Add nodes that have been filtered out but still appear in tuples
+    fields.forEach(field => {
+        field.tuples()
+            .forEach(tuple => {
+                let atoms = tuple.atoms();
+                let frst = atoms[0];
+                let last = atoms[atoms.length-1];
+                if (!nodes.has(frst.label())) {
+                    let node = to_node(frst, prefs);
+                    nodes.set(node.label(), node);
+                }
+                if (!nodes.has(last.label())) {
+                    let node = to_node(last, prefs);
+                    nodes.set(node.label(), node);
+                }
+            });
+    });
 
     // Convert all tuples to edges
     fields.forEach(field => {
@@ -142,56 +147,15 @@ function build_dagre_data (instance: Instance, prefs: GraphLayoutPreferences) {
                     .target(atoms[atoms.length-1].label())
                 }
             )
-            .forEach(edge => edges.push(edge));
+            .forEach(edge => edges.set(edge.label(), edge));
     });
 
-    return { nodes, edges };
+    nodes.forEach(node => node.width = prefs.node_width);
+    nodes.forEach(node => node.height = prefs.node_height);
 
-}
-
-function to_node (): Function {
-
-    let _width = 150,
-        _height = 50;
-
-    function _to_node (atom) {
-        return Object.assign(atom, {
-            width: _width,
-            height: _height
-        });
-    }
-
-    (_to_node as any).width = function (width) {
-        if (!arguments.length) return _width;
-        _width = +width;
-        return _to_node;
+    return {
+        nodes: Array.from(nodes.values()),
+        edges: Array.from(edges.values())
     };
-
-    (_to_node as any).height = function (height) {
-        if (!arguments.length) return _height;
-        _height = +height;
-        return _to_node;
-    };
-
-    return _to_node;
-}
-
-function to_link (): Function {
-
-    // No configuration needed yet, but probably will be once things
-    // like projections start happening
-    function _link (tuple: Tuple) {
-
-        let atoms = tuple.atoms();
-        return {
-            source: atoms[0],
-            target: atoms[atoms.length - 1],
-            tuple: tuple,
-            label: atoms.map(a => a.toString()).join('->')
-        };
-
-    }
-
-    return _link;
 
 }

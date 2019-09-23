@@ -3246,12 +3246,12 @@
       return map;
     }
 
-    function Set$1() {}
+    function Set() {}
 
     var proto = map.prototype;
 
-    Set$1.prototype = set$2.prototype = {
-      constructor: Set$1,
+    Set.prototype = set$2.prototype = {
+      constructor: Set,
       has: proto.has,
       add: function(value) {
         value += "";
@@ -3267,10 +3267,10 @@
     };
 
     function set$2(object, f) {
-      var set = new Set$1;
+      var set = new Set;
 
       // Copy constructor.
-      if (object instanceof Set$1) object.each(function(value) { set.add(value); });
+      if (object instanceof Set) object.each(function(value) { set.add(value); });
 
       // Otherwise, assume it’s an array.
       else if (object) {
@@ -6882,10 +6882,10 @@
                 .append('rect')
                 .merge(_rectangles);
             _rectangles
-                .attr('x', -_width / 2)
-                .attr('y', -_height / 2)
-                .attr('width', _width)
-                .attr('height', _height)
+                .attr('x', d => d.width ? -d.width / 2 : -_width / 2)
+                .attr('y', d => d.height ? -d.height / 2 : -_height / 2)
+                .attr('width', d => d.width ? d.width : _width)
+                .attr('height', d => d.height ? d.height : _height)
                 .attr('shape-rendering', _shape_rendering);
             _rectangles
                 .style('stroke', _stroke)
@@ -6970,8 +6970,6 @@
     class DagreLayout {
         constructor() {
             this._include_private_nodes = false;
-            this._to_node = to_node();
-            this._to_link = to_link();
             this._rank_sep = 150;
         }
         height() {
@@ -6994,24 +6992,6 @@
             this._nodes = nodes;
             this._edges = edges;
         }
-        layout(atoms, tuples) {
-            let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
-            let props = this._graph_properties();
-            let nodes = atoms.map(atom => this._to_node(atom));
-            let links = tuples.map(tuple => this._to_link(tuple));
-            graph.setGraph(props);
-            graph.setDefaultEdgeLabel(function () { return {}; });
-            nodes.forEach(node => graph.setNode(node.label(), node));
-            links.forEach(link => graph.setEdge(link.source.label(), link.target.label(), link, link.label));
-            let signatures = new Set();
-            atoms.forEach(atom => signatures.add(atom.signature()));
-            signatures.forEach(sig => graph.setNode(sig.label(), sig));
-            atoms.forEach(atom => graph.setParent(atom.label(), atom.signature().label()));
-            dagre.layout(graph);
-            this._props = props;
-            this._nodes = nodes;
-            this._links = graph.edges().map(e => graph.edge(e));
-        }
         edges() {
             return this._edges;
         }
@@ -7030,30 +7010,68 @@
             };
         }
     }
+    function to_node(item, prefs) {
+        if (item.expressionType() === 'signature') {
+            let node = new Node$1()
+                .datum(item)
+                .label(item.label())
+                .parent(item.parent()
+                ? item.parent().label()
+                : null);
+            node.width = prefs.node_width;
+            node.height = prefs.node_height;
+            node.label_placement = prefs.sig_label_placement;
+            return node;
+        }
+        else {
+            let node = new Node$1()
+                .datum(item)
+                .label(item.label())
+                .parent(item.signature());
+            node.width = prefs.node_width;
+            node.height = prefs.node_height;
+            node.label_placement = prefs.atom_label_placement;
+            return node;
+        }
+    }
     function build_dagre_data(instance, prefs) {
         let sigs = instance.signatures();
         let fields = instance.fields();
-        let nodes = [];
-        let edges = [];
+        let nodes = new Map();
+        let edges = new Map();
         // Convert all signatures to nodes
         sigs
             .filter(sig => prefs.show_builtin ? true : !sig.builtin())
             .filter(sig => prefs.show_meta ? true : !sig.meta())
             .filter(sig => prefs.show_private ? true : !sig.private())
-            .map(sig => new Node$1()
-            .datum(sig)
-            .label(sig.label())
-            .parent(sig.parent() ? sig.parent().label() : null))
-            .forEach(node => nodes.push(node));
+            .map(sig => to_node(sig, prefs))
+            .forEach(node => nodes.set(node.label(), node));
         // Convert all atoms to nodes
         sigs
+            .filter(sig => prefs.show_builtin ? true : !sig.builtin())
+            .filter(sig => prefs.show_meta ? true : !sig.meta())
+            .filter(sig => prefs.show_private ? true : !sig.private())
             .map(sig => sig.atoms())
             .reduce((acc, cur) => acc.concat(cur), [])
-            .map(atom => new Node$1()
-            .datum(atom)
-            .label(atom.label())
-            .parent(atom.signature()))
-            .forEach(node => nodes.push(node));
+            .map(atom => to_node(atom, prefs))
+            .forEach(node => nodes.set(node.label(), node));
+        // Add nodes that have been filtered out but still appear in tuples
+        fields.forEach(field => {
+            field.tuples()
+                .forEach(tuple => {
+                let atoms = tuple.atoms();
+                let frst = atoms[0];
+                let last = atoms[atoms.length - 1];
+                if (!nodes.has(frst.label())) {
+                    let node = to_node(frst, prefs);
+                    nodes.set(node.label(), node);
+                }
+                if (!nodes.has(last.label())) {
+                    let node = to_node(last, prefs);
+                    nodes.set(node.label(), node);
+                }
+            });
+        });
         // Convert all tuples to edges
         fields.forEach(field => {
             field.tuples()
@@ -7065,45 +7083,14 @@
                     .source(atoms[0].label())
                     .target(atoms[atoms.length - 1].label());
             })
-                .forEach(edge => edges.push(edge));
+                .forEach(edge => edges.set(edge.label(), edge));
         });
-        return { nodes, edges };
-    }
-    function to_node() {
-        let _width = 150, _height = 50;
-        function _to_node(atom) {
-            return Object.assign(atom, {
-                width: _width,
-                height: _height
-            });
-        }
-        _to_node.width = function (width) {
-            if (!arguments.length)
-                return _width;
-            _width = +width;
-            return _to_node;
+        nodes.forEach(node => node.width = prefs.node_width);
+        nodes.forEach(node => node.height = prefs.node_height);
+        return {
+            nodes: Array.from(nodes.values()),
+            edges: Array.from(edges.values())
         };
-        _to_node.height = function (height) {
-            if (!arguments.length)
-                return _height;
-            _height = +height;
-            return _to_node;
-        };
-        return _to_node;
-    }
-    function to_link() {
-        // No configuration needed yet, but probably will be once things
-        // like projections start happening
-        function _link(tuple) {
-            let atoms = tuple.atoms();
-            return {
-                source: atoms[0],
-                target: atoms[atoms.length - 1],
-                tuple: tuple,
-                label: atoms.map(a => a.toString()).join('->')
-            };
-        }
-        return _link;
     }
 
     function line$1() {
@@ -7149,13 +7136,92 @@
                 .merge(_texts)
                 .text(d => d.label())
                 .attr('text-rendering', _text_rendering)
-                .attr('text-anchor', 'middle')
-                .attr('dy', '0.31em');
+                .attr('text-anchor', anchor)
+                .attr('x', x$1)
+                .attr('y', y$1)
+                .attr('dx', dx)
+                .attr('dy', dy);
             _texts
                 .style('font-size', _font_size + 'px');
             return _texts;
         }
         return _text;
+    }
+    function anchor(d) {
+        let placement = d.label_placement;
+        if (placement) {
+            switch (placement) {
+                case 'tl':
+                case 'bl':
+                    return 'start';
+                case 'c':
+                    return 'middle';
+                case 'tr':
+                case 'br':
+                    return 'end';
+                default:
+                    return 'middle';
+            }
+        }
+        return 'middle';
+    }
+    function x$1(d) {
+        let placement = d.label_placement;
+        let width = d.width ? d.width : 0;
+        if (placement) {
+            switch (placement) {
+                case 'tl':
+                    return -width / 2;
+                case 'c':
+                    return 0;
+                default:
+                    return 0;
+            }
+        }
+        return 0;
+    }
+    function y$1(d) {
+        let placement = d.label_placement;
+        let height = d.height ? d.height : 0;
+        if (placement) {
+            switch (placement) {
+                case 'tl':
+                    return -height / 2;
+                case 'c':
+                    return 0;
+                default:
+                    return 0;
+            }
+        }
+        return 0;
+    }
+    function dx(d) {
+        let placement = d.label_placement;
+        if (placement) {
+            switch (placement) {
+                case 'tl':
+                    return '1em';
+                case 'c':
+                    return 0;
+                default:
+                    return 0;
+            }
+        }
+        return 0;
+    }
+    function dy(d) {
+        let placement = d.label_placement;
+        if (placement) {
+            switch (placement) {
+                case 'tl':
+                    return '1.62em';
+                case 'c':
+                    return '0.31em';
+                default:
+                    return '0.31em';
+            }
+        }
+        return '0.31em';
     }
 
     class GraphLayoutPreferences {
@@ -7164,6 +7230,10 @@
             this.show_disconnected = true;
             this.show_meta = false;
             this.show_private = false;
+            this.node_width = 150;
+            this.node_height = 50;
+            this.sig_label_placement = 'tl';
+            this.atom_label_placement = 'c';
         }
     }
 
@@ -7173,14 +7243,17 @@
                 .style('user-select', 'none')
                 .style('font-family', 'monospace')
                 .style('font-size', '10px');
-            this._gLink = selection.append('g')
+            this._g0 = selection.append('g')
+                .attr('class', 'nodes');
+            this._g1 = selection.append('g')
                 .attr('class', 'links');
-            this._gNode = selection.append('g')
+            this._g2 = selection.append('g')
                 .attr('class', 'nodes');
             this._zoom = zoom()
                 .on('zoom', () => {
-                this._gLink.attr('transform', event.transform);
-                this._gNode.attr('transform', event.transform);
+                this._g0.attr('transform', event.transform);
+                this._g1.attr('transform', event.transform);
+                this._g2.attr('transform', event.transform);
             });
             this._svg.call(this._zoom);
             this._prefs = new GraphLayoutPreferences();
@@ -7193,36 +7266,50 @@
             dag.layout_new(instance, this._prefs);
             // dag.layout(atoms, tuples);
             this.zoom_to(dag.width(), dag.height());
-            let nodes = dag.nodes(), edges = dag.edges();
+            let nodes = dag.nodes(), signodes = nodes.filter(node => node.datum().expressionType() === 'signature'), atmnodes = nodes.filter(node => node.datum().expressionType() === 'atom'), edges = dag.edges();
             let rect = rectangle();
             let label = text();
             let path = line$1();
-            let gNode = this._gNode
+            let g2 = this._g2
                 .selectAll('.node')
-                .data(nodes);
-            gNode
+                .data(atmnodes);
+            g2
                 .exit()
                 .remove();
-            gNode
+            g2
                 .enter()
                 .append('g')
                 .attr('class', 'node')
-                .merge(gNode)
+                .merge(g2)
                 .call(rect)
                 .call(label)
                 .attr('transform', d => `translate(${d.x},${d.y})`);
-            let gLink = this._gLink
+            let g1 = this._g1
                 .selectAll('.link')
                 .data(edges);
-            gLink
+            g1
                 .exit()
                 .remove();
-            gLink
+            g1
                 .enter()
                 .append('g')
                 .attr('class', 'link')
-                .merge(gLink)
+                .merge(g1)
                 .call(path);
+            let g0 = this._g0
+                .selectAll('.node')
+                .data(signodes);
+            g0
+                .exit()
+                .remove();
+            g0
+                .enter()
+                .append('g')
+                .attr('class', 'node')
+                .merge(g0)
+                .call(rect)
+                .call(label)
+                .attr('transform', d => `translate(${d.x},${d.y})`);
         }
         zoom_to(width, height) {
             let w = parseInt(this._svg.style('width')), h = parseInt(this._svg.style('height'));
