@@ -2,6 +2,8 @@ import { Atom, Instance, Signature } from '../..';
 import { GraphLayoutPreferences } from '../graph-layout-preferences';
 import { Node } from '../graph-node-shapes/node';
 import { Edge } from '../graph-edge-shapes/edge';
+import { TreeLayoutPreferences } from '../tree-layout-preferences';
+import * as d3 from 'd3';
 declare const dagre: any;
 
 export class DagreLayout {
@@ -20,6 +22,8 @@ export class DagreLayout {
     }
 
     layout (instance: Instance, preferences: GraphLayoutPreferences) {
+
+        console.log(to_hierarchy(instance, new TreeLayoutPreferences()));
 
         let graph = new dagre.graphlib.Graph({multigraph: true, compound: true});
         let props = this._graph_properties();
@@ -157,5 +161,37 @@ function build_dagre_data (instance: Instance, prefs: GraphLayoutPreferences) {
         nodes: Array.from(nodes.values()),
         edges: Array.from(edges.values())
     };
+
+}
+
+function to_hierarchy (instance: Instance, p: TreeLayoutPreferences) {
+
+    return d3.hierarchy(instance, function (d) {
+
+        let type = d.expressionType();
+
+        if (type === 'instance')
+            return [d.univ()].concat(d.skolems());
+
+        if (type !== 'tuple' && d.label() === 'univ')
+            return d.signatures()
+                .filter(s => p.show_builtins ? true : !s.builtin());
+
+        if (type === 'signature')
+            return d.atoms();
+
+        if (type === 'atom') {
+            let fields = d.signature().fields();
+            fields.forEach(field => field.atom = d);
+            return fields;
+        }
+
+        if (type === 'field')
+            return d.atom.join(d);
+
+        if (type === 'skolem')
+            return d.tuples();
+
+    });
 
 }
