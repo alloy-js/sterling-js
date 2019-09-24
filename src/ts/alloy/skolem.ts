@@ -26,6 +26,10 @@ export class Skolem {
 
     }
 
+    id (): string {
+        return this._label;
+    }
+
     label (): string {
         return this._label;
     }

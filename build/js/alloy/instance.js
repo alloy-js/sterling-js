@@ -155,6 +155,7 @@ function addTuple(receiver, tuple) {
     if (receiver.has(...atoms)) {
         throw Error(receiver + ' already contains ' + tuple);
     }
+    tuple._parent = receiver;
     receiver._tuples.push(tuple);
 }
 function buildInt(sig, bitwidth) {

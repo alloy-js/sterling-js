@@ -18,7 +18,7 @@ export function text () {
             .enter()
             .append('text')
             .merge(_texts)
-            .text(d => d.label())
+            .text(d => d.data)
             .attr('text-rendering', _text_rendering)
             .attr('text-anchor', anchor)
             .attr('x', x)

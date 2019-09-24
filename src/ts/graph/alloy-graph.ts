@@ -1,25 +1,24 @@
 import * as d3 from 'd3';
-import { Atom, Instance } from '..';
+import { Atom, Instance, Signature } from '..';
 
 export class AlloyGraph {
 
     // The instance represented by this graph
     _instance: Instance;
 
-    // List of projections
-    _projections: Array<Atom>;
+    // Map of projections
+    _projections: Map<Signature, Atom>;
 
     // Flags determine if certain types of expression are included in graph
-    _builtin: boolean;
-    _disconnected: boolean;
-    _meta: boolean;
-    _private: boolean;
-
+    _builtin: boolean = true;
+    _disconnected: boolean = true;
+    _meta: boolean = false;
+    _private: boolean = false;
 
     constructor (instance: Instance) {
 
         this._instance = instance;
-        this._projections = [];
+        this._projections = new Map();
 
     }
 
@@ -47,42 +46,159 @@ export class AlloyGraph {
         return this;
     }
 
-    project (atom: Atom) {
+    graph () {
 
-    }
+        // Build a tree containing signatures and atoms as nodes
+        let tree = d3.hierarchy(this._instance.univ(), d => {
+            if (d.expressionType() === 'signature')
+                return d.signatures().concat(d.atoms());
+        });
 
-    unproject(atom: Atom) {
+        // Build all edges by getting all tuples and projecting
+        let edges = this._instance
+            .tuples()
+            .map(tuple => {
 
-    }
+                let atoms = tuple.atoms();
 
-    _hierarchy () {
+                this._projections.forEach((atom, signature) => {
+                    atoms = project(atoms, atom, signature)
+                });
 
-        let bltn = this._builtin,
-            meta = this._meta,
-            priv = this._private;
+                return {
+                    data: tuple,
+                    source: atoms.length ? atoms[0] : null,
+                    target: atoms.length ? atoms[atoms.length-1] : null,
+                    middle: atoms.length > 2 ? atoms.slice(1, atoms.length-1) : []
+                };
 
-        return d3.hierarchy(this._instance, function (d) {
+            })
+            .filter(edge => edge.source !== null && edge.target !== null);
 
-            let type = d.expressionType();
 
-            if (type !== 'tuple' && type !== 'field') {
+        // Determine the set of all nodes used in a relation
+        let nodeset = new Set();
+        edges.forEach(edge => edge.data.atoms().forEach(atom => nodeset.add(atom.id())));
 
-                if (type === 'instance') {
-                    return d.univ();
+        // Determine the set of visible nodes
+        let visibleset = new Set();
+        edges.forEach(edge => visibleset.add(edge.source.id()).add(edge.target.id()));
+
+        // Remove atoms from tree based on flags
+        tree.each(node => {
+
+            if (node.data.expressionType() === 'signature') {
+
+                // Keep a complete copy of children
+                node._children = node.children;
+
+                let signature: Signature = node.data;
+                let hide =
+                    (this._builtin && signature.builtin()) ||
+                    (this._meta && signature.meta()) ||
+                    (this._private && signature.private());
+
+                if (hide && node.children) {
+                    node.children = node.children.filter(child => {
+
+                        // If a child node is a signature, we always want to
+                        // include it.  If not, it is an atom and we only want
+                        // to include it if it is used in a relation
+                        return child.data.expressionType() === 'signature'
+                            || nodeset.has(child.data.id());
+
+                    });
+
                 }
 
-                if (d.label() === 'univ')
-                    return d.signatures()
-                        .filter(s => bltn ? true : !s.builtin())
-                        .filter(s => meta ? true : !s.meta())
-                        .filter(s => priv ? true : !s.private());
+                // (Optionally) Remove atoms that are not part of a relation
+                if (this._disconnected && node.children) {
 
-                if (type === 'signature')
-                    return d.atoms();
+                    node.children = node.children.filter(child => {
+
+                        // If a child node is a signature, we always want to
+                        // include it.  If not, it is an atom and we only want
+                        // to include it if it is visible as part of an edge
+                        return child.data.expressionType() === 'signature'
+                            || visibleset.has(child.data.id());
+                    });
+
+                }
 
             }
 
         });
+
+        // Remove signatures that have no children
+        tree.each(node => {
+
+            if (node.children) {
+
+                node.children = node.children.filter(child => {
+
+                    return child.data.expressionType() === 'atom'
+                        || (child.children && child.children.length);
+
+                });
+
+            }
+
+        });
+
+        return {
+            tree,
+            edges
+        };
+
+    }
+
+    project (atom: Atom) {
+
+        // Determine top level signature of this atom
+        let types = atom.signature().types();
+
+        if (!types.length)
+            throw Error(atom + ' has no type');
+
+        let signature = types[0];
+
+        this._projections.set(signature, atom);
+
+    }
+
+    unproject (atom: Atom) {
+
+        // Determine top level signature of this atom
+        let types = atom.signature().types();
+
+        if (!types.length)
+            throw Error(atom + ' has no type');
+
+        let signature = types[0];
+
+        this._projections.delete(signature);
+
+    }
+
+}
+
+function project (tup: Array<Atom>, atom: Atom, signature: Signature): Array<Atom> {
+
+    if (tup.includes(atom)) {
+
+        return tup.filter(a => a !== atom);
+
+    } else {
+
+        // If the tuple does not contain an atom of type signature, it
+        // remains unchanged, otherwise the entire tuple is removed
+        let hastype = tup.reduce((acc, cur) => acc || cur.isType(signature), false);
+
+        if (hastype) {
+            return [];
+        } else {
+            return tup;
+        }
 
     }
 

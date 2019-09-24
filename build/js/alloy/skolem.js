@@ -10,6 +10,9 @@ export class Skolem {
             return t.atoms().every((a, i) => atoms[i] === a);
         });
     }
+    id() {
+        return this._label;
+    }
     label() {
         return this._label;
     }

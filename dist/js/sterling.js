@@ -8,9 +8,18 @@
         constructor(atoms) {
             this.expressionType = () => 'tuple';
             this._atoms = atoms;
+            this._parent = null;
         }
         atoms() {
             return this._atoms.slice();
+        }
+        id() {
+            return this._parent
+                ? this._parent.id() + '{' + this._atoms.join('->') + '}'
+                : this._atoms.join('->');
+        }
+        parent() {
+            return this._parent;
         }
         toString() {
             return this._atoms.join('->');
@@ -23,9 +32,12 @@
             this._label = label;
             this._signature = signature;
         }
+        id() {
+            return this._label;
+        }
         isType(signature) {
             return signature === this._signature ||
-                this._signature.types().includes(this._signature);
+                this._signature.types().includes(signature);
         }
         join(field) {
             return field.tuples()
@@ -58,11 +70,17 @@
                 return t.atoms().every((a, i) => atoms[i] === a);
             });
         }
+        id() {
+            return (this._parent ? this._parent + '<:' : '') + this._label;
+        }
         label() {
             return this._label;
         }
         meta() {
             return this._meta;
+        }
+        parent() {
+            return this._parent;
         }
         private() {
             return this._private;
@@ -111,6 +129,9 @@
         fields() {
             return this._fields.slice();
         }
+        id() {
+            return this._label;
+        }
         label() {
             return this._label;
         }
@@ -138,7 +159,8 @@
         }
         types() {
             let hierarchy = this._parent ? this._parent.types() : [];
-            hierarchy.push(this);
+            if (this._label !== 'univ')
+                hierarchy.push(this);
             return hierarchy;
         }
     }
@@ -154,6 +176,9 @@
             return !!this._tuples.find(t => {
                 return t.atoms().every((a, i) => atoms[i] === a);
             });
+        }
+        id() {
+            return this._label;
         }
         label() {
             return this._label;
@@ -3246,12 +3271,12 @@
       return map;
     }
 
-    function Set() {}
+    function Set$1() {}
 
     var proto = map.prototype;
 
-    Set.prototype = set$2.prototype = {
-      constructor: Set,
+    Set$1.prototype = set$2.prototype = {
+      constructor: Set$1,
       has: proto.has,
       add: function(value) {
         value += "";
@@ -3267,10 +3292,10 @@
     };
 
     function set$2(object, f) {
-      var set = new Set;
+      var set = new Set$1;
 
       // Copy constructor.
-      if (object instanceof Set) object.each(function(value) { set.add(value); });
+      if (object instanceof Set$1) object.each(function(value) { set.add(value); });
 
       // Otherwise, assume it’s an array.
       else if (object) {
@@ -5612,95 +5637,12 @@
       };
     }
 
-    function Linear(context) {
-      this._context = context;
-    }
-
-    Linear.prototype = {
-      areaStart: function() {
-        this._line = 0;
-      },
-      areaEnd: function() {
-        this._line = NaN;
-      },
-      lineStart: function() {
-        this._point = 0;
-      },
-      lineEnd: function() {
-        if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
-        this._line = 1 - this._line;
-      },
-      point: function(x, y) {
-        x = +x, y = +y;
-        switch (this._point) {
-          case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
-          case 1: this._point = 2; // proceed
-          default: this._context.lineTo(x, y); break;
-        }
-      }
-    };
-
-    function curveLinear(context) {
-      return new Linear(context);
-    }
-
     function x(p) {
       return p[0];
     }
 
     function y(p) {
       return p[1];
-    }
-
-    function line() {
-      var x$1 = x,
-          y$1 = y,
-          defined = constant$2(true),
-          context = null,
-          curve = curveLinear,
-          output = null;
-
-      function line(data) {
-        var i,
-            n = data.length,
-            d,
-            defined0 = false,
-            buffer;
-
-        if (context == null) output = curve(buffer = path());
-
-        for (i = 0; i <= n; ++i) {
-          if (!(i < n && defined(d = data[i], i, data)) === defined0) {
-            if (defined0 = !defined0) output.lineStart();
-            else output.lineEnd();
-          }
-          if (defined0) output.point(+x$1(d, i, data), +y$1(d, i, data));
-        }
-
-        if (buffer) return output = null, buffer + "" || null;
-      }
-
-      line.x = function(_) {
-        return arguments.length ? (x$1 = typeof _ === "function" ? _ : constant$2(+_), line) : x$1;
-      };
-
-      line.y = function(_) {
-        return arguments.length ? (y$1 = typeof _ === "function" ? _ : constant$2(+_), line) : y$1;
-      };
-
-      line.defined = function(_) {
-        return arguments.length ? (defined = typeof _ === "function" ? _ : constant$2(!!_), line) : defined;
-      };
-
-      line.curve = function(_) {
-        return arguments.length ? (curve = _, context != null && (output = curve(context)), line) : curve;
-      };
-
-      line.context = function(_) {
-        return arguments.length ? (_ == null ? context = output = null : output = curve(context = _), line) : context;
-      };
-
-      return line;
     }
 
     var slice = Array.prototype.slice;
@@ -5759,58 +5701,6 @@
       return link(curveHorizontal);
     }
 
-    function point$1(that, x, y) {
-      that._context.bezierCurveTo(
-        (2 * that._x0 + that._x1) / 3,
-        (2 * that._y0 + that._y1) / 3,
-        (that._x0 + 2 * that._x1) / 3,
-        (that._y0 + 2 * that._y1) / 3,
-        (that._x0 + 4 * that._x1 + x) / 6,
-        (that._y0 + 4 * that._y1 + y) / 6
-      );
-    }
-
-    function Basis(context) {
-      this._context = context;
-    }
-
-    Basis.prototype = {
-      areaStart: function() {
-        this._line = 0;
-      },
-      areaEnd: function() {
-        this._line = NaN;
-      },
-      lineStart: function() {
-        this._x0 = this._x1 =
-        this._y0 = this._y1 = NaN;
-        this._point = 0;
-      },
-      lineEnd: function() {
-        switch (this._point) {
-          case 3: point$1(this, this._x1, this._y1); // proceed
-          case 2: this._context.lineTo(this._x1, this._y1); break;
-        }
-        if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
-        this._line = 1 - this._line;
-      },
-      point: function(x, y) {
-        x = +x, y = +y;
-        switch (this._point) {
-          case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
-          case 1: this._point = 2; break;
-          case 2: this._point = 3; this._context.lineTo((5 * this._x0 + this._x1) / 6, (5 * this._y0 + this._y1) / 6); // proceed
-          default: point$1(this, x, y); break;
-        }
-        this._x0 = this._x1, this._x1 = x;
-        this._y0 = this._y1, this._y1 = y;
-      }
-    };
-
-    function basis(context) {
-      return new Basis(context);
-    }
-
     function sign(x) {
       return x < 0 ? -1 : 1;
     }
@@ -5837,7 +5727,7 @@
     // According to https://en.wikipedia.org/wiki/Cubic_Hermite_spline#Representations
     // "you can express cubic Hermite interpolation in terms of cubic Bézier curves
     // with respect to the four values p0, p0 + m0 / 3, p1 - m1 / 3, p1".
-    function point$2(that, t0, t1) {
+    function point$1(that, t0, t1) {
       var x0 = that._x0,
           y0 = that._y0,
           x1 = that._x1,
@@ -5866,7 +5756,7 @@
       lineEnd: function() {
         switch (this._point) {
           case 2: this._context.lineTo(this._x1, this._y1); break;
-          case 3: point$2(this, this._t0, slope2(this, this._t0)); break;
+          case 3: point$1(this, this._t0, slope2(this, this._t0)); break;
         }
         if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
         this._line = 1 - this._line;
@@ -5879,8 +5769,8 @@
         switch (this._point) {
           case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
           case 1: this._point = 2; break;
-          case 2: this._point = 3; point$2(this, slope2(this, t1 = slope3(this, x, y)), t1); break;
-          default: point$2(this, this._t0, t1 = slope3(this, x, y)); break;
+          case 2: this._point = 3; point$1(this, slope2(this, t1 = slope3(this, x, y)), t1); break;
+          default: point$1(this, this._t0, t1 = slope3(this, x, y)); break;
         }
 
         this._x0 = this._x1, this._x1 = x;
@@ -6535,6 +6425,7 @@
         if (receiver.has(...atoms)) {
             throw Error(receiver + ' already contains ' + tuple);
         }
+        tuple._parent = receiver;
         receiver._tuples.push(tuple);
     }
     function buildInt(sig, bitwidth) {
@@ -6908,306 +6799,6 @@
         return _rectangle;
     }
 
-    class Node$1 {
-        constructor() {
-            this._datum = null;
-            this._label = '';
-            this._parent = null;
-        }
-        datum(datum) {
-            if (!arguments.length)
-                return this._datum;
-            this._datum = datum;
-            return this;
-        }
-        label(label) {
-            if (!arguments.length)
-                return this._label;
-            this._label = label;
-            return this;
-        }
-        parent(parent) {
-            if (!arguments.length)
-                return this._parent;
-            this._parent = parent;
-            return this;
-        }
-    }
-
-    class Edge {
-        constructor() {
-            this._datum = null;
-            this._label = '';
-            this._source = null;
-            this._target = null;
-        }
-        datum(datum) {
-            if (!arguments.length)
-                return this._datum;
-            this._datum = datum;
-            return this;
-        }
-        label(label) {
-            if (!arguments.length)
-                return this._label;
-            this._label = label;
-            return this;
-        }
-        source(source) {
-            if (!arguments.length)
-                return this._source;
-            this._source = source;
-            return this;
-        }
-        target(target) {
-            if (!arguments.length)
-                return this._target;
-            this._target = target;
-            return this;
-        }
-    }
-
-    class TreeLayoutPreferences {
-        constructor() {
-            this.font_size = 14;
-            this.font_weight = 'normal';
-            this.font_family = 'monospace';
-            this.text_dy = '0.31em';
-            this.text_anchor = 'start';
-            this.text_lower_stroke_linejoin = 'round';
-            this.text_lower_stroke_width = 3;
-            this.link_stroke = '#555';
-            this.link_stroke_opacity = 0.4;
-            this.link_stroke_width = 1.5;
-            this.margin = {
-                top: 0,
-                right: 150,
-                bottom: 0,
-                left: 150
-            };
-            this.node_radius = 4;
-            this.node_fill = '#555';
-            this.node_stroke_width = 10;
-            this.node_text_separation = 8;
-            this.show_builtins = false;
-            this.transition_duration = 350;
-        }
-        font_attributes() {
-            return {
-                'font-family': this.font_family,
-                'font-size': this.font_size,
-                'font-weight': this.font_weight
-            };
-        }
-        link_stroke_attributes() {
-            return {
-                'stroke': this.link_stroke,
-                'stroke-opacity': this.link_stroke_opacity,
-                'stroke-width': this.link_stroke_width
-            };
-        }
-        node_attributes() {
-            return {
-                'r': this.node_radius,
-                'fill': this.node_fill,
-                'stroke-width': this.node_stroke_width
-            };
-        }
-        text_attributes() {
-            return {
-                'dy': this.text_dy,
-                'text-anchor': this.text_anchor
-            };
-        }
-        text_lower_attributes() {
-            return Object.assign(Object.assign({}, this.text_attributes()), { 'stroke-linejoin': this.text_lower_stroke_linejoin, 'stroke-width': this.text_lower_stroke_width });
-        }
-    }
-
-    class DagreLayout {
-        constructor() {
-            this._include_private_nodes = false;
-            this._rank_sep = 150;
-        }
-        height() {
-            return this._props ? this._props.height : 0;
-        }
-        layout(instance, preferences) {
-            console.log(to_hierarchy(instance, new TreeLayoutPreferences()));
-            let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
-            let props = this._graph_properties();
-            let { nodes, edges } = build_dagre_data(instance, preferences);
-            graph.setGraph(props);
-            graph.setDefaultEdgeLabel(function () { return {}; });
-            nodes.forEach(node => graph.setNode(node.label(), node));
-            edges.forEach(edge => graph.setEdge(edge.source(), edge.target(), edge, edge.label()));
-            nodes.forEach(node => {
-                if (node.parent())
-                    graph.setParent(node.label(), node.parent());
-            });
-            dagre.layout(graph);
-            this._props = props;
-            this._nodes = nodes;
-            this._edges = edges;
-        }
-        edges() {
-            return this._edges;
-        }
-        nodes() {
-            return this._nodes;
-        }
-        links() {
-            return this._links;
-        }
-        width() {
-            return this._props ? this._props.width : 0;
-        }
-        _graph_properties() {
-            return {
-                ranksep: this._rank_sep
-            };
-        }
-    }
-    function to_node(item, prefs) {
-        if (item.expressionType() === 'signature') {
-            let node = new Node$1()
-                .datum(item)
-                .label(item.label())
-                .parent(item.parent()
-                ? item.parent().label()
-                : null);
-            node.width = prefs.node_width;
-            node.height = prefs.node_height;
-            node.label_placement = prefs.sig_label_placement;
-            return node;
-        }
-        else {
-            let node = new Node$1()
-                .datum(item)
-                .label(item.label())
-                .parent(item.signature());
-            node.width = prefs.node_width;
-            node.height = prefs.node_height;
-            node.label_placement = prefs.atom_label_placement;
-            return node;
-        }
-    }
-    function build_dagre_data(instance, prefs) {
-        let sigs = instance.signatures();
-        let fields = instance.fields();
-        let nodes = new Map();
-        let edges = new Map();
-        // Convert all signatures to nodes
-        sigs
-            .filter(sig => prefs.show_builtin ? true : !sig.builtin())
-            .filter(sig => prefs.show_meta ? true : !sig.meta())
-            .filter(sig => prefs.show_private ? true : !sig.private())
-            .map(sig => to_node(sig, prefs))
-            .forEach(node => nodes.set(node.label(), node));
-        // Convert all atoms to nodes
-        sigs
-            .filter(sig => prefs.show_builtin ? true : !sig.builtin())
-            .filter(sig => prefs.show_meta ? true : !sig.meta())
-            .filter(sig => prefs.show_private ? true : !sig.private())
-            .map(sig => sig.atoms())
-            .reduce((acc, cur) => acc.concat(cur), [])
-            .map(atom => to_node(atom, prefs))
-            .forEach(node => nodes.set(node.label(), node));
-        // Add nodes that have been filtered out but still appear in tuples
-        fields.forEach(field => {
-            field.tuples()
-                .forEach(tuple => {
-                let atoms = tuple.atoms();
-                let frst = atoms[0];
-                let last = atoms[atoms.length - 1];
-                if (!nodes.has(frst.label())) {
-                    let node = to_node(frst, prefs);
-                    nodes.set(node.label(), node);
-                }
-                if (!nodes.has(last.label())) {
-                    let node = to_node(last, prefs);
-                    nodes.set(node.label(), node);
-                }
-            });
-        });
-        // Convert all tuples to edges
-        fields.forEach(field => {
-            field.tuples()
-                .map(tuple => {
-                let atoms = tuple.atoms();
-                return new Edge()
-                    .datum(tuple)
-                    .label(field.toString() + ':' + atoms.join('->'))
-                    .source(atoms[0].label())
-                    .target(atoms[atoms.length - 1].label());
-            })
-                .forEach(edge => edges.set(edge.label(), edge));
-        });
-        nodes.forEach(node => node.width = prefs.node_width);
-        nodes.forEach(node => node.height = prefs.node_height);
-        return {
-            nodes: Array.from(nodes.values()),
-            edges: Array.from(edges.values())
-        };
-    }
-    function to_hierarchy(instance, p) {
-        return hierarchy(instance, function (d) {
-            let type = d.expressionType();
-            if (type === 'instance')
-                return [d.univ()].concat(d.skolems());
-            if (type !== 'tuple' && d.label() === 'univ')
-                return d.signatures()
-                    .filter(s => p.show_builtins ? true : !s.builtin());
-            if (type === 'signature')
-                return d.atoms();
-            if (type === 'atom') {
-                let fields = d.signature().fields();
-                fields.forEach(field => field.atom = d);
-                return fields;
-            }
-            if (type === 'field')
-                return d.atom.join(d);
-            if (type === 'skolem')
-                return d.tuples();
-        });
-    }
-
-    function line$1() {
-        let _l = line()
-            .x(d => d.x)
-            .y(d => d.y)
-            .curve(basis);
-        let _transition;
-        let _lines, _stroke = '#000', _stroke_width = 1;
-        function _line(selection) {
-            _lines = selection
-                .selectAll('path')
-                .data(d => [d.points]);
-            _lines
-                .exit()
-                .remove();
-            _lines = _lines
-                .enter()
-                .append('path')
-                .merge(_lines);
-            _lines
-                .transition(_transition)
-                .attr('d', _l);
-            _lines
-                .style('fill', 'none')
-                .style('stroke', _stroke)
-                .style('stroke-width', _stroke_width);
-            return _lines;
-        }
-        _line.transition = function (transition) {
-            if (!arguments.length)
-                return _transition;
-            _transition = transition;
-            return this;
-        };
-        return _line;
-    }
-
     function text() {
         let _texts, _font_size = 16, _text_rendering = 'geometricPrecision';
         function _text(selection) {
@@ -7221,7 +6812,7 @@
                 .enter()
                 .append('text')
                 .merge(_texts)
-                .text(d => d.label())
+                .text(d => d.data)
                 .attr('text-rendering', _text_rendering)
                 .attr('text-anchor', anchor)
                 .attr('x', x$1)
@@ -7311,6 +6902,112 @@
         return '0.31em';
     }
 
+    class DagreLayout {
+        constructor() {
+            this._include_private_nodes = false;
+            this._rank_sep = 150;
+            this._node_width = 150;
+            this._node_height = 50;
+        }
+        height() {
+            return this._props ? this._props.height : 0;
+        }
+        layout(svg, graph) {
+            let { tree, edges } = graph.graph();
+            let layers = sequence(tree.height)
+                .reverse()
+                .map(i => tree.descendants().filter(n => n.height === i));
+            let transition = svg.transition().duration(500);
+            let rect = rectangle();
+            let label = text();
+            this._position_compound_graph(tree, edges);
+            let layer_groups = svg
+                .selectAll('g.layer')
+                .data(layers)
+                .join('g')
+                .attr('class', 'layer');
+            let sig_groups = layer_groups
+                .selectAll('g.signatures')
+                .data(d => [d.filter(node => node.data.expressionType() === 'signature')])
+                .join('g')
+                .attr('class', 'signatures');
+            let atm_groups = layer_groups
+                .selectAll('g.atoms')
+                .data(d => [d.filter(node => node.data.expressionType() === 'atom')])
+                .join('g')
+                .attr('class', 'atoms');
+            sig_groups
+                .selectAll('g.signature')
+                .data(d => d, d => d.data.id())
+                .join('g')
+                .attr('class', 'signature')
+                .call(rect)
+                .call(label)
+                .transition(transition)
+                .attr('transform', d => `translate(${d.x},${d.y})`);
+            atm_groups
+                .selectAll('g.atom')
+                .data(d => d, d => d.data.id())
+                .join('g')
+                .attr('class', 'atom')
+                .call(rect)
+                .call(label)
+                .transition(transition)
+                .attr('transform', d => `translate(${d.x},${d.y})`);
+            let zoom$1 = zoom()
+                .on('zoom', () => {
+                sig_groups.attr('transform', event.transform);
+                atm_groups.attr('transform', event.transform);
+            });
+            let w = parseInt(svg.style('width')), h = parseInt(svg.style('height')), scale = 0.9 / Math.max(this.width() / w, this.height() / h);
+            transition
+                .call(zoom$1.transform, identity$2
+                .translate(w / 2, h / 2)
+                .scale(scale)
+                .translate(-this.width() / 2, -this.height() / 2));
+        }
+        edges() {
+            return this._edges;
+        }
+        nodes() {
+            return this._nodes;
+        }
+        links() {
+            return this._links;
+        }
+        width() {
+            return this._props ? this._props.width : 0;
+        }
+        _graph_properties() {
+            return {
+                ranksep: this._rank_sep
+            };
+        }
+        _position_compound_graph(tree, edges) {
+            let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
+            let props = this._graph_properties();
+            graph.setGraph(props);
+            graph.setDefaultEdgeLabel(function () { return {}; });
+            tree.each(node => {
+                node.width = this._node_width;
+                node.height = this._node_height;
+            });
+            tree.each(node => graph.setNode(node.data.id(), node));
+            edges.forEach(edge => graph.setEdge(edge.source.id(), edge.target.id(), edge, edge.data.id()));
+            tree.each(node => {
+                if (node.children) {
+                    node.children.forEach(child => {
+                        graph.setParent(child.data.id(), node.data.id());
+                    });
+                }
+            });
+            dagre.layout(graph);
+            this._props = props;
+            this._nodes = tree.descendants();
+            this._edges = edges;
+        }
+    }
+
     class GraphLayoutPreferences {
         constructor() {
             this.show_builtin = false;
@@ -7324,81 +7021,238 @@
         }
     }
 
+    class AlloyGraph {
+        constructor(instance) {
+            // Flags determine if certain types of expression are included in graph
+            this._builtin = true;
+            this._disconnected = true;
+            this._meta = false;
+            this._private = false;
+            this._instance = instance;
+            this._projections = new Map();
+        }
+        filter_builtins(filter) {
+            if (!arguments.length)
+                return this._builtin;
+            this._builtin = filter;
+            return this;
+        }
+        filter_disconnected(filter) {
+            if (!arguments.length)
+                return this._disconnected;
+            this._disconnected = filter;
+            return this;
+        }
+        filter_meta(filter) {
+            if (!arguments.length)
+                return this._meta;
+            this._meta = filter;
+            return this;
+        }
+        filter_private(filter) {
+            if (!arguments.length)
+                return this._private;
+            this._private = filter;
+            return this;
+        }
+        graph() {
+            // Build a tree containing signatures and atoms as nodes
+            let tree = hierarchy(this._instance.univ(), d => {
+                if (d.expressionType() === 'signature')
+                    return d.signatures().concat(d.atoms());
+            });
+            // Build all edges by getting all tuples and projecting
+            let edges = this._instance
+                .tuples()
+                .map(tuple => {
+                let atoms = tuple.atoms();
+                this._projections.forEach((atom, signature) => {
+                    atoms = project(atoms, atom, signature);
+                });
+                return {
+                    data: tuple,
+                    source: atoms.length ? atoms[0] : null,
+                    target: atoms.length ? atoms[atoms.length - 1] : null,
+                    middle: atoms.length > 2 ? atoms.slice(1, atoms.length - 1) : []
+                };
+            })
+                .filter(edge => edge.source !== null && edge.target !== null);
+            // Determine the set of all nodes used in a relation
+            let nodeset = new Set();
+            edges.forEach(edge => edge.data.atoms().forEach(atom => nodeset.add(atom.id())));
+            // Determine the set of visible nodes
+            let visibleset = new Set();
+            edges.forEach(edge => visibleset.add(edge.source.id()).add(edge.target.id()));
+            // Remove atoms from tree based on flags
+            tree.each(node => {
+                if (node.data.expressionType() === 'signature') {
+                    // Keep a complete copy of children
+                    node._children = node.children;
+                    let signature = node.data;
+                    let hide = (this._builtin && signature.builtin()) ||
+                        (this._meta && signature.meta()) ||
+                        (this._private && signature.private());
+                    if (hide && node.children) {
+                        node.children = node.children.filter(child => {
+                            // If a child node is a signature, we always want to
+                            // include it.  If not, it is an atom and we only want
+                            // to include it if it is used in a relation
+                            return child.data.expressionType() === 'signature'
+                                || nodeset.has(child.data.id());
+                        });
+                    }
+                    // (Optionally) Remove atoms that are not part of a relation
+                    if (this._disconnected && node.children) {
+                        node.children = node.children.filter(child => {
+                            // If a child node is a signature, we always want to
+                            // include it.  If not, it is an atom and we only want
+                            // to include it if it is visible as part of an edge
+                            return child.data.expressionType() === 'signature'
+                                || visibleset.has(child.data.id());
+                        });
+                    }
+                }
+            });
+            // Remove signatures that have no children
+            tree.each(node => {
+                if (node.children) {
+                    node.children = node.children.filter(child => {
+                        return child.data.expressionType() === 'atom'
+                            || (child.children && child.children.length);
+                    });
+                }
+            });
+            return {
+                tree,
+                edges
+            };
+        }
+        project(atom) {
+            // Determine top level signature of this atom
+            let types = atom.signature().types();
+            if (!types.length)
+                throw Error(atom + ' has no type');
+            let signature = types[0];
+            this._projections.set(signature, atom);
+        }
+        unproject(atom) {
+            // Determine top level signature of this atom
+            let types = atom.signature().types();
+            if (!types.length)
+                throw Error(atom + ' has no type');
+            let signature = types[0];
+            this._projections.delete(signature);
+        }
+    }
+    function project(tup, atom, signature) {
+        if (tup.includes(atom)) {
+            return tup.filter(a => a !== atom);
+        }
+        else {
+            // If the tuple does not contain an atom of type signature, it
+            // remains unchanged, otherwise the entire tuple is removed
+            let hastype = tup.reduce((acc, cur) => acc || cur.isType(signature), false);
+            if (hastype) {
+                return [];
+            }
+            else {
+                return tup;
+            }
+        }
+    }
+
     class GraphLayout {
         constructor(selection) {
             this._svg = selection
                 .style('user-select', 'none')
                 .style('font-family', 'monospace')
                 .style('font-size', '10px');
-            this._g0 = selection.append('g')
-                .attr('class', 'nodes');
-            this._g1 = selection.append('g')
-                .attr('class', 'links');
-            this._g2 = selection.append('g')
-                .attr('class', 'nodes');
+            // this._g0 = selection.append('g')
+            //     .attr('class', 'nodes');
+            //
+            // this._g1 = selection.append('g')
+            //     .attr('class', 'links');
+            //
+            // this._g2 = selection.append('g')
+            //     .attr('class', 'nodes');
             this._zoom = zoom()
                 .on('zoom', () => {
-                this._g0.attr('transform', event.transform);
-                this._g1.attr('transform', event.transform);
-                this._g2.attr('transform', event.transform);
+                // this._g0.attr('transform', d3.event.transform);
+                // this._g1.attr('transform', d3.event.transform);
+                // this._g2.attr('transform', d3.event.transform);
             });
-            this._transition = this._svg.transition().duration(500);
-            this._svg.call(this._zoom);
+            // this._transition = this._svg.transition().duration(500);
+            // this._svg.call(this._zoom);
             this._prefs = new GraphLayoutPreferences();
         }
         resize() {
         }
         set_instance(instance) {
             let dag = new DagreLayout();
-            dag.layout(instance, this._prefs);
-            this.zoom_to(dag.width(), dag.height());
-            let nodes = dag.nodes(), signodes = nodes.filter(node => node.datum().expressionType() === 'signature'), atmnodes = nodes.filter(node => node.datum().expressionType() === 'atom'), edges = dag.edges();
-            let rect = rectangle();
-            let label = text();
-            let path = line$1().transition(this._transition);
-            let g2 = this._g2
-                .selectAll('.node')
-                .data(atmnodes);
-            g2
-                .exit()
-                .remove();
-            g2
-                .enter()
-                .append('g')
-                .attr('class', 'node')
-                .merge(g2)
-                .call(rect)
-                .call(label)
-                .transition(this._transition)
-                .attr('transform', d => `translate(${d.x},${d.y})`);
-            let g1 = this._g1
-                .selectAll('.link')
-                .data(edges);
-            g1
-                .exit()
-                .remove();
-            g1
-                .enter()
-                .append('g')
-                .attr('class', 'link')
-                .merge(g1)
-                .call(path);
-            let g0 = this._g0
-                .selectAll('.node')
-                .data(signodes);
-            g0
-                .exit()
-                .remove();
-            g0
-                .enter()
-                .append('g')
-                .attr('class', 'node')
-                .merge(g0)
-                .call(rect)
-                .call(label)
-                .call(this._style_sig_nodes)
-                .transition(this._transition)
-                .attr('transform', d => `translate(${d.x},${d.y})`);
+            let graph = new AlloyGraph(instance);
+            dag.layout(this._svg, graph);
+            // this.zoom_to(dag.width(), dag.height());
+            return;
+            // let nodes = dag.nodes(),
+            //     signodes = nodes.filter(node => node.data.expressionType() === 'signature'),
+            //     atmnodes = nodes.filter(node => node.data.expressionType() === 'atom'),
+            //     edges = dag.edges();
+            //
+            // let rect = rectangle();
+            // let label = text();
+            // let path = (line() as any).transition(this._transition);
+            //
+            // let g2 = this._g2
+            //     .selectAll('.node')
+            //     .data(atmnodes);
+            //
+            // g2
+            //     .exit()
+            //     .remove();
+            //
+            // g2
+            //     .enter()
+            //     .append('g')
+            //     .attr('class', 'node')
+            //     .merge(g2)
+            //     .call(rect)
+            //     .call(label)
+            //     .transition(this._transition)
+            //     .attr('transform', d => `translate(${d.x},${d.y})`);
+            //
+            // let g1 = this._g1
+            //     .selectAll('.link')
+            //     .data(edges);
+            //
+            // g1
+            //     .exit()
+            //     .remove();
+            //
+            // g1
+            //     .enter()
+            //     .append('g')
+            //     .attr('class', 'link')
+            //     .merge(g1)
+            //     .call(path);
+            //
+            // let g0 = this._g0
+            //     .selectAll('.node')
+            //     .data(signodes);
+            //
+            // g0
+            //     .exit()
+            //     .remove();
+            //
+            // g0
+            //     .enter()
+            //     .append('g')
+            //     .attr('class', 'node')
+            //     .merge(g0)
+            //     .call(rect)
+            //     .call(label)
+            //     .call(this._style_sig_nodes)
+            //     .transition(this._transition)
+            //     .attr('transform', d => `translate(${d.x},${d.y})`);
         }
         zoom_to(width, height) {
             let w = parseInt(this._svg.style('width')), h = parseInt(this._svg.style('height'));
@@ -7773,6 +7627,63 @@
         }
     }
 
+    class TreeLayoutPreferences {
+        constructor() {
+            this.font_size = 14;
+            this.font_weight = 'normal';
+            this.font_family = 'monospace';
+            this.text_dy = '0.31em';
+            this.text_anchor = 'start';
+            this.text_lower_stroke_linejoin = 'round';
+            this.text_lower_stroke_width = 3;
+            this.link_stroke = '#555';
+            this.link_stroke_opacity = 0.4;
+            this.link_stroke_width = 1.5;
+            this.margin = {
+                top: 0,
+                right: 150,
+                bottom: 0,
+                left: 150
+            };
+            this.node_radius = 4;
+            this.node_fill = '#555';
+            this.node_stroke_width = 10;
+            this.node_text_separation = 8;
+            this.show_builtins = false;
+            this.transition_duration = 350;
+        }
+        font_attributes() {
+            return {
+                'font-family': this.font_family,
+                'font-size': this.font_size,
+                'font-weight': this.font_weight
+            };
+        }
+        link_stroke_attributes() {
+            return {
+                'stroke': this.link_stroke,
+                'stroke-opacity': this.link_stroke_opacity,
+                'stroke-width': this.link_stroke_width
+            };
+        }
+        node_attributes() {
+            return {
+                'r': this.node_radius,
+                'fill': this.node_fill,
+                'stroke-width': this.node_stroke_width
+            };
+        }
+        text_attributes() {
+            return {
+                'dy': this.text_dy,
+                'text-anchor': this.text_anchor
+            };
+        }
+        text_lower_attributes() {
+            return Object.assign(Object.assign({}, this.text_attributes()), { 'stroke-linejoin': this.text_lower_stroke_linejoin, 'stroke-width': this.text_lower_stroke_width });
+        }
+    }
+
     class TreeLayout {
         constructor(svg, preferences) {
             this._prefs = preferences ? preferences : new TreeLayoutPreferences();
@@ -7832,7 +7743,7 @@
             this.redraw();
         }
         set_instance(instance) {
-            let root = to_hierarchy$1(instance, this._prefs);
+            let root = to_hierarchy(instance, this._prefs);
             this._set_root(root);
             this._update(this._instance ? null : root);
             this._instance = instance;
@@ -8071,7 +7982,7 @@
     function translate(d) {
         return `translate(${d.y},${d.x})`;
     }
-    function to_hierarchy$1(instance, p) {
+    function to_hierarchy(instance, p) {
         return hierarchy(instance, function (d) {
             let type = d.expressionType();
             if (type === 'instance')

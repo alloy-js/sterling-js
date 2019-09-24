@@ -28,6 +28,9 @@ export class Signature {
     fields() {
         return this._fields.slice();
     }
+    id() {
+        return this._label;
+    }
     label() {
         return this._label;
     }
@@ -55,7 +58,8 @@ export class Signature {
     }
     types() {
         let hierarchy = this._parent ? this._parent.types() : [];
-        hierarchy.push(this);
+        if (this._label !== 'univ')
+            hierarchy.push(this);
         return hierarchy;
     }
 }

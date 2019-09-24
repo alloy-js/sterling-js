@@ -16,9 +16,13 @@ export class Atom {
 
     }
 
+    id (): string {
+        return this._label;
+    }
+
     isType (signature: Signature): boolean {
         return signature === this._signature ||
-            this._signature.types().includes(this._signature);
+            this._signature.types().includes(signature);
     }
 
     join (field: Field): Array<Tuple> {

@@ -5,9 +5,12 @@ export class Atom {
         this._label = label;
         this._signature = signature;
     }
+    id() {
+        return this._label;
+    }
     isType(signature) {
         return signature === this._signature ||
-            this._signature.types().includes(this._signature);
+            this._signature.types().includes(signature);
     }
     join(field) {
         return field.tuples()

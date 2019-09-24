@@ -13,11 +13,17 @@ export class Field {
             return t.atoms().every((a, i) => atoms[i] === a);
         });
     }
+    id() {
+        return (this._parent ? this._parent + '<:' : '') + this._label;
+    }
     label() {
         return this._label;
     }
     meta() {
         return this._meta;
+    }
+    parent() {
+        return this._parent;
     }
     private() {
         return this._private;

@@ -223,6 +223,7 @@ function addTuple (receiver: Field | Skolem, tuple: Tuple) {
         throw Error(receiver + ' already contains ' + tuple);
     }
 
+    tuple._parent = receiver;
     receiver._tuples.push(tuple);
 
 }

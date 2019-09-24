@@ -36,12 +36,20 @@ export class Field {
 
     }
 
+    id (): string {
+        return (this._parent ? this._parent + '<:' : '') + this._label;
+    }
+
     label (): string {
         return this._label;
     }
 
     meta (): boolean {
         return this._meta;
+    }
+
+    parent (): Signature {
+        return this._parent;
     }
 
     private (): boolean {

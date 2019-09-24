@@ -1,9 +1,7 @@
-import { Atom, Instance, Signature } from '../..';
-import { GraphLayoutPreferences } from '../graph-layout-preferences';
-import { Node } from '../graph-node-shapes/node';
-import { Edge } from '../graph-edge-shapes/edge';
-import { TreeLayoutPreferences } from '../tree-layout-preferences';
 import * as d3 from 'd3';
+import { AlloyGraph } from '../../graph/alloy-graph';
+import { rectangle } from '../graph-node-shapes/rectangle';
+import { text } from '../graph-node-shapes/text';
 declare const dagre: any;
 
 export class DagreLayout {
@@ -16,34 +14,80 @@ export class DagreLayout {
     _links;
 
     _rank_sep: number = 150;
+    _node_width: number = 150;
+    _node_height: number = 50;
 
     height () {
         return this._props ? this._props.height : 0;
     }
 
-    layout (instance: Instance, preferences: GraphLayoutPreferences) {
+    layout (svg, graph: AlloyGraph) {
 
-        console.log(to_hierarchy(instance, new TreeLayoutPreferences()));
+        let { tree, edges } = graph.graph();
+        let layers = d3.range(tree.height)
+            .reverse()
+            .map(i => tree.descendants().filter(n => n.height === i));
 
-        let graph = new dagre.graphlib.Graph({multigraph: true, compound: true});
-        let props = this._graph_properties();
-        let { nodes, edges } = build_dagre_data(instance, preferences);
+        let transition = svg.transition().duration(500);
+        let rect = rectangle();
+        let label = text();
 
-        graph.setGraph(props);
-        graph.setDefaultEdgeLabel(function () { return {}});
-        nodes.forEach(node => graph.setNode(node.label(), node));
-        edges.forEach(edge => graph.setEdge(edge.source(), edge.target(), edge, edge.label()));
+        this._position_compound_graph(tree, edges);
 
+        let layer_groups = svg
+            .selectAll('g.layer')
+            .data(layers)
+            .join('g')
+            .attr('class', 'layer');
 
-        nodes.forEach(node => {
-            if (node.parent()) graph.setParent(node.label(), node.parent());
-        });
+        let sig_groups = layer_groups
+            .selectAll('g.signatures')
+            .data(d => [d.filter(node => node.data.expressionType() === 'signature')])
+            .join('g')
+            .attr('class', 'signatures');
 
-        dagre.layout(graph);
+        let atm_groups = layer_groups
+            .selectAll('g.atoms')
+            .data(d => [d.filter(node => node.data.expressionType() === 'atom')])
+            .join('g')
+            .attr('class', 'atoms');
 
-        this._props = props;
-        this._nodes = nodes;
-        this._edges = edges;
+        sig_groups
+            .selectAll('g.signature')
+            .data(d => d, d => d.data.id())
+            .join('g')
+            .attr('class', 'signature')
+            .call(rect)
+            .call(label)
+            .transition(transition)
+            .attr('transform', d => `translate(${d.x},${d.y})`);
+
+        atm_groups
+            .selectAll('g.atom')
+            .data(d => d, d => d.data.id())
+            .join('g')
+            .attr('class', 'atom')
+            .call(rect)
+            .call(label)
+            .transition(transition)
+            .attr('transform', d => `translate(${d.x},${d.y})`);
+
+        let zoom = d3.zoom()
+            .on('zoom', () => {
+                sig_groups.attr('transform', d3.event.transform);
+                atm_groups.attr('transform', d3.event.transform);
+            });
+
+        let w = parseInt(svg.style('width')),
+            h = parseInt(svg.style('height')),
+            scale = 0.9 / Math.max(this.width() / w, this.height() / h);
+
+        transition
+            .call(zoom.transform, d3.zoomIdentity
+                .translate(w / 2, h / 2)
+                .scale(scale)
+                .translate(-this.width() / 2, -this.height() / 2)
+            );
 
     }
 
@@ -69,129 +113,36 @@ export class DagreLayout {
         };
     }
 
-}
+    _position_compound_graph (tree, edges) {
 
-function to_node (item: Signature | Atom, prefs: GraphLayoutPreferences): Node {
-    if (item.expressionType() === 'signature') {
-        let node = new Node()
-            .datum(item)
-            .label(item.label())
-            .parent((item as Signature).parent()
-                ? (item as Signature).parent().label()
-                : null);
-        node.width = prefs.node_width;
-        node.height = prefs.node_height;
-        node.label_placement = prefs.sig_label_placement;
-        return node;
-    } else {
-        let node = new Node()
-            .datum(item)
-            .label(item.label())
-            .parent((item as Atom).signature());
-        node.width = prefs.node_width;
-        node.height = prefs.node_height;
-        node.label_placement = prefs.atom_label_placement;
-        return node;
+        let graph = new dagre.graphlib.Graph({multigraph: true, compound: true});
+        let props = this._graph_properties();
+
+        graph.setGraph(props);
+        graph.setDefaultEdgeLabel(function () { return {} });
+
+        tree.each(node => {
+            node.width = this._node_width;
+            node.height = this._node_height;
+        });
+
+        tree.each(node => graph.setNode(node.data.id(), node));
+        edges.forEach(edge => graph.setEdge(edge.source.id(), edge.target.id(), edge, edge.data.id()));
+
+        tree.each(node => {
+            if (node.children) {
+                node.children.forEach(child => {
+                    graph.setParent(child.data.id(), node.data.id());
+                });
+            }
+        });
+
+        dagre.layout(graph);
+
+        this._props = props;
+        this._nodes = tree.descendants();
+        this._edges = edges;
+
     }
-}
-
-function build_dagre_data (instance: Instance, prefs: GraphLayoutPreferences) {
-
-    let sigs = instance.signatures();
-    let fields = instance.fields();
-
-    let nodes = new Map();
-    let edges = new Map();
-
-    // Convert all signatures to nodes
-    sigs
-        .filter(sig => prefs.show_builtin ? true : !sig.builtin())
-        .filter(sig => prefs.show_meta ? true : !sig.meta())
-        .filter(sig => prefs.show_private ? true : !sig.private())
-        .map(sig => to_node(sig, prefs))
-        .forEach(node => nodes.set(node.label(), node));
-
-    // Convert all atoms to nodes
-    sigs
-        .filter(sig => prefs.show_builtin ? true : !sig.builtin())
-        .filter(sig => prefs.show_meta ? true : !sig.meta())
-        .filter(sig => prefs.show_private ? true : !sig.private())
-        .map(sig => sig.atoms())
-        .reduce((acc, cur) => acc.concat(cur), [])
-        .map(atom => to_node(atom, prefs))
-        .forEach(node => nodes.set(node.label(), node));
-
-    // Add nodes that have been filtered out but still appear in tuples
-    fields.forEach(field => {
-        field.tuples()
-            .forEach(tuple => {
-                let atoms = tuple.atoms();
-                let frst = atoms[0];
-                let last = atoms[atoms.length-1];
-                if (!nodes.has(frst.label())) {
-                    let node = to_node(frst, prefs);
-                    nodes.set(node.label(), node);
-                }
-                if (!nodes.has(last.label())) {
-                    let node = to_node(last, prefs);
-                    nodes.set(node.label(), node);
-                }
-            });
-    });
-
-    // Convert all tuples to edges
-    fields.forEach(field => {
-        field.tuples()
-            .map(tuple => {
-                let atoms = tuple.atoms();
-                return new Edge()
-                    .datum(tuple)
-                    .label(field.toString() + ':' + atoms.join('->'))
-                    .source(atoms[0].label())
-                    .target(atoms[atoms.length-1].label())
-                }
-            )
-            .forEach(edge => edges.set(edge.label(), edge));
-    });
-
-    nodes.forEach(node => node.width = prefs.node_width);
-    nodes.forEach(node => node.height = prefs.node_height);
-
-    return {
-        nodes: Array.from(nodes.values()),
-        edges: Array.from(edges.values())
-    };
-
-}
-
-function to_hierarchy (instance: Instance, p: TreeLayoutPreferences) {
-
-    return d3.hierarchy(instance, function (d) {
-
-        let type = d.expressionType();
-
-        if (type === 'instance')
-            return [d.univ()].concat(d.skolems());
-
-        if (type !== 'tuple' && d.label() === 'univ')
-            return d.signatures()
-                .filter(s => p.show_builtins ? true : !s.builtin());
-
-        if (type === 'signature')
-            return d.atoms();
-
-        if (type === 'atom') {
-            let fields = d.signature().fields();
-            fields.forEach(field => field.atom = d);
-            return fields;
-        }
-
-        if (type === 'field')
-            return d.atom.join(d);
-
-        if (type === 'skolem')
-            return d.tuples();
-
-    });
 
 }

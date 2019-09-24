@@ -66,6 +66,10 @@ export class Signature {
         return this._fields.slice();
     }
 
+    id (): string {
+        return this._label;
+    }
+
     label (): string {
         return this._label;
     }
@@ -106,7 +110,7 @@ export class Signature {
     types (): Array<Signature> {
 
         let hierarchy = this._parent ? this._parent.types() : [];
-        hierarchy.push(this);
+        if (this._label !== 'univ') hierarchy.push(this);
         return hierarchy;
 
     }

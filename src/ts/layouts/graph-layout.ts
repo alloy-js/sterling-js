@@ -1,10 +1,11 @@
 import * as d3 from 'd3';
 import { Instance } from '..';
-import { rectangle } from './graph-node-shapes/rectangle';
+// import { rectangle } from './graph-node-shapes/rectangle';
 import { DagreLayout } from './graph-layout-algorithms/dagre-layout';
-import { line } from './graph-edge-shapes/line';
-import { text } from './graph-node-shapes/text';
+// import { line } from './graph-edge-shapes/line';
+// import { text } from './graph-node-shapes/text';
 import { GraphLayoutPreferences } from './graph-layout-preferences';
+import { AlloyGraph } from '../graph/alloy-graph';
 
 export class GraphLayout {
 
@@ -24,25 +25,25 @@ export class GraphLayout {
             .style('font-family', 'monospace')
             .style('font-size', '10px');
 
-        this._g0 = selection.append('g')
-            .attr('class', 'nodes');
-
-        this._g1 = selection.append('g')
-            .attr('class', 'links');
-
-        this._g2 = selection.append('g')
-            .attr('class', 'nodes');
+        // this._g0 = selection.append('g')
+        //     .attr('class', 'nodes');
+        //
+        // this._g1 = selection.append('g')
+        //     .attr('class', 'links');
+        //
+        // this._g2 = selection.append('g')
+        //     .attr('class', 'nodes');
 
         this._zoom = d3.zoom()
             .on('zoom', () => {
-                this._g0.attr('transform', d3.event.transform);
-                this._g1.attr('transform', d3.event.transform);
-                this._g2.attr('transform', d3.event.transform);
+                // this._g0.attr('transform', d3.event.transform);
+                // this._g1.attr('transform', d3.event.transform);
+                // this._g2.attr('transform', d3.event.transform);
             });
 
-        this._transition = this._svg.transition().duration(500);
+        // this._transition = this._svg.transition().duration(500);
 
-        this._svg.call(this._zoom);
+        // this._svg.call(this._zoom);
 
         this._prefs = new GraphLayoutPreferences();
 
@@ -56,70 +57,73 @@ export class GraphLayout {
 
         let dag = new DagreLayout();
 
-        dag.layout(instance, this._prefs);
+        let graph = new AlloyGraph(instance);
+        dag.layout(this._svg, graph);
 
-        this.zoom_to(dag.width(), dag.height());
+        // this.zoom_to(dag.width(), dag.height());
 
-        let nodes = dag.nodes(),
-            signodes = nodes.filter(node => node.datum().expressionType() === 'signature'),
-            atmnodes = nodes.filter(node => node.datum().expressionType() === 'atom'),
-            edges = dag.edges();
+        return;
 
-        let rect = rectangle();
-        let label = text();
-        let path = (line() as any).transition(this._transition);
-
-        let g2 = this._g2
-            .selectAll('.node')
-            .data(atmnodes);
-
-        g2
-            .exit()
-            .remove();
-
-        g2
-            .enter()
-            .append('g')
-            .attr('class', 'node')
-            .merge(g2)
-            .call(rect)
-            .call(label)
-            .transition(this._transition)
-            .attr('transform', d => `translate(${d.x},${d.y})`);
-
-        let g1 = this._g1
-            .selectAll('.link')
-            .data(edges);
-
-        g1
-            .exit()
-            .remove();
-
-        g1
-            .enter()
-            .append('g')
-            .attr('class', 'link')
-            .merge(g1)
-            .call(path);
-
-        let g0 = this._g0
-            .selectAll('.node')
-            .data(signodes);
-
-        g0
-            .exit()
-            .remove();
-
-        g0
-            .enter()
-            .append('g')
-            .attr('class', 'node')
-            .merge(g0)
-            .call(rect)
-            .call(label)
-            .call(this._style_sig_nodes)
-            .transition(this._transition)
-            .attr('transform', d => `translate(${d.x},${d.y})`);
+        // let nodes = dag.nodes(),
+        //     signodes = nodes.filter(node => node.data.expressionType() === 'signature'),
+        //     atmnodes = nodes.filter(node => node.data.expressionType() === 'atom'),
+        //     edges = dag.edges();
+        //
+        // let rect = rectangle();
+        // let label = text();
+        // let path = (line() as any).transition(this._transition);
+        //
+        // let g2 = this._g2
+        //     .selectAll('.node')
+        //     .data(atmnodes);
+        //
+        // g2
+        //     .exit()
+        //     .remove();
+        //
+        // g2
+        //     .enter()
+        //     .append('g')
+        //     .attr('class', 'node')
+        //     .merge(g2)
+        //     .call(rect)
+        //     .call(label)
+        //     .transition(this._transition)
+        //     .attr('transform', d => `translate(${d.x},${d.y})`);
+        //
+        // let g1 = this._g1
+        //     .selectAll('.link')
+        //     .data(edges);
+        //
+        // g1
+        //     .exit()
+        //     .remove();
+        //
+        // g1
+        //     .enter()
+        //     .append('g')
+        //     .attr('class', 'link')
+        //     .merge(g1)
+        //     .call(path);
+        //
+        // let g0 = this._g0
+        //     .selectAll('.node')
+        //     .data(signodes);
+        //
+        // g0
+        //     .exit()
+        //     .remove();
+        //
+        // g0
+        //     .enter()
+        //     .append('g')
+        //     .attr('class', 'node')
+        //     .merge(g0)
+        //     .call(rect)
+        //     .call(label)
+        //     .call(this._style_sig_nodes)
+        //     .transition(this._transition)
+        //     .attr('transform', d => `translate(${d.x},${d.y})`);
 
     }
 
