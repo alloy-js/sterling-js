@@ -5637,12 +5637,95 @@
       };
     }
 
+    function Linear(context) {
+      this._context = context;
+    }
+
+    Linear.prototype = {
+      areaStart: function() {
+        this._line = 0;
+      },
+      areaEnd: function() {
+        this._line = NaN;
+      },
+      lineStart: function() {
+        this._point = 0;
+      },
+      lineEnd: function() {
+        if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
+        this._line = 1 - this._line;
+      },
+      point: function(x, y) {
+        x = +x, y = +y;
+        switch (this._point) {
+          case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
+          case 1: this._point = 2; // proceed
+          default: this._context.lineTo(x, y); break;
+        }
+      }
+    };
+
+    function curveLinear(context) {
+      return new Linear(context);
+    }
+
     function x(p) {
       return p[0];
     }
 
     function y(p) {
       return p[1];
+    }
+
+    function line() {
+      var x$1 = x,
+          y$1 = y,
+          defined = constant$2(true),
+          context = null,
+          curve = curveLinear,
+          output = null;
+
+      function line(data) {
+        var i,
+            n = data.length,
+            d,
+            defined0 = false,
+            buffer;
+
+        if (context == null) output = curve(buffer = path());
+
+        for (i = 0; i <= n; ++i) {
+          if (!(i < n && defined(d = data[i], i, data)) === defined0) {
+            if (defined0 = !defined0) output.lineStart();
+            else output.lineEnd();
+          }
+          if (defined0) output.point(+x$1(d, i, data), +y$1(d, i, data));
+        }
+
+        if (buffer) return output = null, buffer + "" || null;
+      }
+
+      line.x = function(_) {
+        return arguments.length ? (x$1 = typeof _ === "function" ? _ : constant$2(+_), line) : x$1;
+      };
+
+      line.y = function(_) {
+        return arguments.length ? (y$1 = typeof _ === "function" ? _ : constant$2(+_), line) : y$1;
+      };
+
+      line.defined = function(_) {
+        return arguments.length ? (defined = typeof _ === "function" ? _ : constant$2(!!_), line) : defined;
+      };
+
+      line.curve = function(_) {
+        return arguments.length ? (curve = _, context != null && (output = curve(context)), line) : curve;
+      };
+
+      line.context = function(_) {
+        return arguments.length ? (_ == null ? context = output = null : output = curve(context = _), line) : context;
+      };
+
+      return line;
     }
 
     var slice = Array.prototype.slice;
@@ -5701,6 +5784,58 @@
       return link(curveHorizontal);
     }
 
+    function point$1(that, x, y) {
+      that._context.bezierCurveTo(
+        (2 * that._x0 + that._x1) / 3,
+        (2 * that._y0 + that._y1) / 3,
+        (that._x0 + 2 * that._x1) / 3,
+        (that._y0 + 2 * that._y1) / 3,
+        (that._x0 + 4 * that._x1 + x) / 6,
+        (that._y0 + 4 * that._y1 + y) / 6
+      );
+    }
+
+    function Basis(context) {
+      this._context = context;
+    }
+
+    Basis.prototype = {
+      areaStart: function() {
+        this._line = 0;
+      },
+      areaEnd: function() {
+        this._line = NaN;
+      },
+      lineStart: function() {
+        this._x0 = this._x1 =
+        this._y0 = this._y1 = NaN;
+        this._point = 0;
+      },
+      lineEnd: function() {
+        switch (this._point) {
+          case 3: point$1(this, this._x1, this._y1); // proceed
+          case 2: this._context.lineTo(this._x1, this._y1); break;
+        }
+        if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
+        this._line = 1 - this._line;
+      },
+      point: function(x, y) {
+        x = +x, y = +y;
+        switch (this._point) {
+          case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
+          case 1: this._point = 2; break;
+          case 2: this._point = 3; this._context.lineTo((5 * this._x0 + this._x1) / 6, (5 * this._y0 + this._y1) / 6); // proceed
+          default: point$1(this, x, y); break;
+        }
+        this._x0 = this._x1, this._x1 = x;
+        this._y0 = this._y1, this._y1 = y;
+      }
+    };
+
+    function basis(context) {
+      return new Basis(context);
+    }
+
     function sign(x) {
       return x < 0 ? -1 : 1;
     }
@@ -5727,7 +5862,7 @@
     // According to https://en.wikipedia.org/wiki/Cubic_Hermite_spline#Representations
     // "you can express cubic Hermite interpolation in terms of cubic Bézier curves
     // with respect to the four values p0, p0 + m0 / 3, p1 - m1 / 3, p1".
-    function point$1(that, t0, t1) {
+    function point$2(that, t0, t1) {
       var x0 = that._x0,
           y0 = that._y0,
           x1 = that._x1,
@@ -5756,7 +5891,7 @@
       lineEnd: function() {
         switch (this._point) {
           case 2: this._context.lineTo(this._x1, this._y1); break;
-          case 3: point$1(this, this._t0, slope2(this, this._t0)); break;
+          case 3: point$2(this, this._t0, slope2(this, this._t0)); break;
         }
         if (this._line || (this._line !== 0 && this._point === 1)) this._context.closePath();
         this._line = 1 - this._line;
@@ -5769,8 +5904,8 @@
         switch (this._point) {
           case 0: this._point = 1; this._line ? this._context.lineTo(x, y) : this._context.moveTo(x, y); break;
           case 1: this._point = 2; break;
-          case 2: this._point = 3; point$1(this, slope2(this, t1 = slope3(this, x, y)), t1); break;
-          default: point$1(this, this._t0, t1 = slope3(this, x, y)); break;
+          case 2: this._point = 3; point$2(this, slope2(this, t1 = slope3(this, x, y)), t1); break;
+          default: point$2(this, this._t0, t1 = slope3(this, x, y)); break;
         }
 
         this._x0 = this._x1, this._x1 = x;
@@ -6790,6 +6925,12 @@
             _height = +height;
             return _rectangle;
         };
+        _rectangle.stroke = function (stroke) {
+            if (!arguments.length)
+                return _stroke;
+            _stroke = stroke;
+            return _rectangle;
+        };
         _rectangle.width = function (width) {
             if (!arguments.length)
                 return _width;
@@ -6801,7 +6942,9 @@
 
     function text() {
         let _texts, _font_size = 16, _text_rendering = 'geometricPrecision';
-        function _text(selection) {
+        let _placement = 'c'; // Placement of the text with respect to the datum width and height
+        let _fill = '#000';
+        let _text = Object.assign(function (selection) {
             _texts = selection
                 .selectAll('text')
                 .data(d => [d]);
@@ -6814,154 +6957,215 @@
                 .merge(_texts)
                 .text(d => d.data)
                 .attr('text-rendering', _text_rendering)
-                .attr('text-anchor', anchor)
-                .attr('x', x$1)
-                .attr('y', y$1)
-                .attr('dx', dx)
-                .attr('dy', dy);
+                .attr('fill', _fill)
+                .attr('x', _x)
+                .attr('y', _y)
+                .attr('dx', _dx)
+                .attr('dy', _dy)
+                .attr('text-anchor', _anchor);
             _texts
                 .style('font-size', _font_size + 'px');
             return _texts;
+        }, {
+            fill,
+            placement
+        });
+        function fill(fill) {
+            if (!arguments.length)
+                return _fill;
+            _fill = fill;
+            return _text;
         }
-        return _text;
-    }
-    function anchor(d) {
-        let placement = d.label_placement;
-        if (placement) {
-            switch (placement) {
-                case 'tl':
+        function placement(placement) {
+            if (!arguments.length)
+                return _placement;
+            _placement = placement;
+            return _text;
+        }
+        function _x(d) {
+            let width = d.width ? d.width : 0;
+            switch (_placement) {
+                case 'c':
+                    return 0;
                 case 'bl':
-                    return 'start';
+                case 'tl':
+                    return -width / 2;
+                case 'br':
+                case 'tr':
+                    return width / 2;
+                default:
+                    return 0;
+            }
+        }
+        function _y(d) {
+            let height = d.height ? d.height : 0;
+            switch (_placement) {
+                case 'c':
+                    return 0;
+                case 'bl':
+                case 'br':
+                    return height / 2;
+                case 'tl':
+                case 'tr':
+                    return -height / 2;
+                default:
+                    return 0;
+            }
+        }
+        function _dx() {
+            switch (_placement) {
+                case 'c':
+                    return 0;
+                case 'bl':
+                case 'tl':
+                    return '1em';
+                case 'br':
+                case 'tr':
+                    return '-1em';
+                default:
+                    return 0;
+            }
+        }
+        function _dy() {
+            switch (_placement) {
+                case 'c':
+                    return '0.31em';
+                case 'bl':
+                case 'br':
+                    return '-1em';
+                case 'tl':
+                case 'tr':
+                    return '1.62em';
+                default:
+                    return '0.31em';
+            }
+        }
+        function _anchor() {
+            switch (_placement) {
                 case 'c':
                     return 'middle';
-                case 'tr':
+                case 'bl':
+                case 'tl':
+                    return 'start';
                 case 'br':
+                case 'tr':
                     return 'end';
                 default:
                     return 'middle';
             }
         }
-        return 'middle';
+        return _text;
     }
-    function x$1(d) {
-        let placement = d.label_placement;
-        let width = d.width ? d.width : 0;
-        if (placement) {
-            switch (placement) {
-                case 'tl':
-                    return -width / 2;
-                case 'c':
-                    return 0;
-                default:
-                    return 0;
-            }
+
+    function line$1() {
+        let _l = line()
+            .x(d => d.x)
+            .y(d => d.y)
+            .curve(basis);
+        let _transition;
+        let _lines, _stroke = '#000', _stroke_width = 1;
+        function _line(selection) {
+            _lines = selection
+                .selectAll('path')
+                .data(d => [d.points]);
+            _lines
+                .exit()
+                .remove();
+            _lines = _lines
+                .enter()
+                .append('path')
+                .merge(_lines);
+            _lines
+                .transition(_transition)
+                .attr('d', _l);
+            _lines
+                .style('fill', 'none')
+                .style('stroke', _stroke)
+                .style('stroke-width', _stroke_width);
+            return _lines;
         }
-        return 0;
-    }
-    function y$1(d) {
-        let placement = d.label_placement;
-        let height = d.height ? d.height : 0;
-        if (placement) {
-            switch (placement) {
-                case 'tl':
-                    return -height / 2;
-                case 'c':
-                    return 0;
-                default:
-                    return 0;
-            }
-        }
-        return 0;
-    }
-    function dx(d) {
-        let placement = d.label_placement;
-        if (placement) {
-            switch (placement) {
-                case 'tl':
-                    return '1em';
-                case 'c':
-                    return 0;
-                default:
-                    return 0;
-            }
-        }
-        return 0;
-    }
-    function dy(d) {
-        let placement = d.label_placement;
-        if (placement) {
-            switch (placement) {
-                case 'tl':
-                    return '1.62em';
-                case 'c':
-                    return '0.31em';
-                default:
-                    return '0.31em';
-            }
-        }
-        return '0.31em';
+        _line.transition = function (transition) {
+            if (!arguments.length)
+                return _transition;
+            _transition = transition;
+            return this;
+        };
+        return _line;
     }
 
     class DagreLayout {
-        constructor() {
+        constructor(svg) {
             this._include_private_nodes = false;
             this._rank_sep = 150;
             this._node_width = 150;
             this._node_height = 50;
+            this._svg = svg;
+            this._zoom = zoom()
+                .on('zoom', () => {
+                if (this._sig_group)
+                    this._sig_group.attr('transform', event.transform);
+                if (this._edge_group)
+                    this._edge_group.attr('transform', event.transform);
+                if (this._atom_group)
+                    this._atom_group.attr('transform', event.transform);
+            });
+            this._svg.call(this._zoom);
         }
         height() {
             return this._props ? this._props.height : 0;
         }
-        layout(svg, graph) {
+        layout(graph) {
             let { tree, edges } = graph.graph();
-            let layers = sequence(tree.height)
-                .reverse()
-                .map(i => tree.descendants().filter(n => n.height === i));
-            let transition = svg.transition().duration(500);
-            let rect = rectangle();
-            let label = text();
+            let transition = this._svg.transition().duration(500);
+            let atm_rect = rectangle();
+            let sig_rect = rectangle().stroke('#777');
+            let atm_label = text();
+            let sig_label = text().placement('tl').fill('#777');
+            let path = line$1();
             this._position_compound_graph(tree, edges);
-            let layer_groups = svg
-                .selectAll('g.layer')
-                .data(layers)
-                .join('g')
-                .attr('class', 'layer');
-            let sig_groups = layer_groups
+            let signatures = tree.descendants().filter(node => node.data.expressionType() === 'signature');
+            let atoms = tree.descendants().filter(node => node.data.expressionType() === 'atom');
+            this._sig_group = this._svg
                 .selectAll('g.signatures')
-                .data(d => [d.filter(node => node.data.expressionType() === 'signature')])
+                .data([signatures])
                 .join('g')
                 .attr('class', 'signatures');
-            let atm_groups = layer_groups
+            this._edge_group = this._svg
+                .selectAll('g.edges')
+                .data([edges])
+                .join('g')
+                .attr('class', 'edges');
+            this._atom_group = this._svg
                 .selectAll('g.atoms')
-                .data(d => [d.filter(node => node.data.expressionType() === 'atom')])
+                .data([atoms])
                 .join('g')
                 .attr('class', 'atoms');
-            sig_groups
+            this._sig_group
                 .selectAll('g.signature')
                 .data(d => d, d => d.data.id())
                 .join('g')
+                .sort((a, b) => a.depth - b.depth)
                 .attr('class', 'signature')
-                .call(rect)
-                .call(label)
-                .transition(transition)
-                .attr('transform', d => `translate(${d.x},${d.y})`);
-            atm_groups
+                .attr('transform', d => `translate(${d.x},${d.y})`)
+                .call(sig_rect)
+                .call(sig_label);
+            this._edge_group
+                .selectAll('g.edge')
+                .data(d => d, d => d.data.id())
+                .join('g')
+                .attr('class', 'edge')
+                .call(path);
+            this._atom_group
                 .selectAll('g.atom')
                 .data(d => d, d => d.data.id())
                 .join('g')
                 .attr('class', 'atom')
-                .call(rect)
-                .call(label)
-                .transition(transition)
-                .attr('transform', d => `translate(${d.x},${d.y})`);
-            let zoom$1 = zoom()
-                .on('zoom', () => {
-                sig_groups.attr('transform', event.transform);
-                atm_groups.attr('transform', event.transform);
-            });
-            let w = parseInt(svg.style('width')), h = parseInt(svg.style('height')), scale = 0.9 / Math.max(this.width() / w, this.height() / h);
+                .attr('transform', d => `translate(${d.x},${d.y})`)
+                .call(atm_rect)
+                .call(atm_label);
+            let w = parseInt(this._svg.style('width')), h = parseInt(this._svg.style('height')), scale = 0.9 / Math.max(this.width() / w, this.height() / h);
             transition
-                .call(zoom$1.transform, identity$2
+                .call(this._zoom.transform, identity$2
                 .translate(w / 2, h / 2)
                 .scale(scale)
                 .translate(-this.width() / 2, -this.height() / 2));
@@ -7188,9 +7392,9 @@
         resize() {
         }
         set_instance(instance) {
-            let dag = new DagreLayout();
+            let dag = new DagreLayout(this._svg);
             let graph = new AlloyGraph(instance);
-            dag.layout(this._svg, graph);
+            dag.layout(graph);
             // this.zoom_to(dag.width(), dag.height());
             return;
             // let nodes = dag.nodes(),

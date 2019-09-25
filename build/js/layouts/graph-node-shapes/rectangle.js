@@ -29,6 +29,12 @@ export function rectangle() {
         _height = +height;
         return _rectangle;
     };
+    _rectangle.stroke = function (stroke) {
+        if (!arguments.length)
+            return _stroke;
+        _stroke = stroke;
+        return _rectangle;
+    };
     _rectangle.width = function (width) {
         if (!arguments.length)
             return _width;

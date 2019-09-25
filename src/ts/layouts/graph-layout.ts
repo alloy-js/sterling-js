@@ -55,10 +55,10 @@ export class GraphLayout {
 
     set_instance (instance: Instance) {
 
-        let dag = new DagreLayout();
+        let dag = new DagreLayout(this._svg);
 
         let graph = new AlloyGraph(instance);
-        dag.layout(this._svg, graph);
+        dag.layout(graph);
 
         // this.zoom_to(dag.width(), dag.height());
 

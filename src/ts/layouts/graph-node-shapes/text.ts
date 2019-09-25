@@ -4,7 +4,10 @@ export function text () {
         _font_size = 16,
         _text_rendering = 'geometricPrecision';
 
-    function _text (selection) {
+    let _placement = 'c';  // Placement of the text with respect to the datum width and height
+    let _fill = '#000';
+
+    let _text = Object.assign(function (selection) {
 
         _texts = selection
             .selectAll('text')
@@ -20,100 +23,112 @@ export function text () {
             .merge(_texts)
             .text(d => d.data)
             .attr('text-rendering', _text_rendering)
-            .attr('text-anchor', anchor)
-            .attr('x', x)
-            .attr('y', y)
-            .attr('dx', dx)
-            .attr('dy', dy);
+            .attr('fill', _fill)
+            .attr('x', _x)
+            .attr('y', _y)
+            .attr('dx', _dx)
+            .attr('dy', _dy)
+            .attr('text-anchor', _anchor);
 
         _texts
             .style('font-size', _font_size + 'px');
 
         return _texts;
 
+    }, {
+        fill,
+        placement
+    });
+
+    function fill (fill) {
+        if (!arguments.length) return _fill;
+        _fill = fill;
+        return _text;
     }
 
-    return _text;
+    function placement (placement) {
+        if (!arguments.length) return _placement;
+        _placement = placement;
+        return _text;
+    }
 
-}
-
-function anchor (d) {
-    let placement = d.label_placement;
-    if (placement) {
-        switch (placement) {
-            case 'tl':
+    function _x (d) {
+        let width = d.width ? d.width : 0;
+        switch (_placement) {
+            case 'c':
+                return 0;
             case 'bl':
-                return 'start';
+            case 'tl':
+                return -width/2;
+            case 'br':
+            case 'tr':
+                return width/2;
+            default:
+                return 0;
+        }
+    }
+
+    function _y (d) {
+        let height = d.height ? d.height : 0;
+        switch (_placement) {
+            case 'c':
+                return 0;
+            case 'bl':
+            case 'br':
+                return height/2;
+            case 'tl':
+            case 'tr':
+                return -height/2;
+            default:
+                return 0;
+        }
+    }
+
+    function _dx () {
+        switch (_placement) {
+            case 'c':
+                return 0;
+            case 'bl':
+            case 'tl':
+                return '1em';
+            case 'br':
+            case 'tr':
+                return '-1em';
+            default:
+                return 0;
+        }
+    }
+
+    function _dy () {
+        switch (_placement) {
+            case 'c':
+                return '0.31em';
+            case 'bl':
+            case 'br':
+                return '-1em';
+            case 'tl':
+            case 'tr':
+                return '1.62em';
+            default:
+                return '0.31em';
+        }
+    }
+
+    function _anchor () {
+        switch (_placement) {
             case 'c':
                 return 'middle';
-            case 'tr':
+            case 'bl':
+            case 'tl':
+                return 'start';
             case 'br':
+            case 'tr':
                 return 'end';
             default:
                 return 'middle';
         }
     }
-    return 'middle';
-}
 
-function x (d) {
-    let placement = d.label_placement;
-    let width = d.width ? d.width : 0;
-    if (placement) {
-        switch (placement) {
-            case 'tl':
-                return -width/2;
-            case 'c':
-                return 0;
-            default:
-                return 0;
-        }
-    }
-    return 0;
-}
+    return _text;
 
-function y (d) {
-    let placement = d.label_placement;
-    let height = d.height ? d.height : 0;
-    if (placement) {
-        switch (placement) {
-            case 'tl':
-                return -height/2;
-            case 'c':
-                return 0;
-            default:
-                return 0;
-        }
-    }
-    return 0;
-}
-
-function dx (d) {
-    let placement = d.label_placement;
-    if (placement) {
-        switch (placement) {
-            case 'tl':
-                return '1em';
-            case 'c':
-                return 0;
-            default:
-                return 0;
-        }
-    }
-    return 0;
-}
-
-function dy (d) {
-    let placement = d.label_placement;
-    if (placement) {
-        switch (placement) {
-            case 'tl':
-                return '1.62em';
-            case 'c':
-                return '0.31em';
-            default:
-                return '0.31em';
-        }
-    }
-    return '0.31em';
 }
