@@ -1,62 +1,59 @@
-export function rectangle () {
+interface RectangleFunction {
+    attr: Function,
+    style: Function
+}
 
-    let _rectangles,
-        _width = 150,
-        _height = 50,
-        _stroke = '#000',
-        _stroke_width = 1,
-        _fill = '#fff',
-        _shape_rendering = 'geometricPrecision';
+export function rectangle (): RectangleFunction {
 
-    function _rectangle (selection) {
+    let _selection,
+        _attributes = new Map(),
+        _styles = new Map();
 
-        _rectangles = selection
+    _attributes
+        .set('height', d => d.height ? d.height : 50)
+        .set('shape-rendering', 'geometricPrecision')
+        .set('width', d => d.width ? d.width : 150)
+        .set('x', d => d.width ? -d.width/2 : 75)
+        .set('y', d => d.height ? -d.height/2 : 25);
+
+    _styles
+        .set('stroke', '#000')
+        .set('fill', '#fff');
+
+    function _function (selection) {
+
+        _selection = selection
             .selectAll('rect')
-            .data(d => [d]);
+            .data(d => [d])
+            .join('rect');
 
-        _rectangles
-            .exit()
-            .remove();
+        _attributes
+            .forEach((value, attr) => _selection.attr(attr, value));
 
-        _rectangles = _rectangles
-            .enter()
-            .append('rect')
-            .merge(_rectangles);
+        _styles
+            .forEach((value, style) => _selection.style(style, value));
 
-        _rectangles
-            .attr('x', d => d.width ? -d.width/2 : -_width/2)
-            .attr('y', d => d.height ? -d.height/2 : -_height/2)
-            .attr('width', d => d.width ? d.width : _width)
-            .attr('height', d => d.height ? d.height : _height)
-            .attr('shape-rendering', _shape_rendering);
-
-        _rectangles
-            .style('stroke', _stroke)
-            .style('stroke-width', _stroke_width)
-            .style('fill', _fill);
-
-        return _rectangles;
+        return _selection;
 
     }
 
-    _rectangle.height = function (height) {
-        if (!arguments.length) return _height;
-        _height = +height;
-        return _rectangle;
-    };
-
-    _rectangle.stroke = function (stroke) {
-        if (!arguments.length) return _stroke;
-        _stroke = stroke;
-        return _rectangle;
-    };
-
-    _rectangle.width = function (width) {
-        if (!arguments.length) return _width;
-        _width = +width;
-        return _rectangle;
-    };
+    const _rectangle: RectangleFunction = Object.assign(_function, {
+        attr,
+        style
+    });
 
     return _rectangle;
+
+    function attr (a, v?) {
+        if (arguments.length === 1) return _attributes.get(a);
+        _attributes.set(a, v);
+        return _rectangle;
+    }
+
+    function style (s, v?) {
+        if (arguments.length === 1) return _styles.get(s);
+        _styles.set(s, v);
+        return _rectangle;
+    }
 
 }

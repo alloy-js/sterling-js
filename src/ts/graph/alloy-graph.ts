@@ -12,7 +12,7 @@ export class AlloyGraph {
     // Flags determine if certain types of expression are included in graph
     _builtin: boolean = true;
     _disconnected: boolean = true;
-    _meta: boolean = false;
+    _meta: boolean = true;
     _private: boolean = false;
 
     constructor (instance: Instance) {

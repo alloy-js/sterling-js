@@ -4,7 +4,7 @@ export class AlloyGraph {
         // Flags determine if certain types of expression are included in graph
         this._builtin = true;
         this._disconnected = true;
-        this._meta = false;
+        this._meta = true;
         this._private = false;
         this._instance = instance;
         this._projections = new Map();

@@ -1,55 +1,73 @@
-export function text () {
+interface NodeLabelFunction {
+    attr: Function,
+    style: Function,
+    placement: Function
+}
 
-    let _texts,
-        _font_size = 16,
-        _text_rendering = 'geometricPrecision';
+export function node_label (): NodeLabelFunction {
 
-    let _placement = 'c';  // Placement of the text with respect to the datum width and height
-    let _fill = '#000';
+    let _selection,
+        _attributes = new Map(),
+        _styles = new Map();
 
-    let _text = Object.assign(function (selection) {
+    _attributes
+        .set('dx', _dx)
+        .set('dy', _dy)
+        .set('text-anchor', _anchor)
+        .set('text-rendering', 'geometricPrecision')
+        .set('x', _x)
+        .set('y', _y);
 
-        _texts = selection
+    _styles
+        .set('fill', 'black')
+        .set('font-size', '12px')
+        .set('font-weight', 'regular')
+        .set('stroke', 'none');
+
+    let _placement = 'c';
+
+    function _function (selection) {
+
+        _selection = selection
             .selectAll('text')
-            .data(d => [d]);
+            .data(d => [d])
+            .join('text')
+            .text(d => d.data);
 
-        _texts
-            .exit()
-            .remove();
+        _attributes
+            .forEach((value, attr) => _selection.attr(attr, value));
 
-        _texts = _texts
-            .enter()
-            .append('text')
-            .merge(_texts)
-            .text(d => d.data)
-            .attr('text-rendering', _text_rendering)
-            .attr('fill', _fill)
-            .attr('x', _x)
-            .attr('y', _y)
-            .attr('dx', _dx)
-            .attr('dy', _dy)
-            .attr('text-anchor', _anchor);
+        _styles
+            .forEach((value, style) => _selection.style(style, value));
 
-        _texts
-            .style('font-size', _font_size + 'px');
+        return _selection;
 
-        return _texts;
+    }
 
-    }, {
-        fill,
+    const _label: NodeLabelFunction = Object.assign(_function, {
+        attr,
+        style,
         placement
     });
 
-    function fill (fill) {
-        if (!arguments.length) return _fill;
-        _fill = fill;
-        return _text;
+    return _label;
+
+    function attr (a, v?) {
+        if (arguments.length === 1) return _attributes.get(a);
+        _attributes.set(a, v);
+        return _label;
     }
 
-    function placement (placement) {
+    function style (s, v?) {
+        if (arguments.length === 1) return _styles.get(s);
+        _styles.set(s, v);
+        return _label;
+    }
+
+    function placement (placement?): string | NodeLabelFunction {
         if (!arguments.length) return _placement;
         _placement = placement;
-        return _text;
+        return _label;
     }
 
     function _x (d) {
@@ -128,7 +146,5 @@ export function text () {
                 return 'middle';
         }
     }
-
-    return _text;
 
 }

@@ -1,58 +1,53 @@
-export function text() {
-    let _texts, _font_size = 16, _text_rendering = 'geometricPrecision', _placement = 'c', _fill = '#000', _d = d => d.data;
-    function _text(selection) {
-        _texts = selection
+export function node_label() {
+    let _selection, _attributes = new Map(), _styles = new Map();
+    _attributes
+        .set('dx', _dx)
+        .set('dy', _dy)
+        .set('text-anchor', _anchor)
+        .set('text-rendering', 'geometricPrecision')
+        .set('x', _x)
+        .set('y', _y);
+    _styles
+        .set('fill', 'black')
+        .set('font-size', '12px')
+        .set('font-weight', 'regular')
+        .set('stroke', 'none');
+    let _placement = 'c';
+    function _function(selection) {
+        _selection = selection
             .selectAll('text')
-            .data(d => [d]);
-        _texts
-            .exit()
-            .remove();
-        _texts = _texts
-            .enter()
-            .append('text')
-            .merge(_texts)
-            .text(_d)
-            .attr('text-rendering', _text_rendering)
-            .attr('fill', _fill)
-            .attr('x', _x)
-            .attr('y', _y)
-            .attr('dx', _dx)
-            .attr('dy', _dy)
-            .attr('text-anchor', _anchor);
-        _texts
-            .style('font-size', _font_size + 'px');
-        return _texts;
+            .data(d => [d])
+            .join('text')
+            .text(d => d.data);
+        _attributes
+            .forEach((value, attr) => _selection.attr(attr, value));
+        _styles
+            .forEach((value, style) => _selection.style(style, value));
+        return _selection;
     }
-    const _text_function = Object.assign(_text, {
-        data,
-        fill,
-        font_size,
+    const _label = Object.assign(_function, {
+        attr,
+        style,
         placement
     });
-    return _text_function;
-    function data(data) {
-        if (!arguments.length)
-            return _d;
-        _d = data;
-        return _text_function;
+    return _label;
+    function attr(a, v) {
+        if (arguments.length === 1)
+            return _attributes.get(a);
+        _attributes.set(a, v);
+        return _label;
     }
-    function fill(fill) {
-        if (!arguments.length)
-            return _fill;
-        _fill = fill;
-        return _text_function;
-    }
-    function font_size(size) {
-        if (!arguments.length)
-            return _font_size;
-        _font_size = size;
-        return _text_function;
+    function style(s, v) {
+        if (arguments.length === 1)
+            return _styles.get(s);
+        _styles.set(s, v);
+        return _label;
     }
     function placement(placement) {
         if (!arguments.length)
             return _placement;
         _placement = placement;
-        return _text_function;
+        return _label;
     }
     function _x(d) {
         let width = d.width ? d.width : 0;
