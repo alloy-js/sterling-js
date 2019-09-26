@@ -1,14 +1,17 @@
 interface NodeLabelFunction {
     attr: Function,
     style: Function,
-    placement: Function
+    placement: Function,
+    transition: Function,
+    exit: Function
 }
 
 export function node_label (): NodeLabelFunction {
 
     let _selection,
         _attributes = new Map(),
-        _styles = new Map();
+        _styles = new Map(),
+        _transition = null;
 
     _attributes
         .set('dx', _dx)
@@ -20,9 +23,11 @@ export function node_label (): NodeLabelFunction {
 
     _styles
         .set('fill', 'black')
+        .set('fill-opacity', 1)
         .set('font-size', '12px')
         .set('font-weight', 'regular')
-        .set('stroke', 'none');
+        .set('stroke', 'none')
+        .set('stroke-opacity', 1);
 
     let _placement = 'c';
 
@@ -31,14 +36,20 @@ export function node_label (): NodeLabelFunction {
         _selection = selection
             .selectAll('text')
             .data(d => [d])
-            .join('text')
+            .join(
+                enter => enter.append('text')
+                    .call(apply_attributes)
+                    .call(apply_styles)
+                    .attr('x', 0)
+                    .attr('y', 0)
+                    .style('fill-opacity', 0)
+                    .style('stroke-opacity', 0)
+            )
             .text(d => d.data);
 
-        _attributes
-            .forEach((value, attr) => _selection.attr(attr, value));
-
-        _styles
-            .forEach((value, style) => _selection.style(style, value));
+        (_transition ? _selection.transition(_transition) : _selection)
+            .call(apply_attributes)
+            .call(apply_styles);
 
         return _selection;
 
@@ -47,7 +58,9 @@ export function node_label (): NodeLabelFunction {
     const _label: NodeLabelFunction = Object.assign(_function, {
         attr,
         style,
-        placement
+        placement,
+        transition,
+        exit: exit_label
     });
 
     return _label;
@@ -68,6 +81,28 @@ export function node_label (): NodeLabelFunction {
         if (!arguments.length) return _placement;
         _placement = placement;
         return _label;
+    }
+
+    function transition (transition?) {
+        if (!arguments.length) return _transition;
+        _transition = transition;
+        return _label;
+    }
+
+    function apply_attributes (selection) {
+        _attributes.forEach((value, attr) => selection.attr(attr, value));
+    }
+
+    function apply_styles (selection) {
+        _styles.forEach((value, style) => selection.style(style, value));
+    }
+
+    function exit_label (selection) {
+        (_transition ? selection.transition(_transition) : selection)
+            .attr('x', 0)
+            .attr('y', 0)
+            .style('fill-opacity', 0)
+            .style('stroke-opacity', 0);
     }
 
     function _x (d) {

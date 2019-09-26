@@ -1,6 +1,6 @@
 import * as d3 from 'd3';
 import { TreeLayoutPreferences } from './tree-layout-preferences';
-import { Instance } from '..';
+import { Atom, Instance, Signature, Skolem } from '..';
 
 export class TreeLayout {
 
@@ -49,8 +49,8 @@ export class TreeLayout {
         this._root = null;
         this._tree = d3.tree();
         this._linkHorizontal = d3.linkHorizontal()
-            .x(d => d.y)
-            .y(d => d.x);
+            .x(d => (d as any).y)
+            .y(d => (d as any).x);
 
         this.resize();
         this._extrasep = 0;
@@ -310,7 +310,7 @@ export class TreeLayout {
                 .transition(transition)
                 .attr('x', function () {
                     return d._children
-                        ? -this.getBBox().width - sep
+                        ? -(this as any).getBBox().width - sep
                         : sep;
                 })
         });
@@ -432,12 +432,16 @@ function translate (d) {
 
 function to_hierarchy (instance: Instance, p: TreeLayoutPreferences) {
 
-    return d3.hierarchy(instance, function (d) {
+    return d3.hierarchy(instance, function (d: any) {
 
         let type = d.expressionType();
 
-        if (type === 'instance')
-            return [d.univ()].concat(d.skolems());
+        if (type === 'instance') {
+            let arr: (Signature|Skolem)[] = [];
+            return arr
+                .concat(d.univ())
+                .concat(d.skolems())
+        }
 
         if (type !== 'tuple' && d.label() === 'univ')
             return d.signatures()
@@ -447,8 +451,8 @@ function to_hierarchy (instance: Instance, p: TreeLayoutPreferences) {
             return d.atoms();
 
         if (type === 'atom') {
-            let fields = d.signature().fields();
-            fields.forEach(field => field.atom = d);
+            let fields = (d as Atom).signature().fields();
+            fields.forEach((field: any) => field.atom = d);
             return fields;
         }
 

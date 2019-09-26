@@ -1,13 +1,16 @@
 interface RectangleFunction {
     attr: Function,
-    style: Function
+    style: Function,
+    transition: Function,
+    exit: Function
 }
 
 export function rectangle (): RectangleFunction {
 
     let _selection,
         _attributes = new Map(),
-        _styles = new Map();
+        _styles = new Map(),
+        _transition = null;
 
     _attributes
         .set('height', d => d.height ? d.height : 50)
@@ -25,13 +28,23 @@ export function rectangle (): RectangleFunction {
         _selection = selection
             .selectAll('rect')
             .data(d => [d])
-            .join('rect');
+            .join(
+                enter => enter.append('rect')
+                    .call(apply_attributes)
+                    .call(apply_styles)
+                    .attr('x', 0)
+                    .attr('y', 0)
+                    .attr('width', 0)
+                    .attr('height', 0),
+                update => update,
+                exit => exit
+                    .call(exit_rects)
+                    .remove()
+            );
 
-        _attributes
-            .forEach((value, attr) => _selection.attr(attr, value));
-
-        _styles
-            .forEach((value, style) => _selection.style(style, value));
+        (_transition ? _selection.transition(_transition) : _selection)
+            .call(apply_attributes)
+            .call(apply_styles);
 
         return _selection;
 
@@ -39,7 +52,9 @@ export function rectangle (): RectangleFunction {
 
     const _rectangle: RectangleFunction = Object.assign(_function, {
         attr,
-        style
+        style,
+        transition,
+        exit: exit_rects
     });
 
     return _rectangle;
@@ -54,6 +69,28 @@ export function rectangle (): RectangleFunction {
         if (arguments.length === 1) return _styles.get(s);
         _styles.set(s, v);
         return _rectangle;
+    }
+
+    function transition (transition?) {
+        if (!arguments.length) return _transition;
+        _transition = transition;
+        return _rectangle;
+    }
+
+    function apply_attributes (selection) {
+        _attributes.forEach((value, attr) => selection.attr(attr, value));
+    }
+
+    function apply_styles (selection) {
+        _styles.forEach((value, style) => selection.style(style, value));
+    }
+
+    function exit_rects (selection) {
+        (_transition ? selection.transition(_transition) : selection)
+            .attr('x', 0)
+            .attr('y', 0)
+            .attr('width', 0)
+            .attr('height', 0);
     }
 
 }

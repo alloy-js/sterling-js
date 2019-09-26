@@ -7988,7 +7988,7 @@
     }
 
     function rectangle() {
-        let _selection, _attributes = new Map(), _styles = new Map();
+        let _selection, _attributes = new Map(), _styles = new Map(), _transition = null;
         _attributes
             .set('height', d => d.height ? d.height : 50)
             .set('shape-rendering', 'geometricPrecision')
@@ -8002,16 +8002,25 @@
             _selection = selection
                 .selectAll('rect')
                 .data(d => [d])
-                .join('rect');
-            _attributes
-                .forEach((value, attr) => _selection.attr(attr, value));
-            _styles
-                .forEach((value, style) => _selection.style(style, value));
+                .join(enter => enter.append('rect')
+                .call(apply_attributes)
+                .call(apply_styles)
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', 0)
+                .attr('height', 0), update => update, exit => exit
+                .call(exit_rects)
+                .remove());
+            (_transition ? _selection.transition(_transition) : _selection)
+                .call(apply_attributes)
+                .call(apply_styles);
             return _selection;
         }
         const _rectangle = Object.assign(_function, {
             attr,
-            style
+            style,
+            transition,
+            exit: exit_rects
         });
         return _rectangle;
         function attr(a, v) {
@@ -8026,15 +8035,33 @@
             _styles.set(s, v);
             return _rectangle;
         }
+        function transition(transition) {
+            if (!arguments.length)
+                return _transition;
+            _transition = transition;
+            return _rectangle;
+        }
+        function apply_attributes(selection) {
+            _attributes.forEach((value, attr) => selection.attr(attr, value));
+        }
+        function apply_styles(selection) {
+            _styles.forEach((value, style) => selection.style(style, value));
+        }
+        function exit_rects(selection) {
+            (_transition ? selection.transition(_transition) : selection)
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', 0)
+                .attr('height', 0);
+        }
     }
 
     function line$1() {
-        let _selection, _attributes = new Map(), _styles = new Map();
+        let _selection, _attributes = new Map(), _styles = new Map(), _transition = null;
         let _l = line()
             .x(d => d.x)
             .y(d => d.y)
             .curve(basis);
-        _attributes.set('d', _l);
         _styles
             .set('fill', 'none')
             .set('stroke', '#000')
@@ -8043,15 +8070,21 @@
             _selection = selection
                 .selectAll('path')
                 .data(d => [d.points])
-                .join('path');
-            _attributes
-                .forEach((value, attr) => _selection.attr(attr, value));
-            _styles
-                .forEach((value, style) => _selection.style(style, value));
+                .join(enter => enter.append('path')
+                .attr('d', _l)
+                .call(enter => _transition ? transition_enter(enter) : enter), update => update
+                .call(update => _transition ? transition_update(update) : update));
+            _transition = null;
+            _selection
+                .call(apply_attributes)
+                .call(apply_styles);
+            return _selection;
         }
         const _line = Object.assign(_function, {
             attr,
-            style
+            style,
+            transition,
+            exit: transition_exit
         });
         return _line;
         function attr(a, v) {
@@ -8066,10 +8099,51 @@
             _styles.set(s, v);
             return _line;
         }
+        function transition(transition) {
+            if (!arguments.length)
+                return _transition;
+            _transition = transition;
+            return _line;
+        }
+        function transition_exit(exit) {
+            if (_transition) {
+                exit
+                    .attr('stroke-opacity', 1)
+                    .transition(_transition)
+                    .attr('stroke-opacity', 0);
+            }
+        }
+        function transition_enter(enter) {
+            return enter
+                .attr('stroke-opacity', 0)
+                .transition(_transition)
+                .attr('stroke-opacity', 1)
+                .attrTween('stroke-dasharray', tween_stroke_in)
+                .on('end', end_tween_stroke)
+                .on('interrupt', end_tween_stroke);
+        }
+        function transition_update(update) {
+            return update
+                .transition(_transition)
+                .attr('d', _l);
+        }
+        function tween_stroke_in() {
+            let l = this.getTotalLength(), i = interpolateString(`0,${l}`, `${l},${l}`);
+            return t => i(t);
+        }
+        function end_tween_stroke() {
+            select(this).attr('stroke-dasharray', null);
+        }
+        function apply_attributes(selection) {
+            _attributes.forEach((value, attr) => selection.attr(attr, value));
+        }
+        function apply_styles(selection) {
+            _styles.forEach((value, style) => selection.style(style, value));
+        }
     }
 
     function node_label() {
-        let _selection, _attributes = new Map(), _styles = new Map();
+        let _selection, _attributes = new Map(), _styles = new Map(), _transition = null;
         _attributes
             .set('dx', _dx)
             .set('dy', _dy)
@@ -8079,26 +8153,35 @@
             .set('y', _y);
         _styles
             .set('fill', 'black')
+            .set('fill-opacity', 1)
             .set('font-size', '12px')
             .set('font-weight', 'regular')
-            .set('stroke', 'none');
+            .set('stroke', 'none')
+            .set('stroke-opacity', 1);
         let _placement = 'c';
         function _function(selection) {
             _selection = selection
                 .selectAll('text')
                 .data(d => [d])
-                .join('text')
+                .join(enter => enter.append('text')
+                .call(apply_attributes)
+                .call(apply_styles)
+                .attr('x', 0)
+                .attr('y', 0)
+                .style('fill-opacity', 0)
+                .style('stroke-opacity', 0))
                 .text(d => d.data);
-            _attributes
-                .forEach((value, attr) => _selection.attr(attr, value));
-            _styles
-                .forEach((value, style) => _selection.style(style, value));
+            (_transition ? _selection.transition(_transition) : _selection)
+                .call(apply_attributes)
+                .call(apply_styles);
             return _selection;
         }
         const _label = Object.assign(_function, {
             attr,
             style,
-            placement
+            placement,
+            transition,
+            exit: exit_label
         });
         return _label;
         function attr(a, v) {
@@ -8118,6 +8201,25 @@
                 return _placement;
             _placement = placement;
             return _label;
+        }
+        function transition(transition) {
+            if (!arguments.length)
+                return _transition;
+            _transition = transition;
+            return _label;
+        }
+        function apply_attributes(selection) {
+            _attributes.forEach((value, attr) => selection.attr(attr, value));
+        }
+        function apply_styles(selection) {
+            _styles.forEach((value, style) => selection.style(style, value));
+        }
+        function exit_label(selection) {
+            (_transition ? selection.transition(_transition) : selection)
+                .attr('x', 0)
+                .attr('y', 0)
+                .style('fill-opacity', 0)
+                .style('stroke-opacity', 0);
         }
         function _x(d) {
             let width = d.width ? d.width : 0;
@@ -8194,33 +8296,41 @@
     }
 
     function edge_label() {
-        let _selection, _selector = 'text', _attributes = new Map(), _styles = new Map();
+        let _selection, _selector = 'text', _attributes = new Map(), _styles = new Map(), _transition = null;
         _attributes
             .set('dy', '0.31em')
-            .set('fill', 'black')
-            .set('font-size', '12px')
-            .set('font-weight', 'regular')
-            .set('stroke', 'none')
             .set('text-anchor', 'middle')
             .set('text-rendering', 'geometricPrecision')
             .set('x', d => d.x)
             .set('y', d => d.y);
+        _styles
+            .set('fill', 'black')
+            .set('fill-opacity', 1)
+            .set('font-size', '12px')
+            .set('font-weight', 'regular')
+            .set('stroke', 'none')
+            .set('stroke-opacity', 1);
         function _function(selection) {
             _selection = selection
                 .selectAll(_selector)
                 .data(d => [d])
-                .join('text')
+                .join(enter => enter.append('text')
+                .call(apply_attributes)
+                .call(apply_styles)
+                .style('fill-opacity', 0)
+                .style('stroke-opacity', 0))
                 .text(d => d.label);
-            _attributes
-                .forEach((value, attr) => _selection.attr(attr, value));
-            _styles
-                .forEach((value, style) => _selection.style(style, value));
+            (_transition ? _selection.transition(_transition) : _selection)
+                .call(apply_attributes)
+                .call(apply_styles);
             return _selection;
         }
         const _label = Object.assign(_function, {
             attr,
             style,
-            selector
+            selector,
+            transition,
+            exit: exit_label
         });
         return _label;
         function attr(a, v) {
@@ -8240,6 +8350,23 @@
                 return _selector;
             _selector = s;
             return _label;
+        }
+        function transition(transition) {
+            if (!arguments.length)
+                return _transition;
+            _transition = transition;
+            return _label;
+        }
+        function apply_attributes(selection) {
+            _attributes.forEach((value, attr) => selection.attr(attr, value));
+        }
+        function apply_styles(selection) {
+            _styles.forEach((value, style) => selection.style(style, value));
+        }
+        function exit_label(selection) {
+            (_transition ? selection.transition(_transition) : selection)
+                .style('fill-opacity', 0)
+                .style('stroke-opacity', 0);
         }
     }
 
@@ -8337,7 +8464,13 @@
         }
         layout(graph) {
             let { tree, edges } = graph.graph();
-            let transition = this._svg.transition().duration(500);
+            let transition = this._svg.transition().duration(400);
+            this._sig_rect.transition(transition);
+            this._sig_label.transition(transition);
+            this._atom_rect.transition(transition);
+            this._atom_label.transition(transition);
+            this._edge_line.transition(transition);
+            this._edge_label.transition(transition);
             this._position_compound_graph(tree, edges);
             let signatures = tree.descendants().filter(node => node.data.expressionType() === 'signature');
             let atoms = tree.descendants().filter(node => node.data.expressionType() === 'atom');
@@ -8359,17 +8492,30 @@
             this._sig_group
                 .selectAll('g.signature')
                 .data(d => d, d => d.data.id())
-                .join('g')
+                .join(enter => enter.append('g')
+                .attr('transform', d => `translate(${d.x},${d.y})`), update => update
+                .call(update => update.transition(transition)
+                .attr('transform', d => `translate(${d.x},${d.y})`)), exit => exit
+                .call(exit => exit.transition(transition).remove())
+                .selectAll('rect')
+                .call(this._sig_rect.exit)
+                .call(this._sig_label.exit))
                 .sort((a, b) => a.depth - b.depth)
                 .attr('class', 'signature')
                 .attr('id', d => d.data.id())
-                .attr('transform', d => `translate(${d.x},${d.y})`)
                 .call(this._sig_rect)
-                .call(this._sig_label);
+                .call(this._sig_label)
+                .transition(transition)
+                .attr('transform', d => `translate(${d.x},${d.y})`);
             this._edge_group
                 .selectAll('g.edge')
                 .data(d => d, d => d.data.id())
-                .join('g')
+                .join(enter => enter.append('g'), update => update, exit => exit
+                .call(exit => exit.transition(transition).remove())
+                .call(exit => exit.selectAll('path')
+                .call(this._edge_line.exit))
+                .call(exit => exit.selectAll('text')
+                .call(this._edge_label.exit)))
                 .attr('class', 'edge')
                 .call(this._edge_line)
                 .call(this._edge_label)
@@ -8377,9 +8523,15 @@
             this._atom_group
                 .selectAll('g.atom')
                 .data(d => d, d => d.data.id())
-                .join('g')
+                .join(enter => enter.append('g')
+                .attr('transform', d => `translate(${d.x},${d.y})`), update => update
+                .call(update => update.transition(transition)
+                .attr('transform', d => `translate(${d.x},${d.y})`)), exit => exit
+                .call(exit => exit.transition(transition).remove())
+                .selectAll('rect')
+                .call(this._atom_rect.exit)
+                .call(this._atom_label.exit))
                 .attr('class', 'atom')
-                .attr('transform', d => `translate(${d.x},${d.y})`)
                 .call(this._atom_rect)
                 .call(this._atom_label);
             this._make_voronoi();
@@ -8417,30 +8569,32 @@
                 .style('fill', 'steelblue');
             this._atom_label = node_label()
                 .style('fill', 'white')
+                .style('font-size', '16px')
                 .style('font-weight', 'bold');
             this._sig_rect = rectangle()
                 .attr('rx', 2)
-                .attr('stroke', '#777');
+                .style('stroke', '#999');
             this._sig_label = node_label()
                 .placement('tl')
-                .style('fill', '#777');
+                .style('font-size', '16px')
+                .style('fill', '#999');
             this._edge_arrow = arrow();
             this._edge_line = line$1();
             this._edge_label = edge_label()
-                .attr('fill', '#777');
+                .style('fill', '#777')
+                .style('font-size', '12px');
             this._hover_edge_line = line$1()
                 .style('stroke', 'steelblue')
                 .style('stroke-width', 3);
             this._hover_edge_label = edge_label()
-                .attr('font-size', '16px')
-                .attr('font-weight', 'bold');
+                .style('font-size', '16px');
             this._hover_edge_label_bg = edge_label()
                 .selector('.bg')
-                .attr('font-size', '16px')
-                .attr('font-weight', 'bold')
-                .attr('stroke-linejoin', 'round')
-                .attr('stroke-width', 15)
-                .attr('stroke', 'white');
+                .style('font-size', '16px')
+                .style('font-weight', 'bold')
+                .style('stroke-linejoin', 'round')
+                .style('stroke-width', 15)
+                .style('stroke', 'white');
             this._hover_edge_arrow = arrow()
                 .style('stroke', 'steelblue')
                 .style('fill', 'steelblue')
@@ -8508,9 +8662,9 @@
                 .attr('d', line$1)
                 .on('mouseover', (d, i) => {
                 let s = select(this._points[i].element)
-                    .call(this._hover_edge_line)
+                    .call(this._hover_edge_line.transition(null))
                     .call(this._hover_edge_arrow)
-                    .call(this._hover_edge_label)
+                    .call(this._hover_edge_label.transition(null))
                     .raise();
                 this._hover_edge_label_bg(s)
                     .attr('class', 'bg')
@@ -8521,9 +8675,9 @@
                 s.selectAll('.bg')
                     .remove();
                 s
-                    .call(this._edge_line)
+                    .call(this._edge_line.transition(null))
                     .call(this._edge_arrow)
-                    .call(this._edge_label);
+                    .call(this._edge_label.transition(null));
             });
         }
     }
@@ -9423,8 +9577,12 @@
     function to_hierarchy(instance, p) {
         return hierarchy(instance, function (d) {
             let type = d.expressionType();
-            if (type === 'instance')
-                return [d.univ()].concat(d.skolems());
+            if (type === 'instance') {
+                let arr = [];
+                return arr
+                    .concat(d.univ())
+                    .concat(d.skolems());
+            }
             if (type !== 'tuple' && d.label() === 'univ')
                 return d.signatures()
                     .filter(s => p.show_builtins ? true : !s.builtin());
@@ -9432,7 +9590,7 @@
                 return d.atoms();
             if (type === 'atom') {
                 let fields = d.signature().fields();
-                fields.forEach(field => field.atom = d);
+                fields.forEach((field) => field.atom = d);
                 return fields;
             }
             if (type === 'field')

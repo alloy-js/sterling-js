@@ -301,8 +301,12 @@ function translate(d) {
 function to_hierarchy(instance, p) {
     return d3.hierarchy(instance, function (d) {
         let type = d.expressionType();
-        if (type === 'instance')
-            return [d.univ()].concat(d.skolems());
+        if (type === 'instance') {
+            let arr = [];
+            return arr
+                .concat(d.univ())
+                .concat(d.skolems());
+        }
         if (type !== 'tuple' && d.label() === 'univ')
             return d.signatures()
                 .filter(s => p.show_builtins ? true : !s.builtin());
@@ -310,7 +314,7 @@ function to_hierarchy(instance, p) {
             return d.atoms();
         if (type === 'atom') {
             let fields = d.signature().fields();
-            fields.forEach(field => field.atom = d);
+            fields.forEach((field) => field.atom = d);
             return fields;
         }
         if (type === 'field')

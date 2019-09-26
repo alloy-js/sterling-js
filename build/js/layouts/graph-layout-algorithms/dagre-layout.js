@@ -34,7 +34,13 @@ export class DagreLayout {
     }
     layout(graph) {
         let { tree, edges } = graph.graph();
-        let transition = this._svg.transition().duration(500);
+        let transition = this._svg.transition().duration(400);
+        this._sig_rect.transition(transition);
+        this._sig_label.transition(transition);
+        this._atom_rect.transition(transition);
+        this._atom_label.transition(transition);
+        this._edge_line.transition(transition);
+        this._edge_label.transition(transition);
         this._position_compound_graph(tree, edges);
         let signatures = tree.descendants().filter(node => node.data.expressionType() === 'signature');
         let atoms = tree.descendants().filter(node => node.data.expressionType() === 'atom');
@@ -56,17 +62,30 @@ export class DagreLayout {
         this._sig_group
             .selectAll('g.signature')
             .data(d => d, d => d.data.id())
-            .join('g')
+            .join(enter => enter.append('g')
+            .attr('transform', d => `translate(${d.x},${d.y})`), update => update
+            .call(update => update.transition(transition)
+            .attr('transform', d => `translate(${d.x},${d.y})`)), exit => exit
+            .call(exit => exit.transition(transition).remove())
+            .selectAll('rect')
+            .call(this._sig_rect.exit)
+            .call(this._sig_label.exit))
             .sort((a, b) => a.depth - b.depth)
             .attr('class', 'signature')
             .attr('id', d => d.data.id())
-            .attr('transform', d => `translate(${d.x},${d.y})`)
             .call(this._sig_rect)
-            .call(this._sig_label);
+            .call(this._sig_label)
+            .transition(transition)
+            .attr('transform', d => `translate(${d.x},${d.y})`);
         this._edge_group
             .selectAll('g.edge')
             .data(d => d, d => d.data.id())
-            .join('g')
+            .join(enter => enter.append('g'), update => update, exit => exit
+            .call(exit => exit.transition(transition).remove())
+            .call(exit => exit.selectAll('path')
+            .call(this._edge_line.exit))
+            .call(exit => exit.selectAll('text')
+            .call(this._edge_label.exit)))
             .attr('class', 'edge')
             .call(this._edge_line)
             .call(this._edge_label)
@@ -74,9 +93,15 @@ export class DagreLayout {
         this._atom_group
             .selectAll('g.atom')
             .data(d => d, d => d.data.id())
-            .join('g')
+            .join(enter => enter.append('g')
+            .attr('transform', d => `translate(${d.x},${d.y})`), update => update
+            .call(update => update.transition(transition)
+            .attr('transform', d => `translate(${d.x},${d.y})`)), exit => exit
+            .call(exit => exit.transition(transition).remove())
+            .selectAll('rect')
+            .call(this._atom_rect.exit)
+            .call(this._atom_label.exit))
             .attr('class', 'atom')
-            .attr('transform', d => `translate(${d.x},${d.y})`)
             .call(this._atom_rect)
             .call(this._atom_label);
         this._make_voronoi();
@@ -114,30 +139,32 @@ export class DagreLayout {
             .style('fill', 'steelblue');
         this._atom_label = node_label()
             .style('fill', 'white')
+            .style('font-size', '16px')
             .style('font-weight', 'bold');
         this._sig_rect = rectangle()
             .attr('rx', 2)
-            .attr('stroke', '#777');
+            .style('stroke', '#999');
         this._sig_label = node_label()
             .placement('tl')
-            .style('fill', '#777');
+            .style('font-size', '16px')
+            .style('fill', '#999');
         this._edge_arrow = arrow();
         this._edge_line = line();
         this._edge_label = edge_label()
-            .attr('fill', '#777');
+            .style('fill', '#777')
+            .style('font-size', '12px');
         this._hover_edge_line = line()
             .style('stroke', 'steelblue')
             .style('stroke-width', 3);
         this._hover_edge_label = edge_label()
-            .attr('font-size', '16px')
-            .attr('font-weight', 'bold');
+            .style('font-size', '16px');
         this._hover_edge_label_bg = edge_label()
             .selector('.bg')
-            .attr('font-size', '16px')
-            .attr('font-weight', 'bold')
-            .attr('stroke-linejoin', 'round')
-            .attr('stroke-width', 15)
-            .attr('stroke', 'white');
+            .style('font-size', '16px')
+            .style('font-weight', 'bold')
+            .style('stroke-linejoin', 'round')
+            .style('stroke-width', 15)
+            .style('stroke', 'white');
         this._hover_edge_arrow = arrow()
             .style('stroke', 'steelblue')
             .style('fill', 'steelblue')
@@ -205,9 +232,9 @@ export class DagreLayout {
             .attr('d', line)
             .on('mouseover', (d, i) => {
             let s = d3.select(this._points[i].element)
-                .call(this._hover_edge_line)
+                .call(this._hover_edge_line.transition(null))
                 .call(this._hover_edge_arrow)
-                .call(this._hover_edge_label)
+                .call(this._hover_edge_label.transition(null))
                 .raise();
             this._hover_edge_label_bg(s)
                 .attr('class', 'bg')
@@ -218,9 +245,9 @@ export class DagreLayout {
             s.selectAll('.bg')
                 .remove();
             s
-                .call(this._edge_line)
+                .call(this._edge_line.transition(null))
                 .call(this._edge_arrow)
-                .call(this._edge_label);
+                .call(this._edge_label.transition(null));
         });
     }
 }

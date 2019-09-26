@@ -1,22 +1,24 @@
 import * as d3 from 'd3';
+// import interpolatePath from 'd3-interpolate-path';
 
 interface LineFunction {
     attr: Function,
-    style: Function
+    style: Function,
+    transition: Function,
+    exit: Function
 }
 
 export function line (): LineFunction {
 
     let _selection,
         _attributes = new Map(),
-        _styles = new Map();
+        _styles = new Map(),
+        _transition = null;
 
     let _l = d3.line()
         .x(d => (d as any).x)
         .y(d => (d as any).y)
         .curve(d3.curveBasis);
-
-    _attributes.set('d', _l);
 
     _styles
         .set('fill', 'none')
@@ -28,19 +30,29 @@ export function line (): LineFunction {
         _selection = selection
             .selectAll('path')
             .data(d => [d.points])
-            .join('path');
+            .join(
+                enter => enter.append('path')
+                    .attr('d', _l)
+                    .call(enter => _transition ? transition_enter(enter) : enter),
+                update => update
+                    .call(update => _transition ? transition_update(update) : update)
+            );
 
-        _attributes
-            .forEach((value, attr) => _selection.attr(attr, value));
+        _transition = null;
 
-        _styles
-            .forEach((value, style) => _selection.style(style, value));
+        _selection
+            .call(apply_attributes)
+            .call(apply_styles);
+
+        return _selection;
 
     }
 
     const _line: LineFunction = Object.assign(_function, {
         attr,
-        style
+        style,
+        transition,
+        exit: transition_exit
     });
 
     return _line;
@@ -57,56 +69,53 @@ export function line (): LineFunction {
         return _line;
     }
 
-}
-
-export function line_ () {
-
-    let _l = d3.line()
-        .x(d => (d as any).x)
-        .y(d => (d as any).y)
-        .curve(d3.curveBasis);
-
-    let _transition;
-
-    let _lines,
-        _stroke = '#000',
-        _stroke_width = 1;
-
-    function _line (selection) {
-
-        _lines = selection
-            .selectAll('path')
-            .data(d => [d.points])
-            .join('path')
-            .attr('d', _l);
-
-        _lines
-            .style('fill', 'none')
-            .style('stroke', _stroke)
-            .style('stroke-width', _stroke_width);
-
-        return _lines;
-
-    }
-
-    (_line as any).stroke = function (stroke?) {
-        if (!arguments.length) return _stroke;
-        _stroke = stroke;
-        return _line;
-    };
-
-    (_line as any).stroke_width = function (stroke_width?) {
-        if (!arguments.length) return _stroke_width;
-        _stroke_width = stroke_width;
-        return _line;
-    };
-
-    (_line as any).transition = function (transition?) {
+    function transition (transition?) {
         if (!arguments.length) return _transition;
         _transition = transition;
         return _line;
-    };
+    }
 
-    return _line as any;
+    function transition_exit (exit) {
+        if (_transition) {
+            exit
+                .attr('stroke-opacity', 1)
+                .transition(_transition)
+                .attr('stroke-opacity', 0)
+        }
+    }
+
+    function transition_enter (enter) {
+        return enter
+            .attr('stroke-opacity', 0)
+            .transition(_transition)
+            .attr('stroke-opacity', 1)
+            .attrTween('stroke-dasharray', tween_stroke_in)
+            .on('end', end_tween_stroke)
+            .on('interrupt', end_tween_stroke);
+    }
+
+    function transition_update (update) {
+        return update
+            .transition(_transition)
+            .attr('d', _l);
+    }
+
+    function tween_stroke_in () {
+        let l = this.getTotalLength(),
+            i = d3.interpolateString(`0,${l}`, `${l},${l}`);
+        return t => i(t);
+    }
+
+    function end_tween_stroke () {
+        d3.select(this).attr('stroke-dasharray', null);
+    }
+
+    function apply_attributes (selection) {
+        _attributes.forEach((value, attr) => selection.attr(attr, value));
+    }
+
+    function apply_styles (selection) {
+        _styles.forEach((value, style) => selection.style(style, value));
+    }
 
 }
