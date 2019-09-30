@@ -2,14 +2,17 @@ interface ArrowFunction {
     attr: Function,
     height: Function,
     style: Function,
-    width: Function
+    width: Function,
+    transition: Function,
+    exit: Function
 }
 
 export function arrow () {
 
     let _selection,
         _attributes = new Map(),
-        _styles = new Map();
+        _styles = new Map(),
+        _transition = null;
 
     let _w = 3,
         _h = 10,
@@ -24,16 +27,17 @@ export function arrow () {
         _selection = selection
             .selectAll('path.arrow')
             .data(d => [d])
-            .join('path')
-            .attr('class', 'arrow')
-            .attr('d', `M -${_h-_o} -${_w} L ${_o} 0 L -${_h-_o} ${_w} z`)
-            .attr('transform', _transform);
+            .join(
+                enter => enter.append('path')
+                    .attr('class', 'arrow')
+                    .attr('d', `M -${_h-_o} -${_w} L ${_o} 0 L -${_h-_o} ${_w} z`)
+                    .attr('transform', _transform)
+                    .call(enter => _transition ? transition_enter(enter) : enter)
+            );
 
-        _attributes
-            .forEach((value, attr) => _selection.attr(attr, value));
-
-        _styles
-            .forEach((value, style) => _selection.style(style, value));
+        _selection
+            .call(apply_attributes)
+            .call(apply_styles);
 
     }
 
@@ -41,7 +45,9 @@ export function arrow () {
         attr,
         height,
         style,
-        width
+        width,
+        transition,
+        exit: transition_exit
     });
 
     return _arrow;
@@ -75,10 +81,44 @@ export function arrow () {
         return _arrow;
     }
 
-    function width (width) {
+    function transition (transition?) {
+        if (!arguments.length) return _transition;
+        _transition = transition;
+        return _arrow;
+    }
+
+    function transition_enter (enter) {
+        return enter
+            .style('stroke-opacity', 0)
+            .style('fill-opacity', 0)
+            .transition(_transition)
+            .style('stroke-opacity', 1)
+            .style('fill-opacity', 1);
+    }
+
+    function transition_exit (exit) {
+        if (_transition) {
+            exit
+                .style('stroke-opacity', 1)
+                .style('fill-opacity', 1)
+                .transition(_transition)
+                .style('stroke-opacity', 0)
+                .style('fill-opacity', 0);
+        }
+    }
+
+    function width (width?) {
         if (!arguments.length) return _w;
         _w = +width;
         return _arrow;
+    }
+
+    function apply_attributes (selection) {
+        _attributes.forEach((value, attr) => selection.attr(attr, value));
+    }
+
+    function apply_styles (selection) {
+        _styles.forEach((value, style) => selection.style(style, value));
     }
 
 }

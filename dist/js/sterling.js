@@ -8056,92 +8056,6 @@
         }
     }
 
-    function line$1() {
-        let _selection, _attributes = new Map(), _styles = new Map(), _transition = null;
-        let _l = line()
-            .x(d => d.x)
-            .y(d => d.y)
-            .curve(basis);
-        _styles
-            .set('fill', 'none')
-            .set('stroke', '#000')
-            .set('stroke-width', 1);
-        function _function(selection) {
-            _selection = selection
-                .selectAll('path')
-                .data(d => [d.points])
-                .join(enter => enter.append('path')
-                .attr('d', _l)
-                .call(enter => _transition ? transition_enter(enter) : enter), update => update
-                .call(update => _transition ? transition_update(update) : update));
-            _transition = null;
-            _selection
-                .call(apply_attributes)
-                .call(apply_styles);
-            return _selection;
-        }
-        const _line = Object.assign(_function, {
-            attr,
-            style,
-            transition,
-            exit: transition_exit
-        });
-        return _line;
-        function attr(a, v) {
-            if (arguments.length === 1)
-                return _attributes.get(a);
-            _attributes.set(a, v);
-            return _line;
-        }
-        function style(s, v) {
-            if (arguments.length === 1)
-                return _styles.get(s);
-            _styles.set(s, v);
-            return _line;
-        }
-        function transition(transition) {
-            if (!arguments.length)
-                return _transition;
-            _transition = transition;
-            return _line;
-        }
-        function transition_exit(exit) {
-            if (_transition) {
-                exit
-                    .attr('stroke-opacity', 1)
-                    .transition(_transition)
-                    .attr('stroke-opacity', 0);
-            }
-        }
-        function transition_enter(enter) {
-            return enter
-                .attr('stroke-opacity', 0)
-                .transition(_transition)
-                .attr('stroke-opacity', 1)
-                .attrTween('stroke-dasharray', tween_stroke_in)
-                .on('end', end_tween_stroke)
-                .on('interrupt', end_tween_stroke);
-        }
-        function transition_update(update) {
-            return update
-                .transition(_transition)
-                .attr('d', _l);
-        }
-        function tween_stroke_in() {
-            let l = this.getTotalLength(), i = interpolateString(`0,${l}`, `${l},${l}`);
-            return t => i(t);
-        }
-        function end_tween_stroke() {
-            select(this).attr('stroke-dasharray', null);
-        }
-        function apply_attributes(selection) {
-            _attributes.forEach((value, attr) => selection.attr(attr, value));
-        }
-        function apply_styles(selection) {
-            _styles.forEach((value, style) => selection.style(style, value));
-        }
-    }
-
     function node_label() {
         let _selection, _attributes = new Map(), _styles = new Map(), _transition = null;
         _attributes
@@ -8295,144 +8209,228 @@
         }
     }
 
-    function edge_label() {
-        let _selection, _selector = 'text', _attributes = new Map(), _styles = new Map(), _transition = null;
-        _attributes
-            .set('dy', '0.31em')
-            .set('text-anchor', 'middle')
-            .set('text-rendering', 'geometricPrecision')
-            .set('x', d => d.x)
-            .set('y', d => d.y);
-        _styles
-            .set('fill', 'black')
-            .set('fill-opacity', 1)
-            .set('font-size', '12px')
-            .set('font-weight', 'regular')
-            .set('stroke', 'none')
-            .set('stroke-opacity', 1);
+    function edge() {
+        let _selection = null;
+        let _transition = transition().duration(0);
+        // Arrow properties
+        let _arrow_width = 3, _arrow_height = 10, _arrow_offset = 2;
+        // Edge properties
+        let _line = line()
+            .x(d => d.x)
+            .y(d => d.y)
+            .curve(basis);
         function _function(selection) {
-            _selection = selection
-                .selectAll(_selector)
-                .data(d => [d])
-                .join(enter => enter.append('text')
-                .call(apply_attributes)
-                .call(apply_styles)
-                .style('fill-opacity', 0)
-                .style('stroke-opacity', 0))
-                .text(d => d.label);
-            (_transition ? _selection.transition(_transition) : _selection)
-                .call(apply_attributes)
-                .call(apply_styles);
-            return _selection;
+            // Add new groups
+            let enter = selection
+                .enter()
+                .append('g')
+                .attr('class', 'edge');
+            enter
+                .attr('opacity', 0)
+                .transition(_transition)
+                .attr('opacity', 1);
+            // Add all elements to enter selection
+            _enter_paths(enter);
+            _enter_arrows(enter);
+            _enter_rects(enter);
+            _enter_labels(enter);
+            // Update existing elements
+            _update_paths(selection);
+            _update_arrows(selection);
+            _update_rects(selection);
+            _update_labels(selection);
+            // Remove exiting groups
+            selection
+                .exit()
+                .transition(_transition)
+                .attr('opacity', 0)
+                .remove();
+            _selection = enter.merge(selection);
         }
-        const _label = Object.assign(_function, {
-            attr,
-            style,
-            selector,
-            transition,
-            exit: exit_label
+        const _edge = Object.assign(_function, {
+            highlight,
+            points,
+            transition: transition$1
         });
-        return _label;
-        function attr(a, v) {
-            if (arguments.length === 1)
-                return _attributes.get(a);
-            _attributes.set(a, v);
-            return _label;
+        return _edge;
+        function highlight(edge) {
+            // Bring the supplied edge to the top
+            select(edge).raise();
+            // If there's no selection for some reason, just return
+            if (!_selection)
+                return;
+            if (edge === null) {
+                // Return all edges back to normal
+                _selection
+                    .each(_make_normal);
+            }
+            else {
+                // Dim all others while we highlight the provided edge
+                if (_selection) {
+                    _selection
+                        .each(function () {
+                        this === edge
+                            ? _make_highlighted.call(this)
+                            : _make_dimmed.call(this);
+                    });
+                }
+            }
         }
-        function style(s, v) {
-            if (arguments.length === 1)
-                return _styles.get(s);
-            _styles.set(s, v);
-            return _label;
+        function points() {
+            if (!_selection)
+                return [];
+            let points = [];
+            _selection.each(function (d) {
+                d.points.forEach(point => {
+                    points.push({
+                        x: point.x,
+                        y: point.y,
+                        element: this
+                    });
+                });
+            });
+            return points;
         }
-        function selector(s) {
-            if (!arguments.length)
-                return _selector;
-            _selector = s;
-            return _label;
-        }
-        function transition(transition) {
+        function transition$1(transition) {
             if (!arguments.length)
                 return _transition;
             _transition = transition;
-            return _label;
+            return _edge;
         }
-        function apply_attributes(selection) {
-            _attributes.forEach((value, attr) => selection.attr(attr, value));
-        }
-        function apply_styles(selection) {
-            _styles.forEach((value, style) => selection.style(style, value));
-        }
-        function exit_label(selection) {
-            (_transition ? selection.transition(_transition) : selection)
-                .style('fill-opacity', 0)
-                .style('stroke-opacity', 0);
-        }
-    }
-
-    function arrow() {
-        let _selection, _attributes = new Map(), _styles = new Map();
-        let _w = 3, _h = 10, _o = 2;
-        _styles
-            .set('stroke', 'black')
-            .set('fill', 'black');
-        function _function(selection) {
-            _selection = selection
-                .selectAll('path.arrow')
-                .data(d => [d])
-                .join('path')
+        function _enter_arrows(enter) {
+            enter
+                .append('path')
                 .attr('class', 'arrow')
-                .attr('d', `M -${_h - _o} -${_w} L ${_o} 0 L -${_h - _o} ${_w} z`)
-                .attr('transform', _transform);
-            _attributes
-                .forEach((value, attr) => _selection.attr(attr, value));
-            _styles
-                .forEach((value, style) => _selection.style(style, value));
+                .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
+                .attr('transform', arrow_transform);
         }
-        const _arrow = Object.assign(_function, {
-            attr,
-            height,
-            style,
-            width
-        });
-        return _arrow;
-        function _transform(d) {
-            let points = d.points;
-            if (points.length > 1) {
-                let prev = points[points.length - 2];
-                let edge = points[points.length - 1];
-                let angle = find_angle(edge, prev);
-                return `translate(${edge.x},${edge.y}) rotate(${angle})`;
-            }
-            return null;
+        function _enter_labels(enter) {
+            enter
+                .append('text')
+                .attr('class', 'label')
+                .attr('x', d => d.x)
+                .attr('y', d => d.y)
+                .attr('text-anchor', 'middle')
+                .attr('dy', '0.31em')
+                .text(d => d.label);
         }
-        function attr(a, v) {
-            if (arguments.length === 1)
-                return _attributes.get(a);
-            _attributes.set(a, v);
-            return _arrow;
+        function _enter_paths(enter) {
+            enter
+                .append('path')
+                .attr('class', 'edge')
+                .attr('d', d => _line(d.points))
+                .attr('fill', 'none')
+                .attr('stroke', 'black')
+                .transition(_transition)
+                .attrTween('stroke-dasharray', function () {
+                let l = this.getTotalLength(), i = interpolateString(`0,${l}`, `${l},${l}`);
+                return t => i(t);
+            })
+                .on('end', function () {
+                select(this)
+                    .attr('stroke-dasharray', null);
+            })
+                .on('interrupt', function () {
+                select(this)
+                    .attr('stroke-dasharray', null);
+            });
         }
-        function height(height) {
-            if (!arguments.length)
-                return _h;
-            _h = +height;
-            return _arrow;
+        function _enter_rects(enter) {
+            enter
+                .append('rect')
+                .attr('class', 'bg')
+                .attr('display', 'none');
         }
-        function style(s, v) {
-            if (arguments.length === 1)
-                return _styles.get(s);
-            _styles.set(s, v);
-            return _arrow;
+        function _update_arrows(update) {
+            update
+                .select('path.arrow')
+                .transition(_transition)
+                .attr('transform', arrow_transform);
         }
-        function width(width) {
-            if (!arguments.length)
-                return _w;
-            _w = +width;
-            return _arrow;
+        function _update_labels(update) {
+            update
+                .select('text.label')
+                .transition(_transition)
+                .attr('x', d => d.x)
+                .attr('y', d => d.y);
+        }
+        function _update_paths(update) {
+            update
+                .select('path.edge')
+                .transition(_transition)
+                .attr('d', d => _line(d.points));
+        }
+        function _update_rects(update) {
+            update
+                .select('rect.bg')
+                .transition(_transition)
+                .attr('x', d => d.x)
+                .attr('y', d => d.y);
+        }
+        function _make_highlighted() {
+            let edge = select(this);
+            let text = edge.select('text')
+                .attr('display', null);
+            edge.select('path.edge')
+                .attr('stroke', 'steelblue')
+                .attr('stroke-width', 3);
+            edge.select('path.arrow')
+                .attr('d', arrow_head(4, _arrow_height, _arrow_offset))
+                .attr('stroke', 'steelblue')
+                .attr('fill', 'steelblue');
+            let bbox = text.node().getBBox();
+            edge.select('rect.bg')
+                .attr('x', d => d.x - bbox.width / 2)
+                .attr('y', d => d.y - bbox.height / 2)
+                .attr('width', bbox.width)
+                .attr('height', bbox.height)
+                .attr('stroke', 'none')
+                .attr('fill', 'white')
+                .attr('fill-opacity', 0.8)
+                .attr('display', null);
+        }
+        function _make_dimmed() {
+            let edge = select(this);
+            edge.select('text')
+                .attr('display', 'none');
+            edge.select('path.edge')
+                .attr('stroke', 'black')
+                .attr('stroke-width', null);
+            edge.select('path.arrow')
+                .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
+                .attr('stroke', 'black')
+                .attr('fill', 'black');
+            edge.select('rect.bg')
+                .attr('display', 'none');
+        }
+        function _make_normal() {
+            let edge = select(this);
+            edge.select('text')
+                .attr('display', null)
+                .style('font-size', null);
+            edge.select('path.edge')
+                .attr('stroke', 'black')
+                .attr('stroke-width', null);
+            edge.select('path.arrow')
+                .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
+                .attr('stroke', 'black')
+                .attr('fill', 'black');
+            edge.select('rect.bg')
+                .attr('display', 'none');
         }
     }
-    function find_angle(p1, p2) {
-        return Math.atan2(p1.y - p2.y, p1.x - p2.x) * (180 / Math.PI);
+    function arrow_head(w, h, o) {
+        return `M -${h - o} -${w} L ${o} 0 L -${h - o} ${w} z`;
+    }
+    function arrow_transform(d) {
+        let points = d.points;
+        if (points.length > 1) {
+            let p2 = points[points.length - 2];
+            let p1 = points[points.length - 1];
+            let angle = Math.atan2(p1.y - p2.y, p1.x - p2.x) * (180 / Math.PI);
+            return `translate(${p1.x},${p1.y}) rotate(${angle})`;
+        }
+        return null;
     }
 
     class DagreLayout {
@@ -8444,6 +8442,7 @@
             this._svg = svg;
             this._svg_width = parseInt(this._svg.style('width'));
             this._svg_height = parseInt(this._svg.style('height'));
+            this._delaunaygroup = this._svg.append('g').attr('class', 'delaunay');
             this._zoom = zoom()
                 .on('zoom', () => {
                 if (this._sig_group)
@@ -8469,8 +8468,6 @@
             this._sig_label.transition(transition);
             this._atom_rect.transition(transition);
             this._atom_label.transition(transition);
-            this._edge_line.transition(transition);
-            this._edge_label.transition(transition);
             this._position_compound_graph(tree, edges);
             let signatures = tree.descendants().filter(node => node.data.expressionType() === 'signature');
             let atoms = tree.descendants().filter(node => node.data.expressionType() === 'atom');
@@ -8510,16 +8507,7 @@
             this._edge_group
                 .selectAll('g.edge')
                 .data(d => d, d => d.data.id())
-                .join(enter => enter.append('g'), update => update, exit => exit
-                .call(exit => exit.transition(transition).remove())
-                .call(exit => exit.selectAll('path')
-                .call(this._edge_line.exit))
-                .call(exit => exit.selectAll('text')
-                .call(this._edge_label.exit)))
-                .attr('class', 'edge')
-                .call(this._edge_line)
-                .call(this._edge_label)
-                .call(this._edge_arrow);
+                .call(this._edge.transition(transition));
             this._atom_group
                 .selectAll('g.atom')
                 .data(d => d, d => d.data.id())
@@ -8534,7 +8522,6 @@
                 .attr('class', 'atom')
                 .call(this._atom_rect)
                 .call(this._atom_label);
-            this._make_voronoi();
             let w = parseInt(this._svg.style('width')), h = parseInt(this._svg.style('height')), scale = 0.9 / Math.max(this.width() / w, this.height() / h);
             transition
                 .call(this._zoom.transform, identity$2
@@ -8544,6 +8531,7 @@
             this._svg
                 .select('#univ')
                 .style('display', 'none');
+            transition.on('end', this._make_voronoi_new.bind(this));
         }
         edges() {
             return this._edges;
@@ -8578,27 +8566,7 @@
                 .placement('tl')
                 .style('font-size', '16px')
                 .style('fill', '#999');
-            this._edge_arrow = arrow();
-            this._edge_line = line$1();
-            this._edge_label = edge_label()
-                .style('fill', '#777')
-                .style('font-size', '12px');
-            this._hover_edge_line = line$1()
-                .style('stroke', 'steelblue')
-                .style('stroke-width', 3);
-            this._hover_edge_label = edge_label()
-                .style('font-size', '16px');
-            this._hover_edge_label_bg = edge_label()
-                .selector('.bg')
-                .style('font-size', '16px')
-                .style('font-weight', 'bold')
-                .style('stroke-linejoin', 'round')
-                .style('stroke-width', 15)
-                .style('stroke', 'white');
-            this._hover_edge_arrow = arrow()
-                .style('stroke', 'steelblue')
-                .style('fill', 'steelblue')
-                .width(4);
+            this._edge = edge();
         }
         _position_compound_graph(tree, edges) {
             let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });
@@ -8629,56 +8597,27 @@
             this._nodes = tree.descendants();
             this._edges = edges;
         }
-        _make_voronoi() {
-            this._points = [];
-            let points = this._points;
-            this._edge_group
-                .selectAll('g.edge')
-                .each(function (d) {
-                d.points.forEach(point => {
-                    points.push({
-                        x: point.x,
-                        y: point.y,
-                        element: this
-                    });
-                });
-            });
-            this._delaunay = Delaunay
+        _make_voronoi_new() {
+            let points = this._edge.points();
+            let delaunay = Delaunay
                 .from(points, d => d.x, d => d.y)
                 .voronoi(_padded_bbox(points, 20));
-            let paths = Array.from(this._delaunay.cellPolygons());
-            let line$1 = line();
-            this._delaunaygroup = this._svg
-                .selectAll('g.delaunay')
-                .data([paths])
-                .join('g')
-                .attr('class', 'delaunay');
+            let paths = Array.from(delaunay.cellPolygons());
             this._delaunaygroup
-                .selectAll('path')
-                .data(d => d)
-                .join('path')
                 .attr('fill', 'transparent')
                 .attr('stroke', 'none')
-                .attr('d', line$1)
+                .selectAll('path')
+                .data(paths)
+                .join('path')
+                .attr('d', line())
                 .on('mouseover', (d, i) => {
-                let s = select(this._points[i].element)
-                    .call(this._hover_edge_line.transition(null))
-                    .call(this._hover_edge_arrow)
-                    .call(this._hover_edge_label.transition(null))
-                    .raise();
-                this._hover_edge_label_bg(s)
-                    .attr('class', 'bg')
-                    .lower();
+                this._edge.highlight(points[i].element);
             })
-                .on('mouseout', (d, i) => {
-                let s = select(this._points[i].element);
-                s.selectAll('.bg')
-                    .remove();
-                s
-                    .call(this._edge_line.transition(null))
-                    .call(this._edge_arrow)
-                    .call(this._edge_label.transition(null));
+                .on('mouseout', () => {
+                this._edge.highlight(null);
             });
+            this._delaunaygroup
+                .raise();
         }
     }
     function _edge_label(edge) {
@@ -8855,13 +8794,13 @@
                 .style('user-select', 'none')
                 .style('font-family', 'monospace')
                 .style('font-size', '10px');
+            this._dagre = new DagreLayout(this._svg);
         }
         resize() {
         }
         set_instance(instance) {
-            let dag = new DagreLayout(this._svg);
             let graph = new AlloyGraph(instance);
-            dag.layout(graph);
+            this._dagre.layout(graph);
         }
     }
 

@@ -1,74 +1,107 @@
 import * as d3 from 'd3';
-function edge() {
+
+interface EdgeFunction {
+    highlight: Function,
+    points: Function,
+    transition: Function,
+}
+
+function edge (): EdgeFunction {
+
     let _selection = null;
     let _transition = d3.transition().duration(0);
+
     // Arrow properties
-    let _arrow_width = 3, _arrow_height = 10, _arrow_offset = 2;
+    let _arrow_width = 3,
+        _arrow_height = 10,
+        _arrow_offset = 2;
+
     // Edge properties
     let _line = d3.line()
-        .x(d => d.x)
-        .y(d => d.y)
+        .x(d => (d as any).x)
+        .y(d => (d as any).y)
         .curve(d3.curveBasis);
-    function _function(selection) {
+
+    function _function (selection) {
+
         // Add new groups
         let enter = selection
             .enter()
             .append('g')
             .attr('class', 'edge');
+
         enter
             .attr('opacity', 0)
             .transition(_transition)
             .attr('opacity', 1);
+
         // Add all elements to enter selection
         _enter_paths(enter);
         _enter_arrows(enter);
         _enter_rects(enter);
         _enter_labels(enter);
+
         // Update existing elements
         _update_paths(selection);
         _update_arrows(selection);
         _update_rects(selection);
         _update_labels(selection);
+
         // Remove exiting groups
         selection
             .exit()
             .transition(_transition)
             .attr('opacity', 0)
             .remove();
+
         _selection = enter.merge(selection);
+
     }
+
     const _edge = Object.assign(_function, {
         highlight,
         points,
         transition
     });
+
     return _edge;
-    function highlight(edge) {
+
+    function highlight (edge) {
+
         // Bring the supplied edge to the top
         d3.select(edge).raise();
+
         // If there's no selection for some reason, just return
-        if (!_selection)
-            return;
+        if (!_selection) return;
+
         if (edge === null) {
+
             // Return all edges back to normal
             _selection
                 .each(_make_normal);
-        }
-        else {
+
+        } else {
+
             // Dim all others while we highlight the provided edge
             if (_selection) {
+
                 _selection
                     .each(function () {
-                    this === edge
-                        ? _make_highlighted.call(this)
-                        : _make_dimmed.call(this);
-                });
+                        this === edge
+                            ? _make_highlighted.call(this)
+                            : _make_dimmed.call(this);
+                    });
+
             }
+
         }
+
     }
-    function points() {
-        if (!_selection)
-            return [];
+
+    function points () {
+
+        if (!_selection) return [];
+
         let points = [];
         _selection.each(function (d) {
             d.points.forEach(point => {
@@ -79,22 +112,29 @@ function edge() {
                 });
             });
         });
+
         return points;
+
     }
-    function transition(transition) {
-        if (!arguments.length)
-            return _transition;
+
+    function transition (transition?) {
+        if (!arguments.length) return _transition;
         _transition = transition;
         return _edge;
     }
-    function _enter_arrows(enter) {
+
+    function _enter_arrows (enter) {
+
         enter
             .append('path')
             .attr('class', 'arrow')
             .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
             .attr('transform', arrow_transform);
+
     }
-    function _enter_labels(enter) {
+
+    function _enter_labels (enter) {
+
         enter
             .append('text')
             .attr('class', 'label')
@@ -103,8 +143,11 @@ function edge() {
             .attr('text-anchor', 'middle')
             .attr('dy', '0.31em')
             .text(d => d.label);
+
     }
-    function _enter_paths(enter) {
+
+    function _enter_paths (enter) {
+
         enter
             .append('path')
             .attr('class', 'edge')
@@ -113,51 +156,68 @@ function edge() {
             .attr('stroke', 'black')
             .transition(_transition)
             .attrTween('stroke-dasharray', function () {
-            let l = this.getTotalLength(), i = d3.interpolateString(`0,${l}`, `${l},${l}`);
-            return t => i(t);
-        })
+                let l = this.getTotalLength(),
+                    i = d3.interpolateString(`0,${l}`, `${l},${l}`);
+                return t => i(t);
+            })
             .on('end', function () {
-            d3.select(this)
-                .attr('stroke-dasharray', null);
-        })
+                d3.select(this)
+                    .attr('stroke-dasharray', null);
+            })
             .on('interrupt', function () {
-            d3.select(this)
-                .attr('stroke-dasharray', null);
-        });
+                d3.select(this)
+                    .attr('stroke-dasharray', null);
+            });
+
     }
-    function _enter_rects(enter) {
+
+    function _enter_rects (enter) {
         enter
             .append('rect')
             .attr('class', 'bg')
             .attr('display', 'none');
     }
-    function _update_arrows(update) {
+
+    function _update_arrows (update) {
+
         update
             .select('path.arrow')
             .transition(_transition)
             .attr('transform', arrow_transform);
+
     }
-    function _update_labels(update) {
+
+    function _update_labels (update) {
+
         update
             .select('text.label')
             .transition(_transition)
             .attr('x', d => d.x)
             .attr('y', d => d.y);
+
     }
-    function _update_paths(update) {
+
+    function _update_paths (update) {
+
         update
             .select('path.edge')
             .transition(_transition)
             .attr('d', d => _line(d.points));
+
     }
-    function _update_rects(update) {
+
+    function _update_rects (update) {
+
         update
             .select('rect.bg')
             .transition(_transition)
             .attr('x', d => d.x)
             .attr('y', d => d.y);
+
     }
-    function _make_highlighted() {
+
+    function _make_highlighted () {
+
         let edge = d3.select(this);
         let text = edge.select('text')
             .attr('display', null);
@@ -168,18 +228,21 @@ function edge() {
             .attr('d', arrow_head(4, _arrow_height, _arrow_offset))
             .attr('stroke', 'steelblue')
             .attr('fill', 'steelblue');
-        let bbox = text.node().getBBox();
+        let bbox = (text.node() as any).getBBox();
         edge.select('rect.bg')
-            .attr('x', d => d.x - bbox.width / 2)
-            .attr('y', d => d.y - bbox.height / 2)
+            .attr('x', d => (d as any).x - bbox.width/2)
+            .attr('y', d => (d as any).y - bbox.height/2)
             .attr('width', bbox.width)
             .attr('height', bbox.height)
             .attr('stroke', 'none')
             .attr('fill', 'white')
             .attr('fill-opacity', 0.8)
             .attr('display', null);
+
     }
-    function _make_dimmed() {
+
+    function _make_dimmed () {
+
         let edge = d3.select(this);
         edge.select('text')
             .attr('display', 'none');
@@ -192,8 +255,11 @@ function edge() {
             .attr('fill', 'black');
         edge.select('rect.bg')
             .attr('display', 'none');
+
     }
-    function _make_normal() {
+
+    function _make_normal () {
+
         let edge = d3.select(this);
         edge.select('text')
             .attr('display', null)
@@ -207,19 +273,27 @@ function edge() {
             .attr('fill', 'black');
         edge.select('rect.bg')
             .attr('display', 'none');
+
     }
+
 }
-function arrow_head(w, h, o) {
-    return `M -${h - o} -${w} L ${o} 0 L -${h - o} ${w} z`;
+
+function arrow_head (w, h, o) {
+    return `M -${h-o} -${w} L ${o} 0 L -${h-o} ${w} z`
 }
-function arrow_transform(d) {
+
+function arrow_transform (d) {
     let points = d.points;
     if (points.length > 1) {
-        let p2 = points[points.length - 2];
-        let p1 = points[points.length - 1];
+        let p2 = points[points.length-2];
+        let p1 = points[points.length-1];
         let angle = Math.atan2(p1.y - p2.y, p1.x - p2.x) * (180 / Math.PI);
         return `translate(${p1.x},${p1.y}) rotate(${angle})`;
     }
     return null;
 }
-export { edge };
+
+export {
+    edge,
+    EdgeFunction
+}

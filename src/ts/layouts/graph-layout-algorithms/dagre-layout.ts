@@ -2,10 +2,8 @@ import * as d3 from 'd3';
 import { Delaunay } from 'd3-delaunay';
 import { AlloyGraph } from '../../graph/alloy-graph';
 import { rectangle } from '../graph-node-shapes/rectangle';
-import { line } from '../graph-edge-shapes/line';
 import { node_label } from '../graph-node-shapes/node-label';
-import { edge_label } from '../graph-node-shapes/edge-label';
-import { arrow } from '../graph-edge-shapes/arrow';
+import { edge, EdgeFunction } from '../graph-edge-shapes/edge';
 declare const dagre: any;
 
 export class DagreLayout {
@@ -28,18 +26,10 @@ export class DagreLayout {
 
     _atom_rect;
     _atom_label;
-    _edge_line;
-    _edge_label;
-    _edge_arrow;
+    _edge: EdgeFunction;
     _sig_rect;
     _sig_label;
-    _hover_edge_line;
-    _hover_edge_label;
-    _hover_edge_label_bg;
-    _hover_edge_arrow;
 
-    _points;
-    _delaunay;
     _delaunaygroup;
 
     _rank_sep: number = 100;
@@ -51,6 +41,7 @@ export class DagreLayout {
         this._svg = svg;
         this._svg_width = parseInt(this._svg.style('width'));
         this._svg_height = parseInt(this._svg.style('height'));
+        this._delaunaygroup = this._svg.append('g').attr('class', 'delaunay');
 
         this._zoom = d3.zoom()
             .on('zoom', () => {
@@ -79,8 +70,6 @@ export class DagreLayout {
         this._sig_label.transition(transition);
         this._atom_rect.transition(transition);
         this._atom_label.transition(transition);
-        this._edge_line.transition(transition);
-        this._edge_label.transition(transition);
 
         this._position_compound_graph(tree, edges);
 
@@ -128,23 +117,11 @@ export class DagreLayout {
             .transition(transition)
             .attr('transform', d => `translate(${d.x},${d.y})`);
 
+
         this._edge_group
             .selectAll('g.edge')
             .data(d => d, d => d.data.id())
-            .join(
-                enter => enter.append('g'),
-                update => update,
-                exit => exit
-                    .call(exit => exit.transition(transition).remove())
-                    .call(exit => exit.selectAll('path')
-                        .call(this._edge_line.exit))
-                    .call(exit => exit.selectAll('text')
-                        .call(this._edge_label.exit))
-            )
-            .attr('class', 'edge')
-            .call(this._edge_line)
-            .call(this._edge_label)
-            .call(this._edge_arrow);
+            .call(this._edge.transition(transition));
 
         this._atom_group
             .selectAll('g.atom')
@@ -165,8 +142,6 @@ export class DagreLayout {
             .call(this._atom_rect)
             .call(this._atom_label);
 
-        this._make_voronoi();
-
         let w = parseInt(this._svg.style('width')),
             h = parseInt(this._svg.style('height')),
             scale = 0.9 / Math.max(this.width() / w, this.height() / h);
@@ -181,6 +156,8 @@ export class DagreLayout {
         this._svg
             .select('#univ')
             .style('display', 'none');
+
+        transition.on('end', this._make_voronoi_new.bind(this));
 
     }
 
@@ -225,29 +202,8 @@ export class DagreLayout {
             .style('font-size', '16px')
             .style('fill', '#999');
 
-        this._edge_arrow = arrow();
-        this._edge_line = line();
-        this._edge_label = edge_label()
-            .style('fill', '#777')
-            .style('font-size', '12px');
+        this._edge = edge();
 
-        this._hover_edge_line = line()
-            .style('stroke', 'steelblue')
-            .style('stroke-width', 3);
-        this._hover_edge_label = edge_label()
-            .style('font-size', '16px');
-        this._hover_edge_label_bg = edge_label()
-            .selector('.bg')
-            .style('font-size', '16px')
-            .style('font-weight', 'bold')
-            .style('stroke-linejoin', 'round')
-            .style('stroke-width', 15)
-            .style('stroke', 'white');
-
-        this._hover_edge_arrow = arrow()
-            .style('stroke', 'steelblue')
-            .style('fill', 'steelblue')
-            .width(4);
     }
 
     _position_compound_graph (tree, edges) {
@@ -289,63 +245,30 @@ export class DagreLayout {
 
     }
 
-    _make_voronoi () {
+    _make_voronoi_new () {
 
-        this._points = [];
-        let points = this._points;
-
-        this._edge_group
-            .selectAll('g.edge')
-            .each(function (d) {
-                d.points.forEach(point => {
-                    points.push({
-                        x: point.x,
-                        y: point.y,
-                        element: this
-                    });
-                });
-            });
-
-        this._delaunay = Delaunay
+        let points = this._edge.points();
+        let delaunay = Delaunay
             .from(points, d => d.x, d => d.y)
             .voronoi(_padded_bbox(points, 20));
-
-        let paths = Array.from(this._delaunay.cellPolygons());
-
-        let line = d3.line();
-
-        this._delaunaygroup = this._svg
-            .selectAll('g.delaunay')
-            .data([paths])
-            .join('g')
-            .attr('class', 'delaunay');
+        let paths = Array.from(delaunay.cellPolygons());
 
         this._delaunaygroup
-            .selectAll('path')
-            .data(d => d)
-            .join('path')
             .attr('fill', 'transparent')
             .attr('stroke', 'none')
-            .attr('d', line)
+            .selectAll('path')
+            .data(paths)
+            .join('path')
+            .attr('d', d3.line())
             .on('mouseover', (d, i) => {
-                let s = d3.select(this._points[i].element)
-                    .call(this._hover_edge_line.transition(null))
-                    .call(this._hover_edge_arrow)
-                    .call(this._hover_edge_label.transition(null))
-                    .raise();
-                this._hover_edge_label_bg(s)
-                    .attr('class', 'bg')
-                    .lower();
+                this._edge.highlight(points[i].element);
             })
-            .on('mouseout', (d, i) => {
-                let s = d3.select(this._points[i].element);
-                s.selectAll('.bg')
-                    .remove();
-                s
-                    .call(this._edge_line.transition(null))
-                    .call(this._edge_arrow)
-                    .call(this._edge_label.transition(null));
+            .on('mouseout', () => {
+                this._edge.highlight(null);
             });
+
+        this._delaunaygroup
+            .raise();
 
     }
 

@@ -6,12 +6,12 @@ export class GraphLayout {
             .style('user-select', 'none')
             .style('font-family', 'monospace')
             .style('font-size', '10px');
+        this._dagre = new DagreLayout(this._svg);
     }
     resize() {
     }
     set_instance(instance) {
-        let dag = new DagreLayout(this._svg);
         let graph = new AlloyGraph(instance);
-        dag.layout(graph);
+        this._dagre.layout(graph);
     }
 }

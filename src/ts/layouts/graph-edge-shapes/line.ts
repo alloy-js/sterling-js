@@ -1,5 +1,4 @@
 import * as d3 from 'd3';
-// import interpolatePath from 'd3-interpolate-path';
 
 interface LineFunction {
     attr: Function,
