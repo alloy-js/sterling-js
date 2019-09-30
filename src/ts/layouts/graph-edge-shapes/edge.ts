@@ -36,16 +36,18 @@ function edge (): EdgeFunction {
             .attr('opacity', 1);
 
         // Add all elements to enter selection
-        _enter_paths(enter);
-        _enter_arrows(enter);
-        _enter_rects(enter);
-        _enter_labels(enter);
+        enter
+            .call(_enter_paths)
+            .call(_enter_arrows)
+            .call(_enter_rects)
+            .call(_enter_labels);
 
         // Update existing elements
-        _update_paths(selection);
-        _update_arrows(selection);
-        _update_rects(selection);
-        _update_labels(selection);
+        selection
+            .call(_update_paths)
+            .call(_update_arrows)
+            .call(_update_rects)
+            .call(_update_labels);
 
         // Remove exiting groups
         selection
@@ -55,6 +57,8 @@ function edge (): EdgeFunction {
             .remove();
 
         _selection = enter.merge(selection);
+
+        return _selection;
 
     }
 
@@ -172,10 +176,12 @@ function edge (): EdgeFunction {
     }
 
     function _enter_rects (enter) {
+
         enter
             .append('rect')
             .attr('class', 'bg')
             .attr('display', 'none');
+
     }
 
     function _update_arrows (update) {
@@ -222,12 +228,12 @@ function edge (): EdgeFunction {
         let text = edge.select('text')
             .attr('display', null);
         edge.select('path.edge')
-            .attr('stroke', 'steelblue')
+            .attr('stroke', '#c8553d')
             .attr('stroke-width', 3);
         edge.select('path.arrow')
             .attr('d', arrow_head(4, _arrow_height, _arrow_offset))
-            .attr('stroke', 'steelblue')
-            .attr('fill', 'steelblue');
+            .attr('stroke', '#c8553d')
+            .attr('fill', '#c8553d');
         let bbox = (text.node() as any).getBBox();
         edge.select('rect.bg')
             .attr('x', d => (d as any).x - bbox.width/2)

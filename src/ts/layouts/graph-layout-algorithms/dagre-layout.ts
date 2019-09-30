@@ -4,6 +4,7 @@ import { AlloyGraph } from '../../graph/alloy-graph';
 import { rectangle } from '../graph-node-shapes/rectangle';
 import { node_label } from '../graph-node-shapes/node-label';
 import { edge, EdgeFunction } from '../graph-edge-shapes/edge';
+import { node, NodeFunction } from '../graph-node-shapes/node';
 declare const dagre: any;
 
 export class DagreLayout {
@@ -24,9 +25,9 @@ export class DagreLayout {
     _svg_width;
     _svg_height;
 
-    _atom_rect;
-    _atom_label;
     _edge: EdgeFunction;
+    _node: NodeFunction;
+
     _sig_rect;
     _sig_label;
 
@@ -68,8 +69,6 @@ export class DagreLayout {
         let transition = this._svg.transition().duration(400);
         this._sig_rect.transition(transition);
         this._sig_label.transition(transition);
-        this._atom_rect.transition(transition);
-        this._atom_label.transition(transition);
 
         this._position_compound_graph(tree, edges);
 
@@ -124,23 +123,9 @@ export class DagreLayout {
             .call(this._edge.transition(transition));
 
         this._atom_group
-            .selectAll('g.atom')
+            .selectAll('g.node')
             .data(d => d, d => d.data.id())
-            .join(
-                enter => enter.append('g')
-                    .attr('transform', d => `translate(${d.x},${d.y})`),
-                update => update
-                    .call(update => update.transition(transition)
-                        .attr('transform', d => `translate(${d.x},${d.y})`)),
-                exit => exit
-                    .call(exit => exit.transition(transition).remove())
-                    .selectAll('rect')
-                    .call(this._atom_rect.exit)
-                    .call(this._atom_label.exit)
-            )
-            .attr('class', 'atom')
-            .call(this._atom_rect)
-            .call(this._atom_label);
+            .call(this._node.transition(transition));
 
         let w = parseInt(this._svg.style('width')),
             h = parseInt(this._svg.style('height')),
@@ -185,15 +170,6 @@ export class DagreLayout {
 
     _init_styles () {
 
-        this._atom_rect = rectangle()
-            .attr('rx', 2)
-            .style('stroke', '#222')
-            .style('fill', 'steelblue');
-        this._atom_label = node_label()
-            .style('fill', 'white')
-            .style('font-size', '16px')
-            .style('font-weight', 'bold');
-
         this._sig_rect = rectangle()
             .attr('rx', 2)
             .style('stroke', '#999');
@@ -203,6 +179,7 @@ export class DagreLayout {
             .style('fill', '#999');
 
         this._edge = edge();
+        this._node = node();
 
     }
 

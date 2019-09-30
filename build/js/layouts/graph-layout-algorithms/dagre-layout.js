@@ -3,6 +3,7 @@ import { Delaunay } from 'd3-delaunay';
 import { rectangle } from '../graph-node-shapes/rectangle';
 import { node_label } from '../graph-node-shapes/node-label';
 import { edge } from '../graph-edge-shapes/edge';
+import { node } from '../graph-node-shapes/node';
 export class DagreLayout {
     constructor(svg) {
         this._include_private_nodes = false;
@@ -36,8 +37,6 @@ export class DagreLayout {
         let transition = this._svg.transition().duration(400);
         this._sig_rect.transition(transition);
         this._sig_label.transition(transition);
-        this._atom_rect.transition(transition);
-        this._atom_label.transition(transition);
         this._position_compound_graph(tree, edges);
         let signatures = tree.descendants().filter(node => node.data.expressionType() === 'signature');
         let atoms = tree.descendants().filter(node => node.data.expressionType() === 'atom');
@@ -79,19 +78,9 @@ export class DagreLayout {
             .data(d => d, d => d.data.id())
             .call(this._edge.transition(transition));
         this._atom_group
-            .selectAll('g.atom')
+            .selectAll('g.node')
             .data(d => d, d => d.data.id())
-            .join(enter => enter.append('g')
-            .attr('transform', d => `translate(${d.x},${d.y})`), update => update
-            .call(update => update.transition(transition)
-            .attr('transform', d => `translate(${d.x},${d.y})`)), exit => exit
-            .call(exit => exit.transition(transition).remove())
-            .selectAll('rect')
-            .call(this._atom_rect.exit)
-            .call(this._atom_label.exit))
-            .attr('class', 'atom')
-            .call(this._atom_rect)
-            .call(this._atom_label);
+            .call(this._node.transition(transition));
         let w = parseInt(this._svg.style('width')), h = parseInt(this._svg.style('height')), scale = 0.9 / Math.max(this.width() / w, this.height() / h);
         transition
             .call(this._zoom.transform, d3.zoomIdentity
@@ -121,14 +110,6 @@ export class DagreLayout {
         };
     }
     _init_styles() {
-        this._atom_rect = rectangle()
-            .attr('rx', 2)
-            .style('stroke', '#222')
-            .style('fill', 'steelblue');
-        this._atom_label = node_label()
-            .style('fill', 'white')
-            .style('font-size', '16px')
-            .style('font-weight', 'bold');
         this._sig_rect = rectangle()
             .attr('rx', 2)
             .style('stroke', '#999');
@@ -137,6 +118,7 @@ export class DagreLayout {
             .style('font-size', '16px')
             .style('fill', '#999');
         this._edge = edge();
+        this._node = node();
     }
     _position_compound_graph(tree, edges) {
         let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });

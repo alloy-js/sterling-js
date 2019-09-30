@@ -8230,15 +8230,17 @@
                 .transition(_transition)
                 .attr('opacity', 1);
             // Add all elements to enter selection
-            _enter_paths(enter);
-            _enter_arrows(enter);
-            _enter_rects(enter);
-            _enter_labels(enter);
+            enter
+                .call(_enter_paths)
+                .call(_enter_arrows)
+                .call(_enter_rects)
+                .call(_enter_labels);
             // Update existing elements
-            _update_paths(selection);
-            _update_arrows(selection);
-            _update_rects(selection);
-            _update_labels(selection);
+            selection
+                .call(_update_paths)
+                .call(_update_arrows)
+                .call(_update_rects)
+                .call(_update_labels);
             // Remove exiting groups
             selection
                 .exit()
@@ -8246,6 +8248,7 @@
                 .attr('opacity', 0)
                 .remove();
             _selection = enter.merge(selection);
+            return _selection;
         }
         const _edge = Object.assign(_function, {
             highlight,
@@ -8372,12 +8375,12 @@
             let text = edge.select('text')
                 .attr('display', null);
             edge.select('path.edge')
-                .attr('stroke', 'steelblue')
+                .attr('stroke', '#c8553d')
                 .attr('stroke-width', 3);
             edge.select('path.arrow')
                 .attr('d', arrow_head(4, _arrow_height, _arrow_offset))
-                .attr('stroke', 'steelblue')
-                .attr('fill', 'steelblue');
+                .attr('stroke', '#c8553d')
+                .attr('fill', '#c8553d');
             let bbox = text.node().getBBox();
             edge.select('rect.bg')
                 .attr('x', d => d.x - bbox.width / 2)
@@ -8433,6 +8436,78 @@
         return null;
     }
 
+    function node() {
+        let _selection = null;
+        let _transition = transition().duration(0);
+        function _function(selection) {
+            // Add new groups
+            let enter = selection
+                .enter()
+                .append('g')
+                .attr('class', 'node')
+                .attr('transform', d => `translate(${d.x},${d.y})`);
+            enter
+                .attr('opacity', 0)
+                .transition(_transition)
+                .attr('opacity', 1);
+            // Add all elements to enter selection
+            enter
+                .call(_enter_rects)
+                .call(_enter_labels);
+            // Update existing elements
+            selection
+                .call(_update_labels);
+            // Remove exiting groups
+            selection
+                .exit()
+                .transition(_transition)
+                .attr('opacity', 0)
+                .remove();
+            _selection = enter
+                .merge(selection)
+                .transition(_transition)
+                .attr('transform', d => `translate(${d.x},${d.y})`);
+            return _selection;
+        }
+        const _node = Object.assign(_function, {
+            transition: transition$1
+        });
+        return _node;
+        function transition$1(transition) {
+            if (!arguments.length)
+                return _transition;
+            _transition = transition;
+            return _node;
+        }
+        function _enter_labels(enter) {
+            enter
+                .append('text')
+                .attr('class', 'label')
+                .attr('text-anchor', 'middle')
+                .attr('dy', '0.31em')
+                .attr('stroke', 'none')
+                .attr('fill', 'white')
+                .attr('font-size', '16px')
+                .attr('font-weight', 'bold')
+                .text(d => d.data);
+        }
+        function _enter_rects(enter) {
+            enter
+                .append('rect')
+                .attr('class', 'shape')
+                .attr('x', d => -d.width / 2)
+                .attr('y', d => -d.height / 2)
+                .attr('rx', 2)
+                .attr('width', d => d.width)
+                .attr('height', d => d.height)
+                .attr('stroke', '#455a64')
+                .attr('stroke-width', 2)
+                .attr('fill', '#708690');
+        }
+        function _update_labels(update) {
+        }
+    }
+
     class DagreLayout {
         constructor(svg) {
             this._include_private_nodes = false;
@@ -8466,8 +8541,6 @@
             let transition = this._svg.transition().duration(400);
             this._sig_rect.transition(transition);
             this._sig_label.transition(transition);
-            this._atom_rect.transition(transition);
-            this._atom_label.transition(transition);
             this._position_compound_graph(tree, edges);
             let signatures = tree.descendants().filter(node => node.data.expressionType() === 'signature');
             let atoms = tree.descendants().filter(node => node.data.expressionType() === 'atom');
@@ -8509,19 +8582,9 @@
                 .data(d => d, d => d.data.id())
                 .call(this._edge.transition(transition));
             this._atom_group
-                .selectAll('g.atom')
+                .selectAll('g.node')
                 .data(d => d, d => d.data.id())
-                .join(enter => enter.append('g')
-                .attr('transform', d => `translate(${d.x},${d.y})`), update => update
-                .call(update => update.transition(transition)
-                .attr('transform', d => `translate(${d.x},${d.y})`)), exit => exit
-                .call(exit => exit.transition(transition).remove())
-                .selectAll('rect')
-                .call(this._atom_rect.exit)
-                .call(this._atom_label.exit))
-                .attr('class', 'atom')
-                .call(this._atom_rect)
-                .call(this._atom_label);
+                .call(this._node.transition(transition));
             let w = parseInt(this._svg.style('width')), h = parseInt(this._svg.style('height')), scale = 0.9 / Math.max(this.width() / w, this.height() / h);
             transition
                 .call(this._zoom.transform, identity$2
@@ -8551,14 +8614,6 @@
             };
         }
         _init_styles() {
-            this._atom_rect = rectangle()
-                .attr('rx', 2)
-                .style('stroke', '#222')
-                .style('fill', 'steelblue');
-            this._atom_label = node_label()
-                .style('fill', 'white')
-                .style('font-size', '16px')
-                .style('font-weight', 'bold');
             this._sig_rect = rectangle()
                 .attr('rx', 2)
                 .style('stroke', '#999');
@@ -8567,6 +8622,7 @@
                 .style('font-size', '16px')
                 .style('fill', '#999');
             this._edge = edge();
+            this._node = node();
         }
         _position_compound_graph(tree, edges) {
             let graph = new dagre.graphlib.Graph({ multigraph: true, compound: true });

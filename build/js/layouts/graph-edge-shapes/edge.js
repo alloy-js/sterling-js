@@ -20,15 +20,17 @@ function edge() {
             .transition(_transition)
             .attr('opacity', 1);
         // Add all elements to enter selection
-        _enter_paths(enter);
-        _enter_arrows(enter);
-        _enter_rects(enter);
-        _enter_labels(enter);
+        enter
+            .call(_enter_paths)
+            .call(_enter_arrows)
+            .call(_enter_rects)
+            .call(_enter_labels);
         // Update existing elements
-        _update_paths(selection);
-        _update_arrows(selection);
-        _update_rects(selection);
-        _update_labels(selection);
+        selection
+            .call(_update_paths)
+            .call(_update_arrows)
+            .call(_update_rects)
+            .call(_update_labels);
         // Remove exiting groups
         selection
             .exit()
@@ -36,6 +38,7 @@ function edge() {
             .attr('opacity', 0)
             .remove();
         _selection = enter.merge(selection);
+        return _selection;
     }
     const _edge = Object.assign(_function, {
         highlight,
@@ -162,12 +165,12 @@ function edge() {
         let text = edge.select('text')
             .attr('display', null);
         edge.select('path.edge')
-            .attr('stroke', 'steelblue')
+            .attr('stroke', '#c8553d')
             .attr('stroke-width', 3);
         edge.select('path.arrow')
             .attr('d', arrow_head(4, _arrow_height, _arrow_offset))
-            .attr('stroke', 'steelblue')
-            .attr('fill', 'steelblue');
+            .attr('stroke', '#c8553d')
+            .attr('fill', '#c8553d');
         let bbox = text.node().getBBox();
         edge.select('rect.bg')
             .attr('x', d => d.x - bbox.width / 2)
