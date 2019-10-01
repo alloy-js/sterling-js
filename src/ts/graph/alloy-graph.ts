@@ -51,7 +51,7 @@ export class AlloyGraph {
         // Build a tree containing signatures and atoms as nodes
         let tree = d3.hierarchy(this._instance.univ(), d => {
             if (d.expressionType() === 'signature')
-                return d.signatures().concat(d.atoms());
+                return (d.signatures() as any).concat(d.atoms());
         });
 
         // Build all edges by getting all tuples and projecting
@@ -90,7 +90,7 @@ export class AlloyGraph {
             if (node.data.expressionType() === 'signature') {
 
                 // Keep a complete copy of children
-                node._children = node.children;
+                (node as any)._children = node.children;
 
                 let signature: Signature = node.data;
                 let hide =

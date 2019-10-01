@@ -3,12 +3,14 @@ import * as d3 from 'd3';
 interface EdgeFunction {
     highlight: Function,
     points: Function,
+    scheme: Function,
     transition: Function,
 }
 
 function edge (): EdgeFunction {
 
     let _selection = null;
+    let _scheme = null;
     let _transition = d3.transition().duration(0);
 
     // Arrow properties
@@ -65,6 +67,7 @@ function edge (): EdgeFunction {
     const _edge = Object.assign(_function, {
         highlight,
         points,
+        scheme,
         transition
     });
 
@@ -73,7 +76,8 @@ function edge (): EdgeFunction {
     function highlight (edge) {
 
         // Bring the supplied edge to the top
-        d3.select(edge).raise();
+        let e = d3.select(edge);
+        e.raise();
 
         // If there's no selection for some reason, just return
         if (!_selection) return;
@@ -89,12 +93,33 @@ function edge (): EdgeFunction {
             // Dim all others while we highlight the provided edge
             if (_selection) {
 
-                _selection
-                    .each(function () {
-                        this === edge
-                            ? _make_highlighted.call(this)
-                            : _make_dimmed.call(this);
+                // Get the highlight group
+                let datum = e.datum();
+                let group = _scheme_group(datum);
+
+                if (!group) {
+
+                    _selection
+                        .each(function () {
+                            this === edge
+                                ? _make_highlighted.call(this)
+                                : _make_dimmed.call(this);
+                        });
+
+                } else {
+
+                    _selection.each(function () {
+                        if (this === edge) {
+                            _make_highlighted.call(this)
+                        }
+                        else if (_scheme_group(d3.select(this).datum()) === group) {
+                            _make_lowlighted.call(this);
+                        } else {
+                            _make_dimmed.call(this);
+                        }
                     });
+
+                }
 
             }
 
@@ -121,6 +146,12 @@ function edge (): EdgeFunction {
 
     }
 
+    function scheme (scheme?) {
+        if (!arguments.length) return _scheme;
+        _scheme = scheme;
+        return _edge;
+    }
+
     function transition (transition?) {
         if (!arguments.length) return _transition;
         _transition = transition;
@@ -133,7 +164,9 @@ function edge (): EdgeFunction {
             .append('path')
             .attr('class', 'arrow')
             .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
-            .attr('transform', arrow_transform);
+            .attr('transform', arrow_transform)
+            .attr('stroke', _stroke_color)
+            .attr('fill', _stroke_color);
 
     }
 
@@ -146,6 +179,7 @@ function edge (): EdgeFunction {
             .attr('y', d => d.y)
             .attr('text-anchor', 'middle')
             .attr('dy', '0.31em')
+            .attr('fill', _stroke_color)
             .text(d => d.label);
 
     }
@@ -157,7 +191,8 @@ function edge (): EdgeFunction {
             .attr('class', 'edge')
             .attr('d', d => _line(d.points))
             .attr('fill', 'none')
-            .attr('stroke', 'black')
+            .attr('stroke', _stroke_color)
+            .attr('stroke-width', 2)
             .transition(_transition)
             .attrTween('stroke-dasharray', function () {
                 let l = this.getTotalLength(),
@@ -228,16 +263,16 @@ function edge (): EdgeFunction {
         let text = edge.select('text')
             .attr('display', null);
         edge.select('path.edge')
-            .attr('stroke', '#c8553d')
-            .attr('stroke-width', 3);
+            .attr('stroke', _stroke_color)
+            .attr('stroke-width', 4);
         edge.select('path.arrow')
-            .attr('d', arrow_head(4, _arrow_height, _arrow_offset))
-            .attr('stroke', '#c8553d')
-            .attr('fill', '#c8553d');
+            .attr('d', arrow_head(5, _arrow_height, _arrow_offset))
+            .attr('stroke', _stroke_color)
+            .attr('fill', _stroke_color);
         let bbox = (text.node() as any).getBBox();
         edge.select('rect.bg')
-            .attr('x', d => (d as any).x - bbox.width/2)
-            .attr('y', d => (d as any).y - bbox.height/2)
+            .attr('x', (d: any) => d.x - bbox.width/2)
+            .attr('y', (d: any) => d.y - bbox.height/2)
             .attr('width', bbox.width)
             .attr('height', bbox.height)
             .attr('stroke', 'none')
@@ -247,18 +282,35 @@ function edge (): EdgeFunction {
 
     }
 
+    function _make_lowlighted () {
+
+        let edge = d3.select(this);
+        edge.select('text')
+            .attr('display', 'none');
+        edge.select('path.edge')
+            .attr('stroke', _stroke_color)
+            .attr('stroke-width', 2);
+        edge.select('path.arrow')
+            .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
+            .attr('stroke', _stroke_color)
+            .attr('fill', _stroke_color);
+        edge.select('rect.bg')
+            .attr('display', 'none');
+
+    }
+
     function _make_dimmed () {
 
         let edge = d3.select(this);
         edge.select('text')
             .attr('display', 'none');
         edge.select('path.edge')
-            .attr('stroke', 'black')
-            .attr('stroke-width', null);
+            .attr('stroke', '#ccc')
+            .attr('stroke-width', 2);
         edge.select('path.arrow')
             .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
-            .attr('stroke', 'black')
-            .attr('fill', 'black');
+            .attr('stroke', '#ccc')
+            .attr('fill', '#ccc');
         edge.select('rect.bg')
             .attr('display', 'none');
 
@@ -271,14 +323,28 @@ function edge (): EdgeFunction {
             .attr('display', null)
             .style('font-size', null);
         edge.select('path.edge')
-            .attr('stroke', 'black')
-            .attr('stroke-width', null);
+            .attr('stroke', _stroke_color)
+            .attr('stroke-width', 2);
         edge.select('path.arrow')
             .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
-            .attr('stroke', 'black')
-            .attr('fill', 'black');
+            .attr('stroke', _stroke_color)
+            .attr('fill', _stroke_color);
         edge.select('rect.bg')
             .attr('display', 'none');
+
+    }
+
+    function _stroke_color (d) {
+
+        if (!_scheme) return d3.color('black');
+        return _scheme.colors[d.data.id()] || d3.color('black');
+
+    }
+
+    function _scheme_group (d) {
+
+        if (!_scheme || !d) return null;
+        return _scheme.groups[d.data.id()] || null;
 
     }
 

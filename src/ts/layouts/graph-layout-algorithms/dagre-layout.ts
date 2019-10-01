@@ -3,8 +3,9 @@ import { Delaunay } from 'd3-delaunay';
 import { AlloyGraph } from '../../graph/alloy-graph';
 import { rectangle } from '../graph-node-shapes/rectangle';
 import { node_label } from '../graph-node-shapes/node-label';
-import { edge, EdgeFunction } from '../graph-edge-shapes/edge';
-import { node, NodeFunction } from '../graph-node-shapes/node';
+import { edge, EdgeFunction } from '../graph-shapes/edge';
+import { node, NodeFunction } from '../graph-shapes/node';
+
 declare const dagre: any;
 
 export class DagreLayout {
@@ -14,7 +15,6 @@ export class DagreLayout {
     _props;
     _nodes;
     _edges;
-    _links;
     
     _svg;
     _sig_group;
@@ -74,6 +74,10 @@ export class DagreLayout {
 
         let signatures = tree.descendants().filter(node => node.data.expressionType() === 'signature');
         let atoms = tree.descendants().filter(node => node.data.expressionType() === 'atom');
+
+        let scheme = this._style_graph(tree, edges);
+        this._node.scheme(scheme);
+        this._edge.scheme(scheme);
 
         this._sig_group = this._svg
             .selectAll('g.signatures')
@@ -142,20 +146,8 @@ export class DagreLayout {
             .select('#univ')
             .style('display', 'none');
 
-        transition.on('end', this._make_voronoi_new.bind(this));
+        transition.on('end', this._make_voronoi.bind(this));
 
-    }
-
-    edges () {
-        return this._edges;
-    }
-
-    nodes () {
-        return this._nodes;
-    }
-
-    links () {
-        return this._links;
     }
 
     width () {
@@ -222,7 +214,55 @@ export class DagreLayout {
 
     }
 
-    _make_voronoi_new () {
+    _style_graph (tree, edges) {
+
+        let sig_colors = d3.schemeCategory10;
+        let rel_colors = d3.schemeDark2;
+        let sigs = [];
+        let rels = [];
+
+        let scheme = {
+            colors: {},
+            groups: {}
+        };
+
+        tree.eachAfter(node => {
+
+            let node_type = node.data.expressionType();
+            let sig = node_type === 'atom'
+                ? node.data.signature().label()
+                : node.data.label();
+            let idx = sigs.indexOf(sig);
+            idx = idx === -1 ? sigs.push(sig)-1 : idx;
+            scheme.colors[node.data.id()] = d3.color(sig_colors[idx % sig_colors.length]);
+
+        });
+
+        edges.forEach(edge => {
+
+            let edge_type = edge.data.parent().expressionType();
+
+            if (edge_type === 'field') {
+
+                let rel = edge.data.parent().label();
+                let idx = rels.indexOf(rel);
+                idx = idx === -1 ? rels.push(rel)-1 : idx;
+                scheme.colors[edge.data.id()] = d3.color(rel_colors[idx % rel_colors.length]);
+                scheme.groups[edge.data.id()] = edge.data.parent().id();
+
+            } else {
+
+                scheme.colors[edge.data.id()] = d3.color('black');
+
+            }
+
+        });
+
+        return scheme;
+
+    }
+
+    _make_voronoi () {
 
         let points = this._edge.points();
         let delaunay = Delaunay

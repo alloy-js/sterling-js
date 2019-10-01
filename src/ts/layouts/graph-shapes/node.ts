@@ -1,12 +1,14 @@
 import * as d3 from 'd3';
 
 interface NodeFunction {
+    scheme: Function,
     transition: Function
 }
 
 function node (): NodeFunction {
 
     let _selection = null;
+    let _scheme = null;
     let _transition = d3.transition().duration(0);
 
     function _function (selection) {
@@ -30,6 +32,7 @@ function node (): NodeFunction {
 
         // Update existing elements
         selection
+            .call(_update_rects)
             .call(_update_labels);
 
         // Remove exiting groups
@@ -49,10 +52,17 @@ function node (): NodeFunction {
     }
 
     const _node = Object.assign(_function, {
+        scheme,
         transition
     });
 
     return _node;
+
+    function scheme (scheme?) {
+        if (!arguments.length) return _scheme;
+        _scheme = scheme;
+        return _node;
+    }
 
     function transition (transition?) {
         if (!arguments.length) return _transition;
@@ -68,7 +78,7 @@ function node (): NodeFunction {
             .attr('text-anchor', 'middle')
             .attr('dy', '0.31em')
             .attr('stroke', 'none')
-            .attr('fill', 'white')
+            .attr('fill', d => d.color ? text_color(d.color) : 'black')
             .attr('font-size', '16px')
             .attr('font-weight', 'bold')
             .text(d => d.data);
@@ -85,18 +95,40 @@ function node (): NodeFunction {
             .attr('rx', 2)
             .attr('width', d => d.width)
             .attr('height', d => d.height)
-            .attr('stroke', '#455a64')
+            .attr('stroke', d => _bg_color(d).darker())
             .attr('stroke-width', 2)
-            .attr('fill', '#708690');
+            .attr('fill', _bg_color);
 
     }
 
     function _update_labels (update) {
 
+    }
 
+    function _update_rects (update) {
+
+        update
+            .select('rect')
+            .attr('x', d => -d.width/2)
+            .attr('y', d => -d.height/2)
+            .attr('width', d => d.width)
+            .attr('height', d => d.height)
+            .attr('stroke', d => _bg_color(d).darker())
+            .attr('fill', _bg_color)
 
     }
 
+    function _bg_color (d) {
+
+        if (!_scheme) return d3.color('white');
+        return _scheme.colors[d.data.id()] || d3.color('white');
+
+    }
+
+}
+
+function text_color (background_color) {
+    return d3.hsl(d3.color(background_color)).l > 0.5 ? '#000' : '#fff';
 }
 
 export {

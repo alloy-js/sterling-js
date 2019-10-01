@@ -5631,6 +5631,16 @@
         ? parseIsoNative
         : utcParse(isoSpecifier);
 
+    function colors(specifier) {
+      var n = specifier.length / 6 | 0, colors = new Array(n), i = 0;
+      while (i < n) colors[i] = "#" + specifier.slice(i * 6, ++i * 6);
+      return colors;
+    }
+
+    var category10 = colors("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
+
+    var Dark2 = colors("1b9e77d95f027570b3e7298a66a61ee6ab02a6761d666666");
+
     function constant$2(x) {
       return function constant() {
         return x;
@@ -8211,6 +8221,7 @@
 
     function edge() {
         let _selection = null;
+        let _scheme = null;
         let _transition = transition().duration(0);
         // Arrow properties
         let _arrow_width = 3, _arrow_height = 10, _arrow_offset = 2;
@@ -8253,12 +8264,14 @@
         const _edge = Object.assign(_function, {
             highlight,
             points,
+            scheme,
             transition: transition$1
         });
         return _edge;
         function highlight(edge) {
             // Bring the supplied edge to the top
-            select(edge).raise();
+            let e = select(edge);
+            e.raise();
             // If there's no selection for some reason, just return
             if (!_selection)
                 return;
@@ -8270,12 +8283,30 @@
             else {
                 // Dim all others while we highlight the provided edge
                 if (_selection) {
-                    _selection
-                        .each(function () {
-                        this === edge
-                            ? _make_highlighted.call(this)
-                            : _make_dimmed.call(this);
-                    });
+                    // Get the highlight group
+                    let datum = e.datum();
+                    let group = _scheme_group(datum);
+                    if (!group) {
+                        _selection
+                            .each(function () {
+                            this === edge
+                                ? _make_highlighted.call(this)
+                                : _make_dimmed.call(this);
+                        });
+                    }
+                    else {
+                        _selection.each(function () {
+                            if (this === edge) {
+                                _make_highlighted.call(this);
+                            }
+                            else if (_scheme_group(select(this).datum()) === group) {
+                                _make_lowlighted.call(this);
+                            }
+                            else {
+                                _make_dimmed.call(this);
+                            }
+                        });
+                    }
                 }
             }
         }
@@ -8294,6 +8325,12 @@
             });
             return points;
         }
+        function scheme(scheme) {
+            if (!arguments.length)
+                return _scheme;
+            _scheme = scheme;
+            return _edge;
+        }
         function transition$1(transition) {
             if (!arguments.length)
                 return _transition;
@@ -8305,7 +8342,9 @@
                 .append('path')
                 .attr('class', 'arrow')
                 .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
-                .attr('transform', arrow_transform);
+                .attr('transform', arrow_transform)
+                .attr('stroke', _stroke_color)
+                .attr('fill', _stroke_color);
         }
         function _enter_labels(enter) {
             enter
@@ -8315,6 +8354,7 @@
                 .attr('y', d => d.y)
                 .attr('text-anchor', 'middle')
                 .attr('dy', '0.31em')
+                .attr('fill', _stroke_color)
                 .text(d => d.label);
         }
         function _enter_paths(enter) {
@@ -8323,7 +8363,8 @@
                 .attr('class', 'edge')
                 .attr('d', d => _line(d.points))
                 .attr('fill', 'none')
-                .attr('stroke', 'black')
+                .attr('stroke', _stroke_color)
+                .attr('stroke-width', 2)
                 .transition(_transition)
                 .attrTween('stroke-dasharray', function () {
                 let l = this.getTotalLength(), i = interpolateString(`0,${l}`, `${l},${l}`);
@@ -8375,16 +8416,16 @@
             let text = edge.select('text')
                 .attr('display', null);
             edge.select('path.edge')
-                .attr('stroke', '#c8553d')
-                .attr('stroke-width', 3);
+                .attr('stroke', _stroke_color)
+                .attr('stroke-width', 4);
             edge.select('path.arrow')
-                .attr('d', arrow_head(4, _arrow_height, _arrow_offset))
-                .attr('stroke', '#c8553d')
-                .attr('fill', '#c8553d');
+                .attr('d', arrow_head(5, _arrow_height, _arrow_offset))
+                .attr('stroke', _stroke_color)
+                .attr('fill', _stroke_color);
             let bbox = text.node().getBBox();
             edge.select('rect.bg')
-                .attr('x', d => d.x - bbox.width / 2)
-                .attr('y', d => d.y - bbox.height / 2)
+                .attr('x', (d) => d.x - bbox.width / 2)
+                .attr('y', (d) => d.y - bbox.height / 2)
                 .attr('width', bbox.width)
                 .attr('height', bbox.height)
                 .attr('stroke', 'none')
@@ -8392,17 +8433,31 @@
                 .attr('fill-opacity', 0.8)
                 .attr('display', null);
         }
+        function _make_lowlighted() {
+            let edge = select(this);
+            edge.select('text')
+                .attr('display', 'none');
+            edge.select('path.edge')
+                .attr('stroke', _stroke_color)
+                .attr('stroke-width', 2);
+            edge.select('path.arrow')
+                .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
+                .attr('stroke', _stroke_color)
+                .attr('fill', _stroke_color);
+            edge.select('rect.bg')
+                .attr('display', 'none');
+        }
         function _make_dimmed() {
             let edge = select(this);
             edge.select('text')
                 .attr('display', 'none');
             edge.select('path.edge')
-                .attr('stroke', 'black')
-                .attr('stroke-width', null);
+                .attr('stroke', '#ccc')
+                .attr('stroke-width', 2);
             edge.select('path.arrow')
                 .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
-                .attr('stroke', 'black')
-                .attr('fill', 'black');
+                .attr('stroke', '#ccc')
+                .attr('fill', '#ccc');
             edge.select('rect.bg')
                 .attr('display', 'none');
         }
@@ -8412,14 +8467,24 @@
                 .attr('display', null)
                 .style('font-size', null);
             edge.select('path.edge')
-                .attr('stroke', 'black')
-                .attr('stroke-width', null);
+                .attr('stroke', _stroke_color)
+                .attr('stroke-width', 2);
             edge.select('path.arrow')
                 .attr('d', arrow_head(_arrow_width, _arrow_height, _arrow_offset))
-                .attr('stroke', 'black')
-                .attr('fill', 'black');
+                .attr('stroke', _stroke_color)
+                .attr('fill', _stroke_color);
             edge.select('rect.bg')
                 .attr('display', 'none');
+        }
+        function _stroke_color(d) {
+            if (!_scheme)
+                return color('black');
+            return _scheme.colors[d.data.id()] || color('black');
+        }
+        function _scheme_group(d) {
+            if (!_scheme || !d)
+                return null;
+            return _scheme.groups[d.data.id()] || null;
         }
     }
     function arrow_head(w, h, o) {
@@ -8438,6 +8503,7 @@
 
     function node() {
         let _selection = null;
+        let _scheme = null;
         let _transition = transition().duration(0);
         function _function(selection) {
             // Add new groups
@@ -8456,6 +8522,7 @@
                 .call(_enter_labels);
             // Update existing elements
             selection
+                .call(_update_rects)
                 .call(_update_labels);
             // Remove exiting groups
             selection
@@ -8470,9 +8537,16 @@
             return _selection;
         }
         const _node = Object.assign(_function, {
+            scheme,
             transition: transition$1
         });
         return _node;
+        function scheme(scheme) {
+            if (!arguments.length)
+                return _scheme;
+            _scheme = scheme;
+            return _node;
+        }
         function transition$1(transition) {
             if (!arguments.length)
                 return _transition;
@@ -8486,7 +8560,7 @@
                 .attr('text-anchor', 'middle')
                 .attr('dy', '0.31em')
                 .attr('stroke', 'none')
-                .attr('fill', 'white')
+                .attr('fill', d => d.color ? text_color(d.color) : 'black')
                 .attr('font-size', '16px')
                 .attr('font-weight', 'bold')
                 .text(d => d.data);
@@ -8500,12 +8574,30 @@
                 .attr('rx', 2)
                 .attr('width', d => d.width)
                 .attr('height', d => d.height)
-                .attr('stroke', '#455a64')
+                .attr('stroke', d => _bg_color(d).darker())
                 .attr('stroke-width', 2)
-                .attr('fill', '#708690');
+                .attr('fill', _bg_color);
         }
         function _update_labels(update) {
         }
+        function _update_rects(update) {
+            update
+                .select('rect')
+                .attr('x', d => -d.width / 2)
+                .attr('y', d => -d.height / 2)
+                .attr('width', d => d.width)
+                .attr('height', d => d.height)
+                .attr('stroke', d => _bg_color(d).darker())
+                .attr('fill', _bg_color);
+        }
+        function _bg_color(d) {
+            if (!_scheme)
+                return color('white');
+            return _scheme.colors[d.data.id()] || color('white');
+        }
+    }
+    function text_color(background_color) {
+        return hsl(color(background_color)).l > 0.5 ? '#000' : '#fff';
     }
 
     class DagreLayout {
@@ -8544,6 +8636,9 @@
             this._position_compound_graph(tree, edges);
             let signatures = tree.descendants().filter(node => node.data.expressionType() === 'signature');
             let atoms = tree.descendants().filter(node => node.data.expressionType() === 'atom');
+            let scheme = this._style_graph(tree, edges);
+            this._node.scheme(scheme);
+            this._edge.scheme(scheme);
             this._sig_group = this._svg
                 .selectAll('g.signatures')
                 .data([signatures])
@@ -8594,16 +8689,7 @@
             this._svg
                 .select('#univ')
                 .style('display', 'none');
-            transition.on('end', this._make_voronoi_new.bind(this));
-        }
-        edges() {
-            return this._edges;
-        }
-        nodes() {
-            return this._nodes;
-        }
-        links() {
-            return this._links;
+            transition.on('end', this._make_voronoi.bind(this));
         }
         width() {
             return this._props ? this._props.width : 0;
@@ -8653,7 +8739,40 @@
             this._nodes = tree.descendants();
             this._edges = edges;
         }
-        _make_voronoi_new() {
+        _style_graph(tree, edges) {
+            let sig_colors = category10;
+            let rel_colors = Dark2;
+            let sigs = [];
+            let rels = [];
+            let scheme = {
+                colors: {},
+                groups: {}
+            };
+            tree.eachAfter(node => {
+                let node_type = node.data.expressionType();
+                let sig = node_type === 'atom'
+                    ? node.data.signature().label()
+                    : node.data.label();
+                let idx = sigs.indexOf(sig);
+                idx = idx === -1 ? sigs.push(sig) - 1 : idx;
+                scheme.colors[node.data.id()] = color(sig_colors[idx % sig_colors.length]);
+            });
+            edges.forEach(edge => {
+                let edge_type = edge.data.parent().expressionType();
+                if (edge_type === 'field') {
+                    let rel = edge.data.parent().label();
+                    let idx = rels.indexOf(rel);
+                    idx = idx === -1 ? rels.push(rel) - 1 : idx;
+                    scheme.colors[edge.data.id()] = color(rel_colors[idx % rel_colors.length]);
+                    scheme.groups[edge.data.id()] = edge.data.parent().id();
+                }
+                else {
+                    scheme.colors[edge.data.id()] = color('black');
+                }
+            });
+            return scheme;
+        }
+        _make_voronoi() {
             let points = this._edge.points();
             let delaunay = Delaunay
                 .from(points, d => d.x, d => d.y)
@@ -8860,15 +8979,138 @@
         }
     }
 
+    class ProjectionsBar {
+        constructor(selection) {
+            this._projbar = selection;
+            this._projlist = selection
+                .select('#projections-list');
+            this._btn_add = selection
+                .select('#add-projection')
+                .on('click', this._toggle_signatures.bind(this));
+            this._btn_add_items = selection
+                .selectAll('#add-projection, #add-projection *');
+            this._signatures = [];
+            this._projections = new Map();
+            select('body')
+                .on('click', this._on_click.bind(this));
+        }
+        set_instance(instance) {
+            this._set_signatures(instance
+                .univ()
+                .signatures()
+                .filter(sig => {
+                return sig.label() !== 'univ' && sig.label() !== 'seq/Int';
+            })
+                .sort((a, b) => {
+                if (a.private() && !b.private())
+                    return 1;
+                if (!a.private() && b.private())
+                    return -1;
+                return sig_label(a).localeCompare(sig_label(b));
+            }));
+        }
+        _add_projection(signature) {
+            this._set_signatures(this._signatures.filter(sig => sig !== signature));
+            let atoms = signature.atoms(true);
+            this._projections.set(signature, atoms.length ? atoms[0] : null);
+            this._update_projections();
+        }
+        _hide_signatures() {
+            this._btn_add
+                .selectAll('.dropdown-content')
+                .style('display', 'none');
+        }
+        _on_click() {
+            let outside = this._btn_add_items.filter(function () {
+                return this === event.target;
+            }).empty();
+            if (outside)
+                this._hide_signatures();
+        }
+        _set_signatures(signatures) {
+            this._signatures = signatures;
+            this._update_signatures();
+        }
+        _update_projections() {
+            let projections = this._projections;
+            let sigs = Array.from(projections.keys());
+            this._projlist
+                .selectAll('.combo-button')
+                .data(sigs, d => d.id())
+                .join(enter => add_combo_button(enter))
+                .each(function (signature) {
+                let projection = select(this);
+                let atoms = signature.atoms(true);
+                let atom = projections.get(signature);
+                if (!atom) {
+                    projection.select('#prev').classed('inactive', true);
+                    projection.select('#atom').classed('inactive', true).text(sig_label(signature));
+                    projection.select('#next').classed('inactive', true);
+                }
+                else {
+                    projection.select('#atom').text(atom.label());
+                }
+            });
+        }
+        _update_signatures() {
+            this._btn_add
+                .select('.dropdown-content')
+                .selectAll('.dropdown-item')
+                .data(this._signatures)
+                .join(enter => enter.append('div')
+                .attr('class', 'dropdown-item')
+                .text(d => sig_label(d)), update => update
+                .text(d => sig_label(d)))
+                .on('click', this._add_projection.bind(this));
+        }
+        _toggle_signatures() {
+            let curr = this._btn_add
+                .select('.dropdown-content')
+                .style('display');
+            this._btn_add
+                .select('.dropdown-content')
+                .style('display', curr === 'none' ? 'flex' : 'none');
+        }
+    }
+    function add_combo_button(enter) {
+        let button = enter
+            .append('div')
+            .attr('class', 'combo-button');
+        button.append('div')
+            .attr('class', 'icon')
+            .attr('id', 'prev')
+            .append('i')
+            .attr('class', 'fas fa-chevron-left');
+        button.append('div')
+            .attr('class', 'text')
+            .attr('id', 'atom');
+        button.append('div')
+            .attr('class', 'icon')
+            .attr('id', 'next')
+            .append('i')
+            .attr('class', 'fas fa-chevron-right');
+        button.append('div')
+            .attr('class', 'icon separated')
+            .append('i')
+            .attr('class', 'fas fa-times');
+        return button;
+    }
+    function sig_label(sig) {
+        let label = sig.label();
+        return label.substring(0, 5) === 'this/' ? label.substring(5) : label;
+    }
+
     class GraphView extends View {
         constructor(selection) {
             super(selection);
             this._layout = new GraphLayout(selection.select('#graph'));
             this._instance = null;
             this._is_visible = false;
+            this._projections_bar = new ProjectionsBar(selection.select('#projections-bar'));
             window.addEventListener('resize', this._layout.resize.bind(this._layout));
         }
         set_instance(instance) {
+            this._projections_bar.set_instance(instance);
             if (this._is_visible) {
                 this._layout.set_instance(instance);
             }

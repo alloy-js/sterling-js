@@ -1,12 +1,15 @@
 import { View } from './view';
 import { GraphLayout } from '../../layouts/graph-layout';
 import { Instance } from '../..';
+import { ProjectionsBar } from '../bars/projections-bar';
 
 export class GraphView extends View {
 
     _layout: GraphLayout;
     _instance: Instance;
     _is_visible: boolean;
+
+    _projections_bar: ProjectionsBar;
 
     constructor (selection) {
 
@@ -15,11 +18,14 @@ export class GraphView extends View {
         this._layout = new GraphLayout(selection.select('#graph'));
         this._instance = null;
         this._is_visible = false;
+        this._projections_bar = new ProjectionsBar(selection.select('#projections-bar'));
         window.addEventListener('resize', this._layout.resize.bind(this._layout));
 
     }
 
     set_instance (instance: Instance) {
+
+        this._projections_bar.set_instance(instance);
 
         if (this._is_visible) {
             this._layout.set_instance(instance);

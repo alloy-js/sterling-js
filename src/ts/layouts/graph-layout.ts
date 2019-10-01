@@ -27,7 +27,6 @@ export class GraphLayout {
         let graph = new AlloyGraph(instance);
         this._dagre.layout(graph);
 
-
     }
 
 }
