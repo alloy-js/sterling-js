@@ -47,7 +47,7 @@ function node (): NodeFunction {
             .transition(_transition)
             .attr('transform', d => `translate(${d.x},${d.y})`);
 
-        _selection.on('interrupt', () => _selection.attr('opacity', 1));
+        // _selection.on('interrupt', () => _selection.attr('opacity', 1));
 
         return _selection;
 

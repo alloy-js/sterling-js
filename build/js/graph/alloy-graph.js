@@ -55,6 +55,7 @@ export class AlloyGraph {
             };
         })
             .filter(edge => edge.source !== null && edge.target !== null);
+        console.log(edges);
         // Determine the set of all nodes used in a relation
         let nodeset = new Set();
         edges.forEach(edge => edge.data.atoms().forEach(atom => nodeset.add(atom.id())));

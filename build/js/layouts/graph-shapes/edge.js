@@ -169,6 +169,7 @@ function edge() {
         update
             .select('path.arrow')
             .transition(_transition)
+            .attr('stroke', _stroke_color)
             .attr('transform', arrow_transform);
     }
     function _update_labels(update) {
@@ -176,7 +177,9 @@ function edge() {
             .select('text.label')
             .transition(_transition)
             .attr('x', d => d.x)
-            .attr('y', d => d.y);
+            .attr('y', d => d.y)
+            .attr('fill', _stroke_color)
+            .text(d => d.label);
     }
     function _update_paths(update) {
         update

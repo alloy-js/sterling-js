@@ -129,8 +129,6 @@ export class ProjectionsBar {
             this._projections.set(signature, atom);
         }
 
-        this._on_update(this._projections);
-
     }
 
     _set_signatures (signatures: Array<Signature>) {
@@ -140,11 +138,16 @@ export class ProjectionsBar {
 
     }
 
+    _trigger_update () {
+        this._on_update(this._projections);
+    }
+
     _update_projections () {
 
         let projections = this._projections;
         let sigs: Array<Signature> = Array.from(projections.keys());
-        let projection_callback = this._set_projection.bind(this);
+        let set_projection = this._set_projection.bind(this);
+        let trigger_update = this._trigger_update.bind(this);
         let add_signature = (signature) => {
             this._signatures.push(signature);
             this._set_signatures(this._signatures);
@@ -177,7 +180,7 @@ export class ProjectionsBar {
                     let i = atoms.indexOf(atom);
                     btn_prev.classed('inactive', i === 0);
                     btn_next.classed('inactive', i === atoms.length-1);
-                    projection_callback(atom, signature);
+                    set_projection(atom, signature);
 
                 }
 
@@ -221,9 +224,10 @@ export class ProjectionsBar {
                         atom = next;
                         btn_atom.text(atom.label());
                         atomlist.style('display', 'none');
-                        projection_callback(atom, signature);
+                        set_projection(atom, signature);
                         btn_prev.classed('inactive', index === 0);
                         btn_next.classed('inactive', index === atoms.length-1);
+                        trigger_update();
                     }
 
                 } else {
@@ -234,9 +238,10 @@ export class ProjectionsBar {
                 }
 
                 btn_exit.on('click', () => {
-                    projection_callback(null, signature);
+                    set_projection(null, signature);
                     projection.remove();
                     add_signature(signature);
+                    trigger_update();
                 });
 
             });
@@ -256,7 +261,10 @@ export class ProjectionsBar {
                 update => update
                     .text(d => sig_label(d))
             )
-            .on('click', this._add_projection.bind(this));
+            .on('click', d => {
+                this._add_projection(d);
+                this._trigger_update();
+            });
 
     }
 

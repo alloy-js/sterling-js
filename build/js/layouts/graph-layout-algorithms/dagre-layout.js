@@ -34,7 +34,7 @@ export class DagreLayout {
     }
     layout(graph) {
         let { tree, edges } = graph.graph();
-        let transition = this._svg.transition().duration(400);
+        let transition = this._svg.transition().duration(500);
         this._sig_rect.transition(transition);
         this._sig_label.transition(transition);
         this._position_compound_graph(tree, edges);

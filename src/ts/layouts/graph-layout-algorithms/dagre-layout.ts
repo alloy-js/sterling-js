@@ -66,7 +66,7 @@ export class DagreLayout {
 
         let { tree, edges } = graph.graph();
 
-        let transition = this._svg.transition().duration(400);
+        let transition = this._svg.transition().duration(500);
         this._sig_rect.transition(transition);
         this._sig_label.transition(transition);
 

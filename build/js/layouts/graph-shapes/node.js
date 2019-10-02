@@ -32,7 +32,7 @@ function node() {
             .merge(selection)
             .transition(_transition)
             .attr('transform', d => `translate(${d.x},${d.y})`);
-        _selection.on('interrupt', () => _selection.attr('opacity', 1));
+        // _selection.on('interrupt', () => _selection.attr('opacity', 1));
         return _selection;
     }
     const _node = Object.assign(_function, {
