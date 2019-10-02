@@ -166,6 +166,12 @@ export class AlloyGraph {
 
     }
 
+    projections (projections: Map<Signature, Atom>) {
+        if (!arguments.length) return this._projections;
+        this._projections = projections;
+        return this;
+    }
+
     unproject (atom: Atom) {
 
         // Determine top level signature of this atom

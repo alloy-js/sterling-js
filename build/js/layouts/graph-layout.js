@@ -7,11 +7,19 @@ export class GraphLayout {
             .style('font-family', 'monospace')
             .style('font-size', '10px');
         this._dagre = new DagreLayout(this._svg);
+        this._graph = null;
     }
     resize() {
     }
-    set_instance(instance) {
-        let graph = new AlloyGraph(instance);
-        this._dagre.layout(graph);
+    set_instance(instance, projections) {
+        this._graph = new AlloyGraph(instance);
+        if (projections)
+            this._graph.projections(projections);
+        this._dagre.layout(this._graph);
+    }
+    set_projections(projections) {
+        if (this._graph)
+            this._graph.projections(projections);
+        this._dagre.layout(this._graph);
     }
 }

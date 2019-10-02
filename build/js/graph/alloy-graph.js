@@ -113,6 +113,12 @@ export class AlloyGraph {
         let signature = types[0];
         this._projections.set(signature, atom);
     }
+    projections(projections) {
+        if (!arguments.length)
+            return this._projections;
+        this._projections = projections;
+        return this;
+    }
     unproject(atom) {
         // Determine top level signature of this atom
         let types = atom.signature().types();
