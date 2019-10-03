@@ -17,7 +17,7 @@ export class TreeLayoutPreferences {
         top, right, bottom, left: number
     } = {
         top: 0,
-        right: 150,
+        right: 250,
         bottom: 0,
         left: 150
     };

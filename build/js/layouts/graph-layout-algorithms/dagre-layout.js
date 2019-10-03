@@ -163,7 +163,7 @@ export class DagreLayout {
         });
         edges.forEach(edge => {
             let edge_type = edge.data.parent().expressionType();
-            if (edge_type === 'field') {
+            if (edge_type === 'field' || edge_type === 'skolem') {
                 let rel = edge.data.parent().label();
                 let idx = rels.indexOf(rel);
                 idx = idx === -1 ? rels.push(rel) - 1 : idx;

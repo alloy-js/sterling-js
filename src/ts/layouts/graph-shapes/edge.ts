@@ -225,6 +225,7 @@ function edge (): EdgeFunction {
             .select('path.arrow')
             .transition(_transition)
             .attr('stroke', _stroke_color)
+            .attr('fill', _stroke_color)
             .attr('transform', arrow_transform);
 
     }
@@ -246,6 +247,7 @@ function edge (): EdgeFunction {
         update
             .select('path.edge')
             .transition(_transition)
+            .attr('stroke', _stroke_color)
             .attr('d', d => _line(d.points));
 
     }

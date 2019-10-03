@@ -8,6 +8,7 @@
 .table-view {
   display: flex;
   flex-wrap: wrap;
+  flex: 1 0 auto;
   table {
     margin: 1em;
     border-collapse: collapse;

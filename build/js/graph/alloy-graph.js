@@ -1,11 +1,11 @@
 import * as d3 from 'd3';
 export class AlloyGraph {
     constructor(instance) {
-        // Flags determine if certain types of expression are included in graph
+        // Flags determine if certain types of expression are filtered out of graph
         this._builtin = true;
         this._disconnected = true;
         this._meta = true;
-        this._private = false;
+        this._private = true;
         this._instance = instance;
         this._projections = new Map();
     }
@@ -54,8 +54,9 @@ export class AlloyGraph {
                 middle: atoms.length > 2 ? atoms.slice(1, atoms.length - 1) : []
             };
         })
-            .filter(edge => edge.source !== null && edge.target !== null);
-        console.log(edges);
+            .filter(edge => edge.source !== null && edge.target !== null)
+            .filter(edge => !this._builtin || !edge_is_builtin(edge))
+            .filter(edge => !this._private || !edge_is_private(edge));
         // Determine the set of all nodes used in a relation
         let nodeset = new Set();
         edges.forEach(edge => edge.data.atoms().forEach(atom => nodeset.add(atom.id())));
@@ -63,7 +64,7 @@ export class AlloyGraph {
         let visibleset = new Set();
         edges.forEach(edge => visibleset.add(edge.source.id()).add(edge.target.id()));
         // Remove atoms from tree based on flags
-        tree.each(node => {
+        tree.eachAfter(node => {
             if (node.data.expressionType() === 'signature') {
                 // Keep a complete copy of children
                 node._children = node.children;
@@ -90,10 +91,26 @@ export class AlloyGraph {
                             || visibleset.has(child.data.id());
                     });
                 }
+                // Remove atoms that are part of a projected signature
+                if (node.children) {
+                    let sigs = Array.from(this._projections.keys());
+                    node.children = node.children.filter(child => {
+                        return child.data.expressionType() === 'signature'
+                            || !sigs.includes(child.data.signature());
+                    });
+                }
+                // Remove integers that are not part of a relation
+                if (node.children) {
+                    node.children = node.children.filter(child => {
+                        let isint = child.data.expressionType() === 'atom'
+                            && child.data.signature().label() === 'Int';
+                        return !isint || visibleset.has(child.data.id());
+                    });
+                }
             }
         });
         // Remove signatures that have no children
-        tree.each(node => {
+        tree.eachAfter(node => {
             if (node.children) {
                 node.children = node.children.filter(child => {
                     return child.data.expressionType() === 'atom'
@@ -128,6 +145,14 @@ export class AlloyGraph {
         let signature = types[0];
         this._projections.delete(signature);
     }
+}
+function edge_is_builtin(edge) {
+    let sourcesig = edge.source.signature(), targetsig = edge.target.signature();
+    return (sourcesig.label() !== "Int" && sourcesig.builtin())
+        || (targetsig.label() !== "Int" && targetsig.builtin());
+}
+function edge_is_private(edge) {
+    return edge.source.signature().private() || edge.target.signature().private();
 }
 function project(tup, atom, signature) {
     if (tup.includes(atom)) {

@@ -29,11 +29,22 @@ export class ProjectionsBar {
     }
     set_instance(instance) {
         let projections = new Map();
+        let oldsigs = Array.from(this._projections.keys());
+        let newsigs = instance.univ().signatures(false);
         let atoms = instance.atoms();
-        this._projections.forEach((atom, signature) => {
-            let atomnew = atoms.find(a => a.id() === atom.id());
-            if (atomnew && atomnew.signature().label() === signature.label()) {
-                projections.set(atomnew.signature(), atomnew);
+        oldsigs.forEach(signature => {
+            let newsig = newsigs.find(sig => sig.id() === signature.id());
+            if (newsig) {
+                let newatom = atoms.find(atom => atom.id() === this._projections.get(signature).id());
+                if (!newatom) {
+                    let sigatoms = newsig.atoms(true);
+                    if (sigatoms.length) {
+                        newatom = sigatoms[0];
+                    }
+                }
+                if (newatom) {
+                    projections.set(newsig, newatom);
+                }
             }
         });
         this._projections = projections;

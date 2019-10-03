@@ -6469,9 +6469,14 @@
             return this._sources;
         }
         tuples() {
-            return this.fields()
+            let skolems = this.skolems()
+                .filter(skolem => skolem.size() > 1)
+                .map(skolem => skolem.tuples())
+                .reduce((acc, cur) => acc.concat(cur), []);
+            let fields = this.fields()
                 .map(fld => fld.tuples())
                 .reduce((acc, cur) => acc.concat(cur), []);
+            return fields.concat(skolems);
         }
         toString() {
             return 'Instance';
@@ -8390,6 +8395,7 @@
                 .select('path.arrow')
                 .transition(_transition)
                 .attr('stroke', _stroke_color)
+                .attr('fill', _stroke_color)
                 .attr('transform', arrow_transform);
         }
         function _update_labels(update) {
@@ -8405,6 +8411,7 @@
             update
                 .select('path.edge')
                 .transition(_transition)
+                .attr('stroke', _stroke_color)
                 .attr('d', d => _line(d.points));
         }
         function _update_rects(update) {
@@ -8763,7 +8770,7 @@
             });
             edges.forEach(edge => {
                 let edge_type = edge.data.parent().expressionType();
-                if (edge_type === 'field') {
+                if (edge_type === 'field' || edge_type === 'skolem') {
                     let rel = edge.data.parent().label();
                     let idx = rels.indexOf(rel);
                     idx = idx === -1 ? rels.push(rel) - 1 : idx;
@@ -8829,11 +8836,11 @@
 
     class AlloyGraph {
         constructor(instance) {
-            // Flags determine if certain types of expression are included in graph
+            // Flags determine if certain types of expression are filtered out of graph
             this._builtin = true;
             this._disconnected = true;
             this._meta = true;
-            this._private = false;
+            this._private = true;
             this._instance = instance;
             this._projections = new Map();
         }
@@ -8882,8 +8889,9 @@
                     middle: atoms.length > 2 ? atoms.slice(1, atoms.length - 1) : []
                 };
             })
-                .filter(edge => edge.source !== null && edge.target !== null);
-            console.log(edges);
+                .filter(edge => edge.source !== null && edge.target !== null)
+                .filter(edge => !this._builtin || !edge_is_builtin(edge))
+                .filter(edge => !this._private || !edge_is_private(edge));
             // Determine the set of all nodes used in a relation
             let nodeset = new Set();
             edges.forEach(edge => edge.data.atoms().forEach(atom => nodeset.add(atom.id())));
@@ -8891,7 +8899,7 @@
             let visibleset = new Set();
             edges.forEach(edge => visibleset.add(edge.source.id()).add(edge.target.id()));
             // Remove atoms from tree based on flags
-            tree.each(node => {
+            tree.eachAfter(node => {
                 if (node.data.expressionType() === 'signature') {
                     // Keep a complete copy of children
                     node._children = node.children;
@@ -8918,10 +8926,26 @@
                                 || visibleset.has(child.data.id());
                         });
                     }
+                    // Remove atoms that are part of a projected signature
+                    if (node.children) {
+                        let sigs = Array.from(this._projections.keys());
+                        node.children = node.children.filter(child => {
+                            return child.data.expressionType() === 'signature'
+                                || !sigs.includes(child.data.signature());
+                        });
+                    }
+                    // Remove integers that are not part of a relation
+                    if (node.children) {
+                        node.children = node.children.filter(child => {
+                            let isint = child.data.expressionType() === 'atom'
+                                && child.data.signature().label() === 'Int';
+                            return !isint || visibleset.has(child.data.id());
+                        });
+                    }
                 }
             });
             // Remove signatures that have no children
-            tree.each(node => {
+            tree.eachAfter(node => {
                 if (node.children) {
                     node.children = node.children.filter(child => {
                         return child.data.expressionType() === 'atom'
@@ -8956,6 +8980,14 @@
             let signature = types[0];
             this._projections.delete(signature);
         }
+    }
+    function edge_is_builtin(edge) {
+        let sourcesig = edge.source.signature(), targetsig = edge.target.signature();
+        return (sourcesig.label() !== "Int" && sourcesig.builtin())
+            || (targetsig.label() !== "Int" && targetsig.builtin());
+    }
+    function edge_is_private(edge) {
+        return edge.source.signature().private() || edge.target.signature().private();
     }
     function project(tup, atom, signature) {
         if (tup.includes(atom)) {
@@ -9028,11 +9060,22 @@
         }
         set_instance(instance) {
             let projections = new Map();
+            let oldsigs = Array.from(this._projections.keys());
+            let newsigs = instance.univ().signatures(false);
             let atoms = instance.atoms();
-            this._projections.forEach((atom, signature) => {
-                let atomnew = atoms.find(a => a.id() === atom.id());
-                if (atomnew && atomnew.signature().label() === signature.label()) {
-                    projections.set(atomnew.signature(), atomnew);
+            oldsigs.forEach(signature => {
+                let newsig = newsigs.find(sig => sig.id() === signature.id());
+                if (newsig) {
+                    let newatom = atoms.find(atom => atom.id() === this._projections.get(signature).id());
+                    if (!newatom) {
+                        let sigatoms = newsig.atoms(true);
+                        if (sigatoms.length) {
+                            newatom = sigatoms[0];
+                        }
+                    }
+                    if (newatom) {
+                        projections.set(newsig, newatom);
+                    }
                 }
             });
             this._projections = projections;
@@ -9607,7 +9650,7 @@
             this.link_stroke_width = 1.5;
             this.margin = {
                 top: 0,
-                right: 150,
+                right: 250,
                 bottom: 0,
                 left: 150
             };

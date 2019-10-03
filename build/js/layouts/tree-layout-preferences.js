@@ -12,7 +12,7 @@ export class TreeLayoutPreferences {
         this.link_stroke_width = 1.5;
         this.margin = {
             top: 0,
-            right: 150,
+            right: 250,
             bottom: 0,
             left: 150
         };

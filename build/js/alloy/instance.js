@@ -54,9 +54,14 @@ export class Instance {
         return this._sources;
     }
     tuples() {
-        return this.fields()
+        let skolems = this.skolems()
+            .filter(skolem => skolem.size() > 1)
+            .map(skolem => skolem.tuples())
+            .reduce((acc, cur) => acc.concat(cur), []);
+        let fields = this.fields()
             .map(fld => fld.tuples())
             .reduce((acc, cur) => acc.concat(cur), []);
+        return fields.concat(skolems);
     }
     toString() {
         return 'Instance';
