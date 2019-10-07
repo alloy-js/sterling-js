@@ -154,6 +154,10 @@ function addTuple(receiver, tuple) {
     }
     // Check that atoms are correct type
     if (!types.every((t, i) => atoms[i].isType(t))) {
+        types.forEach((t, i) => {
+            console.log(t);
+            console.log(atoms[i]);
+        });
         throw Error(tuple + ' incompatible with field ' + receiver);
     }
     // Check that tuple not already in relation
@@ -209,6 +213,7 @@ function parseSubset(instance, signatures) {
             let int = Array
                 .from(signatures.values())
                 .find(s => s.label() === 'Int');
+            sig._parent = int;
             for (let i = 0; i < instance.maxseq(); ++i) {
                 let label = i.toString();
                 let atom = int.atom(label, true);

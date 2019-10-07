@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "main": "build/js/index.js",
   "scripts": {
+    "build-docs": "typedoc src/ts/alloy-ts/",
     "build-ts": "tsc -w -p tsconfig.json",
     "build-js": "rollup -c -w",
     "build-css": "sass --watch --no-source-map src/scss/index.scss dist/css/index.css"
@@ -12,6 +13,7 @@
     "d3": "^5.12.0",
     "d3-delaunay": "5.1.5",
     "rollup": "^1.21.4",
-    "rollup-plugin-node-resolve": "^5.2.0"
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "typedoc": "0.15.0"
   }
 }

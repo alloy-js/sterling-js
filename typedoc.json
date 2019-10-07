@@ -1,0 +1,7 @@
+{
+  "includes": "src/ts/alloy-ts/",
+  "mode": "file",
+  "out": "docs",
+  "readme": "none",
+  "theme": "minimal"
+}
