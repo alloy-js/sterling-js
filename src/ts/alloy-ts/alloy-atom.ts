@@ -17,6 +17,7 @@ export class AlloyAtom extends AlloyElement {
 
     /**
      * Create a new Alloy atom.
+     *
      * @param signature The type of this atom
      * @param name The name of this atom
      */

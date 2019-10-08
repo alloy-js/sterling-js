@@ -2396,6 +2396,9 @@ img {
 					<a href="alloyfield.html#_is_private" class="tsd-kind-icon">_is_<wbr>private</a>
 				</li>
 				<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
+					<a href="alloyfield.html#_tuples" class="tsd-kind-icon">_tuples</a>
+				</li>
+				<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-private">
 					<a href="alloyfield.html#_types" class="tsd-kind-icon">_types</a>
 				</li>
 				<li class=" tsd-kind-method tsd-parent-kind-class">
@@ -2419,10 +2422,37 @@ img {
 				<li class=" tsd-kind-method tsd-parent-kind-class">
 					<a href="alloyfield.html#size" class="tsd-kind-icon">size</a>
 				</li>
+				<li class=" tsd-kind-method tsd-parent-kind-class">
+					<a href="alloyfield.html#tostring" class="tsd-kind-icon">to<wbr>String</a>
+				</li>
+				<li class=" tsd-kind-method tsd-parent-kind-class">
+					<a href="alloyfield.html#tuples" class="tsd-kind-icon">tuples</a>
+				</li>
+				<li class=" tsd-kind-method tsd-parent-kind-class">
+					<a href="alloyfield.html#types" class="tsd-kind-icon">types</a>
+				</li>
 			</ul>
 		</li>
 		<li class=" tsd-kind-class">
+			<a href="alloyinstance.html" class="tsd-kind-icon">Alloy<wbr>Instance</a>
+		</li>
+		<li class=" tsd-kind-class">
 			<a href="alloysignature.html" class="tsd-kind-icon">Alloy<wbr>Signature</a>
+		</li>
+		<li class=" tsd-kind-class">
+			<a href="alloytuple.html" class="tsd-kind-icon">Alloy<wbr>Tuple</a>
+		</li>
+		<li class=" tsd-kind-interface tsd-is-not-exported">
+			<a href="../interfaces/idsig.html" class="tsd-kind-icon">IDSig</a>
+		</li>
+		<li class=" tsd-kind-function tsd-is-not-exported">
+			<a href="../index.html#filter_exclude_attr" class="tsd-kind-icon">filter_<wbr>exclude_<wbr>attr</a>
+		</li>
+		<li class=" tsd-kind-function tsd-is-not-exported">
+			<a href="../index.html#filter_exclude_labels" class="tsd-kind-icon">filter_<wbr>exclude_<wbr>labels</a>
+		</li>
+		<li class=" tsd-kind-function tsd-is-not-exported">
+			<a href="../index.html#is_subset" class="tsd-kind-icon">is_<wbr>subset</a>
 		</li>
 	</ul>
 </nav>
@@ -2456,6 +2486,7 @@ img {
 						<ul class="tsd-index-list">
 							<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="alloyfield.html#_is_meta" class="tsd-kind-icon">_is_<wbr>meta</a></li>
 							<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="alloyfield.html#_is_private" class="tsd-kind-icon">_is_<wbr>private</a></li>
+							<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="alloyfield.html#_tuples" class="tsd-kind-icon">_tuples</a></li>
 							<li class="tsd-kind-property tsd-parent-kind-class tsd-is-private"><a href="alloyfield.html#_types" class="tsd-kind-icon">_types</a></li>
 						</ul>
 					</section>
@@ -2469,6 +2500,9 @@ img {
 							<li class="tsd-kind-method tsd-parent-kind-class"><a href="alloyfield.html#is_private" class="tsd-kind-icon">is_<wbr>private</a></li>
 							<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited"><a href="alloyfield.html#name" class="tsd-kind-icon">name</a></li>
 							<li class="tsd-kind-method tsd-parent-kind-class"><a href="alloyfield.html#size" class="tsd-kind-icon">size</a></li>
+							<li class="tsd-kind-method tsd-parent-kind-class"><a href="alloyfield.html#tostring" class="tsd-kind-icon">to<wbr>String</a></li>
+							<li class="tsd-kind-method tsd-parent-kind-class"><a href="alloyfield.html#tuples" class="tsd-kind-icon">tuples</a></li>
+							<li class="tsd-kind-method tsd-parent-kind-class"><a href="alloyfield.html#types" class="tsd-kind-icon">types</a></li>
 						</ul>
 					</section>
 				</div>
@@ -2480,29 +2514,76 @@ img {
 				<a name="constructor" class="tsd-anchor"></a>
 				<h3>constructor</h3>
 				<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class tsd-is-overwrite">
-					<li class="tsd-signature tsd-kind-icon">new <wbr>Alloy<wbr>Field<span class="tsd-signature-symbol">(</span>name<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, types<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloysignature.html" class="tsd-signature-type">AlloySignature</a><span class="tsd-signature-symbol">&gt;</span>, is_meta<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span>, is_private<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="alloyfield.html" class="tsd-signature-type">AlloyField</a></li>
+					<li class="tsd-signature tsd-kind-icon">new <wbr>Alloy<wbr>Field<span class="tsd-signature-symbol">(</span>name<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span>, types<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloysignature.html" class="tsd-signature-type">AlloySignature</a><span class="tsd-signature-symbol">&gt;</span>, tuples<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloytuple.html" class="tsd-signature-type">AlloyTuple</a><span class="tsd-signature-symbol">&gt;</span>, is_meta<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">boolean</span>, is_private<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="alloyfield.html" class="tsd-signature-type">AlloyField</a></li>
 				</ul>
 				<ul class="tsd-descriptions">
 					<li class="tsd-description">
 						<aside class="tsd-sources">
 							<p>Overrides <a href="alloyelement.html">AlloyElement</a>.<a href="alloyelement.html#constructor">constructor</a></p>
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L9">alloy-field.ts:9</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L11">alloy-field.ts:11</a></li>
 							</ul>
 						</aside>
+						<div class="tsd-comment tsd-typography">
+							<div class="lead">
+								<p>Create a new Alloy field.</p>
+							</div>
+							<dl class="tsd-comment-tags">
+								<dt>remarks</dt>
+								<dd><p>An alloy field consists of an ordered array of
+										<a href="alloysignature.html">signatures</a> that define the types of the &quot;columns&quot; of
+										the relation defined by the field, as well as a list of
+										<a href="alloytuple.html">tuples</a> that define the contents (or &quot;rows&quot;) of the
+										relation. The arity of the field, or number of columns, must be at least
+									two.</p>
+								</dd>
+								<dt>throws</dt>
+								<dd><p>Error When the arity is less than two or an atom&#39;s type does not
+									match the type of the column in which it resides.</p>
+								</dd>
+							</dl>
+						</div>
 						<h4 class="tsd-parameters-title">Parameters</h4>
 						<ul class="tsd-parameters">
 							<li>
 								<h5>name: <span class="tsd-signature-type">string</span></h5>
+								<div class="tsd-comment tsd-typography">
+									<div class="lead">
+										<p>The name of this field</p>
+									</div>
+								</div>
 							</li>
 							<li>
 								<h5>types: <span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloysignature.html" class="tsd-signature-type">AlloySignature</a><span class="tsd-signature-symbol">&gt;</span></h5>
+								<div class="tsd-comment tsd-typography">
+									<div class="lead">
+										<p>The types that define the columns of this relation</p>
+									</div>
+								</div>
 							</li>
 							<li>
-								<h5>is_meta: <span class="tsd-signature-type">boolean</span></h5>
+								<h5>tuples: <span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloytuple.html" class="tsd-signature-type">AlloyTuple</a><span class="tsd-signature-symbol">&gt;</span></h5>
+								<div class="tsd-comment tsd-typography">
+									<div class="lead">
+										<p>The contents of this relation</p>
+									</div>
+								</div>
 							</li>
 							<li>
-								<h5>is_private: <span class="tsd-signature-type">boolean</span></h5>
+								<h5><span class="tsd-flag ts-flagOptional">Optional</span> is_meta: <span class="tsd-signature-type">boolean</span></h5>
+								<div class="tsd-comment tsd-typography">
+									<div class="lead">
+										<p>Is this a meta field?</p>
+									</div>
+								</div>
+							</li>
+							<li>
+								<h5><span class="tsd-flag ts-flagOptional">Optional</span> is_private: <span class="tsd-signature-type">boolean</span></h5>
+								<div class="tsd-comment tsd-typography">
+									<div class="lead">
+										<p>Is this a private field?</p>
+									</div>
+								</div>
 							</li>
 						</ul>
 						<h4 class="tsd-returns-title">Returns <a href="alloyfield.html" class="tsd-signature-type">AlloyField</a></h4>
@@ -2518,7 +2599,7 @@ img {
 				<div class="tsd-signature tsd-kind-icon">_is_<wbr>meta<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
 				<aside class="tsd-sources">
 					<ul>
-						<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L8">alloy-field.ts:8</a></li>
+						<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L10">alloy-field.ts:10</a></li>
 					</ul>
 				</aside>
 			</section>
@@ -2528,7 +2609,17 @@ img {
 				<div class="tsd-signature tsd-kind-icon">_is_<wbr>private<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
 				<aside class="tsd-sources">
 					<ul>
-						<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L9">alloy-field.ts:9</a></li>
+						<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L11">alloy-field.ts:11</a></li>
+					</ul>
+				</aside>
+			</section>
+			<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-private">
+				<a name="_tuples" class="tsd-anchor"></a>
+				<h3><span class="tsd-flag ts-flagPrivate">Private</span> _tuples</h3>
+				<div class="tsd-signature tsd-kind-icon">_tuples<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloytuple.html" class="tsd-signature-type">AlloyTuple</a><span class="tsd-signature-symbol">&gt;</span></div>
+				<aside class="tsd-sources">
+					<ul>
+						<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L8">alloy-field.ts:8</a></li>
 					</ul>
 				</aside>
 			</section>
@@ -2538,7 +2629,7 @@ img {
 				<div class="tsd-signature tsd-kind-icon">_types<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloysignature.html" class="tsd-signature-type">AlloySignature</a><span class="tsd-signature-symbol">&gt;</span></div>
 				<aside class="tsd-sources">
 					<ul>
-						<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L6">alloy-field.ts:6</a></li>
+						<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L7">alloy-field.ts:7</a></li>
 					</ul>
 				</aside>
 			</section>
@@ -2555,7 +2646,7 @@ img {
 					<li class="tsd-description">
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L27">alloy-field.ts:27</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L65">alloy-field.ts:65</a></li>
 							</ul>
 						</aside>
 						<div class="tsd-comment tsd-typography">
@@ -2578,12 +2669,12 @@ img {
 						<aside class="tsd-sources">
 							<p>Overrides <a href="alloyelement.html">AlloyElement</a>.<a href="alloyelement.html#expressiontype">expressionType</a></p>
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L36">alloy-field.ts:36</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L74">alloy-field.ts:74</a></li>
 							</ul>
 						</aside>
 						<div class="tsd-comment tsd-typography">
 							<div class="lead">
-								<p>Returns the string &#39;field&#39;.</p>
+								<p>Returns the string <code>field</code>.</p>
 							</div>
 						</div>
 						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
@@ -2601,9 +2692,21 @@ img {
 						<aside class="tsd-sources">
 							<p>Overrides <a href="alloyelement.html">AlloyElement</a>.<a href="alloyelement.html#id">id</a></p>
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L42">alloy-field.ts:42</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L88">alloy-field.ts:88</a></li>
 							</ul>
 						</aside>
+						<div class="tsd-comment tsd-typography">
+							<div class="lead">
+								<p>Returns the unique ID of this field.</p>
+							</div>
+							<dl class="tsd-comment-tags">
+								<dt>remarks</dt>
+								<dd><p>The unique ID of a field is constructed as the name of the type of the
+										first column of the relation, followed by a <code>&lt;:</code>, followed by the name
+									of this field.</p>
+								</dd>
+							</dl>
+						</div>
 						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
 					</li>
 				</ul>
@@ -2618,7 +2721,7 @@ img {
 					<li class="tsd-description">
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L51">alloy-field.ts:51</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L97">alloy-field.ts:97</a></li>
 							</ul>
 						</aside>
 						<div class="tsd-comment tsd-typography">
@@ -2640,7 +2743,7 @@ img {
 					<li class="tsd-description">
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L60">alloy-field.ts:60</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L106">alloy-field.ts:106</a></li>
 							</ul>
 						</aside>
 						<div class="tsd-comment tsd-typography">
@@ -2663,7 +2766,7 @@ img {
 						<aside class="tsd-sources">
 							<p>Inherited from <a href="alloyelement.html">AlloyElement</a>.<a href="alloyelement.html#name">name</a></p>
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-element.ts#L47">alloy-element.ts:47</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-element.ts#L47">alloy-element.ts:47</a></li>
 							</ul>
 						</aside>
 						<div class="tsd-comment tsd-typography">
@@ -2685,7 +2788,7 @@ img {
 					<li class="tsd-description">
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/9f7fe41/src/ts/alloy-ts/alloy-field.ts#L69">alloy-field.ts:69</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L115">alloy-field.ts:115</a></li>
 							</ul>
 						</aside>
 						<div class="tsd-comment tsd-typography">
@@ -2694,6 +2797,72 @@ img {
 							</div>
 						</div>
 						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+				<a name="tostring" class="tsd-anchor"></a>
+				<h3>to<wbr>String</h3>
+				<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+					<li class="tsd-signature tsd-kind-icon">to<wbr>String<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span></li>
+				</ul>
+				<ul class="tsd-descriptions">
+					<li class="tsd-description">
+						<aside class="tsd-sources">
+							<ul>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L124">alloy-field.ts:124</a></li>
+							</ul>
+						</aside>
+						<div class="tsd-comment tsd-typography">
+							<div class="lead">
+								<p>Returns a printable string.</p>
+							</div>
+						</div>
+						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+				<a name="tuples" class="tsd-anchor"></a>
+				<h3>tuples</h3>
+				<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+					<li class="tsd-signature tsd-kind-icon">tuples<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloytuple.html" class="tsd-signature-type">AlloyTuple</a><span class="tsd-signature-symbol">&gt;</span></li>
+				</ul>
+				<ul class="tsd-descriptions">
+					<li class="tsd-description">
+						<aside class="tsd-sources">
+							<ul>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L133">alloy-field.ts:133</a></li>
+							</ul>
+						</aside>
+						<div class="tsd-comment tsd-typography">
+							<div class="lead">
+								<p>Returns a copy of this field&#39;s tuples.</p>
+							</div>
+						</div>
+						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloytuple.html" class="tsd-signature-type">AlloyTuple</a><span class="tsd-signature-symbol">&gt;</span></h4>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+				<a name="types" class="tsd-anchor"></a>
+				<h3>types</h3>
+				<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+					<li class="tsd-signature tsd-kind-icon">types<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloysignature.html" class="tsd-signature-type">AlloySignature</a><span class="tsd-signature-symbol">&gt;</span></li>
+				</ul>
+				<ul class="tsd-descriptions">
+					<li class="tsd-description">
+						<aside class="tsd-sources">
+							<ul>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-field.ts#L142">alloy-field.ts:142</a></li>
+							</ul>
+						</aside>
+						<div class="tsd-comment tsd-typography">
+							<div class="lead">
+								<p>Returns a copy of the types that define the columns of this relation.</p>
+							</div>
+						</div>
+						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Array</span><span class="tsd-signature-symbol">&lt;</span><a href="alloysignature.html" class="tsd-signature-type">AlloySignature</a><span class="tsd-signature-symbol">&gt;</span></h4>
 					</li>
 				</ul>
 			</section>

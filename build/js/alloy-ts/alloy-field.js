@@ -1,15 +1,5 @@
 import { AlloyElement } from './alloy-element';
-import { AlloySignature } from './alloy-signature';
-import { AlloyTuple } from './alloy-tuple';
-
 export class AlloyField extends AlloyElement {
-
-    private readonly _types: Array<AlloySignature>;
-    private readonly _tuples: Array<AlloyTuple>;
-
-    private readonly _is_meta: boolean;
-    private readonly _is_private: boolean;
-
     /**
      * Create a new Alloy field.
      *
@@ -30,24 +20,16 @@ export class AlloyField extends AlloyElement {
      * @throws Error When the arity is less than two or an atom's type does not
      * match the type of the column in which it resides.
      */
-    constructor (name: string,
-                 types: Array<AlloySignature>,
-                 tuples: Array<AlloyTuple>,
-                 is_meta?: boolean,
-                 is_private?: boolean) {
-
+    constructor(name, types, tuples, is_meta, is_private) {
         super(name);
-
         this._types = types;
         this._tuples = tuples;
         this._is_meta = is_meta ? is_meta : false;
         this._is_private = is_private ? is_private : false;
-
         // Check that the field has an arity of at least two
         if (types.length < 2) {
             throw Error(`Field ${name} has arity less than two.`);
         }
-
         // Check that all tuples are composed of correct types
         tuples.forEach(tuple => {
             tuple.atoms().forEach((atom, i) => {
@@ -56,27 +38,19 @@ export class AlloyField extends AlloyElement {
                 }
             });
         });
-
     }
-
     /**
      * Returns the number of "columns" in the relation defined by this field.
      */
-    arity (): number {
-
+    arity() {
         return this._types.length;
-
     }
-
     /**
      * Returns the string `field`.
      */
-    expressionType (): string {
-
+    expressionType() {
         return 'field';
-
     }
-
     /**
      * Returns the unique ID of this field.
      *
@@ -85,64 +59,43 @@ export class AlloyField extends AlloyElement {
      * first column of the relation, followed by a `<:`, followed by the name
      * of this field.
      */
-    id (): string {
-
+    id() {
         return this._types[0].name() + '<:' + this.name();
-
     }
-
     /**
      * Returns true if this is a meta field, false otherwise.
      */
-    is_meta (): boolean {
-
+    is_meta() {
         return this._is_meta;
-
     }
-
     /**
      * Returns true if this is a private field, false otherwise.
      */
-    is_private (): boolean {
-
+    is_private() {
         return this._is_private;
-
     }
-
     /**
      * Returns the number of "rows" in the relation defined by this field.
      */
-    size (): number {
-
+    size() {
         return this._tuples.length;
-
     }
-
     /**
      * Returns a printable string.
      */
-    toString (): string {
-
+    toString() {
         return this.name();
-
     }
-
     /**
      * Returns a copy of this field's tuples.
      */
-    tuples (): Array<AlloyTuple> {
-
+    tuples() {
         return this._tuples.slice();
-
     }
-
     /**
      * Returns a copy of the types that define the columns of this relation.
      */
-    types (): Array<AlloySignature> {
-
+    types() {
         return this._types.slice();
-
     }
-
 }

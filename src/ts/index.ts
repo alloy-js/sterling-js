@@ -5,3 +5,4 @@ export * from './alloy/signature';
 export * from './alloy/skolem';
 export * from './alloy/tuple';
 export * from './ui/ui';
+export * from './alloy-ts/alloy-instance';

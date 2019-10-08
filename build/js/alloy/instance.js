@@ -170,7 +170,7 @@ function addTuple(receiver, tuple) {
 function buildInt(sig, bitwidth) {
     if (bitwidth < 1)
         return;
-    let n = Math.pow(2, bitwidth);
+    let n = 2 ** bitwidth;
     for (let i = -n / 2; i < n / 2; ++i) {
         addAtom(sig, i.toString());
     }

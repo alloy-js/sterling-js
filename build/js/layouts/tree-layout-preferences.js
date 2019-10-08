@@ -51,6 +51,6 @@ export class TreeLayoutPreferences {
         };
     }
     text_lower_attributes() {
-        return Object.assign(Object.assign({}, this.text_attributes()), { 'stroke-linejoin': this.text_lower_stroke_linejoin, 'stroke-width': this.text_lower_stroke_width });
+        return Object.assign({}, this.text_attributes(), { 'stroke-linejoin': this.text_lower_stroke_linejoin, 'stroke-width': this.text_lower_stroke_width });
     }
 }

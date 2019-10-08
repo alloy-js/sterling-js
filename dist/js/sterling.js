@@ -6585,7 +6585,7 @@
     function buildInt(sig, bitwidth) {
         if (bitwidth < 1)
             return;
-        let n = Math.pow(2, bitwidth);
+        let n = 2 ** bitwidth;
         for (let i = -n / 2; i < n / 2; ++i) {
             addAtom(sig, i.toString());
         }
@@ -9694,7 +9694,7 @@
             };
         }
         text_lower_attributes() {
-            return Object.assign(Object.assign({}, this.text_attributes()), { 'stroke-linejoin': this.text_lower_stroke_linejoin, 'stroke-width': this.text_lower_stroke_width });
+            return Object.assign({}, this.text_attributes(), { 'stroke-linejoin': this.text_lower_stroke_linejoin, 'stroke-width': this.text_lower_stroke_width });
         }
     }
 
@@ -10318,7 +10318,485 @@
         }
     }
 
-    exports.AlloyAtom = Atom;
+    /**
+     * The abstract superclass for all elements of an Alloy instance.
+     */
+    class AlloyElement {
+        /**
+         * Create a new named Element.
+         * @param name The name of the element
+         */
+        constructor(name) {
+            this._name = name;
+        }
+        /**
+         * Returns the name of this element.
+         */
+        name() {
+            return this._name;
+        }
+    }
+
+    /**
+     * An atom in an Alloy instance.
+     *
+     * @remarks
+     * In Alloy, an atom is a primitive entity that is *indivisible*, *immutable*,
+     * and *uninterpreted*.
+     */
+    class AlloyAtom extends AlloyElement {
+        /**
+         * Create a new Alloy atom.
+         *
+         * @param signature The type of this atom
+         * @param name The name of this atom
+         */
+        constructor(signature, name) {
+            super(name);
+            this._type = signature;
+        }
+        /**
+         * Returns the string `atom`
+         */
+        expressionType() {
+            return 'atom';
+        }
+        /**
+         * Returns the unique ID of this atom.
+         *
+         * @remarks
+         * The unique ID of an atom is a combination of the ID of the atom's type,
+         * an [[AlloySignature]], and the atom's name, separated by a colon.
+         */
+        id() {
+            return this._type.id() + ':' + this.name();
+        }
+        /**
+         * Returns true if this atom is of type **signature**, false otherwise.
+         * @param signature The signature to check against
+         */
+        isType(signature) {
+            return this.typeHierarchy().includes(signature);
+        }
+        /**
+         * Returns a printable string.
+         */
+        toString() {
+            return this.name();
+        }
+        /**
+         * Returns the type of this atom.
+         *
+         * @remarks
+         * Due to the hierarchical nature of Alloy signatures, it is possible for
+         * atoms to have multiple types. This method returns the atom's immediate
+         * type, i.e., the "lowest" level signature of which it is a child.
+         */
+        type() {
+            return this._type;
+        }
+        /**
+         * Return an array, in order from highest to lowest, of this atom's types.
+         */
+        typeHierarchy() {
+            return this._type.typeHierarchy();
+        }
+    }
+
+    /**
+     * Build a function that can be used to filter an array of Elements by
+     * removing those with a specific "label" attribute value.
+     * @param exclude The labels to exclude
+     */
+    function filter_exclude_labels(...exclude) {
+        return (element) => {
+            let label = element.getAttribute('label');
+            return !exclude.includes(label);
+        };
+    }
+    /**
+     * Determine if the given element is a subset signature.
+     *
+     * @remarks
+     * In an Alloy XML file, a subset signature will have a "type" element that
+     * defines which signature it is a subset of.
+     *
+     * @param element The element to test
+     */
+    function is_subset(element) {
+        return element.tagName === 'sig' && !!element.querySelector('type');
+    }
+
+    /**
+     * A signature in an Alloy instance.
+     *
+     * @remarks
+     * In Alloy, a signature introduces a set of atoms.
+     */
+    class AlloySignature extends AlloyElement {
+        /**
+         * Create a new Alloy signature.
+         * @param name The name of this signature
+         * @param type The parent type of this signature
+         * @param is_builtin Is this a built-in signature?
+         * @param is_meta Is this a meta signature?
+         * @param is_one Is this a singleton signature?
+         * @param is_private Is this a private signature?
+         * @param is_subset Is this a subset signature?
+         */
+        constructor(name, type, is_builtin, is_meta, is_one, is_private, is_subset) {
+            super(name);
+            this._type = type ? type : null;
+            this._subtypes = [];
+            this._atoms = [];
+            this._is_builtin = is_builtin ? is_builtin : false;
+            this._is_meta = is_meta ? is_meta : false;
+            this._is_one = is_one ? is_one : false;
+            this._is_private = is_private ? is_private : false;
+            this._is_subset = is_subset ? is_subset : false;
+        }
+        /**
+         * Returns an array of atoms whose type are this signature.
+         *
+         * @remarks
+         * To return a list of atoms defined directly by this signature, omit the
+         * optional nest parameter. To include atoms defined by this signature
+         * and all subtypes of this signature, pass in a truthy value for the
+         * nest parameter.
+         *
+         * @param nest Whether or not to recursively include atoms
+         */
+        atoms(nest) {
+            return nest
+                ? this.atoms()
+                    .concat(this.subTypes(true)
+                    .reduce((acc, cur) => acc.concat(cur.atoms()), []))
+                : this._atoms.slice();
+        }
+        /**
+         * Returns the string `signature`.
+         */
+        expressionType() {
+            return 'signature';
+        }
+        /**
+         * Returns the atom with the given name if it exists, otherwise null.
+         * @param name The name of the atom
+         */
+        findAtom(name) {
+            return this._atoms.find(atom => atom.name() === name) || null;
+        }
+        /**
+         * Return the unique ID of this signature.
+         *
+         * @remarks
+         * The unique ID of a signature is a combination of all signature names,
+         * starting with the highest level parent and ending with this one, of all
+         * signatures in this signature's ancenstry.
+         */
+        id() {
+            return this.name();
+        }
+        /**
+         * Returns true if this is a builtin signature, false otherwise.
+         *
+         * @remarks
+         * Builtin signatures include "univ", "int", "seq/int", "string".
+         */
+        isBuiltin() {
+            return this._is_builtin;
+        }
+        /**
+         * Returns true if this is a meta signature, false otherwise.
+         */
+        isMeta() {
+            return this._is_meta;
+        }
+        /**
+         * Returns true if this is a singleton signature, false otherwise.
+         */
+        isOne() {
+            return this._is_one;
+        }
+        /**
+         * Returns true if this is a private signature, false otherwise.
+         */
+        isPrivate() {
+            return this._is_private;
+        }
+        /**
+         * Returns true if this is a subset signature, false otherwise.
+         */
+        isSubset() {
+            return this._is_subset;
+        }
+        /**
+         * Returns an array of signatures that are subtypes of this signature.
+         *
+         * @remarks
+         * To return a list of immediate subtypes, omit the optional nest parameter.
+         * To include all subtypes of this signature, including all of those that
+         * are below this one in the inheritance tree, pass in a truthy value for
+         * the nest parameter.
+         *
+         * @param nest Whether or not to recursively include subtypes
+         */
+        subTypes(nest) {
+            return nest
+                ? this.subTypes()
+                    .concat(this._subtypes
+                    .map(sig => sig.subTypes(true))
+                    .reduce((acc, cur) => acc.concat(cur), []))
+                : this._subtypes.slice();
+        }
+        /**
+         * Returns a printable string.
+         */
+        toString() {
+            return this.name();
+        }
+        /**
+         * Return a array, in order from highest to lowest, of this signature's
+         * ancestors.
+         *
+         * @remarks
+         * The final element of the list will be this signature.
+         */
+        typeHierarchy() {
+            let hierarchy = this._type ? this._type.typeHierarchy() : [];
+            hierarchy.push(this);
+            return hierarchy;
+        }
+        static buildSigs(bitwidth, maxseq, sigs) {
+            let ids = new Map();
+            // Int and seq/Int don't actually include atoms in the XML file,
+            // so they need to be assembled separately from the rest of the sigs.
+            let intElement = sigs.find(el => el.getAttribute('label') === 'Int');
+            let seqElement = sigs.find(el => el.getAttribute('label') === 'seq/Int');
+            let int = AlloySignature._buildInt(bitwidth, intElement);
+            let seq = AlloySignature._buildSeq(maxseq, seqElement, int.sig);
+            ids.set(int.id, int.sig);
+            ids.set(seq.id, seq.sig);
+            // Parse the non-subset signatures
+            sigs
+                .filter(filter_exclude_labels('Int', 'seq/Int'))
+                .filter(el => !is_subset(el))
+                .forEach(el => {
+                let sig = AlloySignature._buildSig(el);
+                ids.set(sig.id, sig.sig);
+            });
+            // TODO: Parse the subset signatures
+            return ids;
+        }
+        /**
+         * Assemble the builtin Int signature.
+         *
+         * @remarks
+         * The total number of integers will be equal to 2<sup>bitwidth</sup>, and
+         * the values will fall into the range
+         * [-2<sup>bitwidth</sup>/2, 2<sup>bitwidth</sup>/2].
+         *
+         * @param bitwidth The bitwidth
+         * @param element The XML sig element with the "Int" label attribute
+         */
+        static _buildInt(bitwidth, element) {
+            if (!element)
+                throw Error('Instance contains no Int element');
+            if (bitwidth < 1)
+                throw Error(`Invalid bitwidth ${bitwidth}`);
+            let id = element.getAttribute('ID');
+            if (!id)
+                throw Error('Invalid Int element');
+            let int = new AlloySignature('Int', null, true);
+            let n = 2 ** bitwidth;
+            for (let i = -n / 2; i < n / 2; ++i) {
+                int._atoms.push(new AlloyAtom(int, i.toString()));
+            }
+            return {
+                id: parseInt(id),
+                sig: int
+            };
+        }
+        /**
+         * Assemble the builtin seq/Int signature.
+         *
+         * @param maxseq The maximum sequence length
+         * @param element The XML sig element with the "seq/Int" label attribute
+         * @param int The Int signature
+         * @private
+         */
+        static _buildSeq(maxseq, element, int) {
+            if (!element)
+                throw Error('Instance contains no seq/Int element');
+            let id = element.getAttribute('ID');
+            if (!id)
+                throw Error('Invalid seq/Int element');
+            let seq = new AlloySignature('seq/Int', int, true, false, false, false, true);
+            for (let i = 0; i < maxseq; ++i) {
+                let atom = int.findAtom(i.toString());
+                if (!atom)
+                    throw Error('The maxseq value is invalid');
+                seq._atoms.push(atom);
+            }
+            return {
+                id: parseInt(id),
+                sig: seq
+            };
+        }
+        /**
+         * Assemble a signature from an element of an XML file.
+         *
+         * @remarks
+         * This method will not assemble subset signatures, as those require a
+         * reference to their parent signature in order to extract existing atoms.
+         *
+         * @param element The XML sig element
+         */
+        static _buildSig(element) {
+            if (!element)
+                throw Error('Signature element does not exist');
+            let id = element.getAttribute('ID');
+            if (!id)
+                throw Error('Signature element has no ID attribute');
+            let label = element.getAttribute('label');
+            if (!label)
+                throw Error('Signature element has no label attribute');
+            let parentID = element.getAttribute('parentID');
+            let builtin = element.getAttribute('builtin') === 'yes';
+            let meta = element.getAttribute('meta') === 'yes';
+            let one = element.getAttribute('one') === 'yes';
+            let priv = element.getAttribute('private') === 'yes';
+            let subset = element.getAttribute('subset') === 'yes';
+            if (subset)
+                throw Error('Subset signature must be built using AlloySignature.buildSubset()');
+            let sig = new AlloySignature(label, null, builtin, meta, one, priv, subset);
+            // TODO: Parse and set atoms
+            if (parentID) {
+                return {
+                    id: parseInt(id),
+                    parentID: parseInt(parentID),
+                    sig: sig
+                };
+            }
+            else {
+                return {
+                    id: parseInt(id),
+                    sig: sig
+                };
+            }
+        }
+    }
+
+    class AlloyInstance {
+        /**
+         * Assemble an Alloy instance from an XML document.
+         *
+         * @remarks
+         * Extracts and parses all info from an instance that has been exported
+         * from Alloy in XML format. Typically, XML files are read in Javascript
+         * and the resulting document passed to this constructor as follows:
+         *
+         * ```javascript
+         * let text = '...'; // The text read from the XML file
+         * let parser = new DOMParser();
+         * let doc = parser.parseFromString(text, 'application/xml');
+         * let instance = new AlloyInstance(doc);
+         * ```
+         *
+         * @param document The XML document
+         */
+        constructor(document) {
+            this._parseAlloyAttributes(document.querySelector('alloy'));
+            this._parseInstanceAttributes(document.querySelector('instance'));
+            let sigElements = Array.from(document.querySelectorAll('sig'));
+            AlloySignature.buildSigs(this._bitwidth, this._maxseq, sigElements);
+        }
+        /**
+         * Parse the attributes of the "alloy" XML element
+         *
+         * @remarks
+         * This method sets the [[_builddate]] property.
+         *
+         * @param element The "alloy" XML element
+         * @throws Error if element is null or does not have a builddate attribute.
+         * @private
+         */
+        _parseAlloyAttributes(element) {
+            if (!element)
+                throw Error('Instance does not contain Alloy info');
+            let builddate = element.getAttribute('builddate');
+            if (!builddate)
+                throw Error('Instance does not contain an Alloy build date');
+            this._builddate = new Date(Date.parse(builddate));
+        }
+        /**
+         * Parse the attributes of the "instance" XML element
+         *
+         * @remarks
+         * This method sets the [[_bitwidth]], [[_maxseq]], [[_command]], and
+         * [[_filename]] properties.
+         *
+         * @param element The "instance" XML element
+         * @throws Error if element is null or any of bitwidth, maxseq, command, or
+         * filename attributes are not present.
+         * @private
+         */
+        _parseInstanceAttributes(element) {
+            if (!element)
+                throw Error('Instance does not contain attribute info');
+            let bitwidth = element.getAttribute('bitwidth');
+            if (!bitwidth)
+                throw Error('Instance does not contain a bit width');
+            this._setBitWidth(parseInt(bitwidth));
+            let maxseq = element.getAttribute('maxseq');
+            if (!maxseq)
+                throw Error('Instance does not contain a max seq');
+            this._setMaxSeq(parseInt(maxseq));
+            let command = element.getAttribute('command');
+            if (!command)
+                throw Error('Instance does not contain a command');
+            this._setCommand(command);
+            let filename = element.getAttribute('filename');
+            if (!filename)
+                throw Error('Instance does not contain a filename');
+            this._setFilename(filename);
+        }
+        /**
+         * Set the [[_bitwidth]] attribute
+         * @param bitwidth The bitwidth
+         * @private
+         */
+        _setBitWidth(bitwidth) {
+            this._bitwidth = bitwidth;
+        }
+        /**
+         * Set the [[_command]] attribute
+         * @param command The command
+         * @private
+         */
+        _setCommand(command) {
+            this._command = command;
+        }
+        /**
+         * Set the [[_filename]] attribute
+         * @param filename The filename
+         * @private
+         */
+        _setFilename(filename) {
+            this._filename = filename;
+        }
+        /**
+         * Set the [[_maxseq]] attribute
+         * @param maxseq The max seq length
+         * @private
+         */
+        _setMaxSeq(maxseq) {
+            this._maxseq = maxseq;
+        }
+    }
+
+    exports.AlloyInstance = AlloyInstance;
+    exports.Atom = Atom;
     exports.Field = Field;
     exports.Instance = Instance;
     exports.Signature = Signature;

@@ -9,6 +9,7 @@ import { AlloyElement } from './alloy-element';
 export class AlloyAtom extends AlloyElement {
     /**
      * Create a new Alloy atom.
+     *
      * @param signature The type of this atom
      * @param name The name of this atom
      */
@@ -56,6 +57,9 @@ export class AlloyAtom extends AlloyElement {
     type() {
         return this._type;
     }
+    /**
+     * Return an array, in order from highest to lowest, of this atom's types.
+     */
     typeHierarchy() {
         return this._type.typeHierarchy();
     }

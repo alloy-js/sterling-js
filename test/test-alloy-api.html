@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <title>Test Page for Alloy API</title>
+
+        <script src='../dist/js/highlight.js'></script>
+        <script src='../dist/js/sterling.js'></script>
+
+    </head>
+    <body>
+
+        <input id='file' type='file'>
+
+        <script>
+            document.querySelector('#file')
+                .addEventListener('change', (event) => {
+
+                    let file = event.target.files[0];
+                    let reader = new FileReader();
+
+                    reader.onload = function () {
+
+                        let parser = new DOMParser(),
+                            doc = parser.parseFromString(reader.result, 'application/xml');
+
+                        let instance = new sterling.AlloyInstance(doc);
+
+                    };
+
+                    reader.readAsText(file);
+
+                });
+        </script>
+
+    </body>
+</html>
