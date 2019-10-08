@@ -1,4 +1,5 @@
 import { AlloyElement } from './alloy-element';
+import { AlloyAtom } from './alloy-atom';
 
 /**
  * A signature in an Alloy instance.
@@ -12,6 +13,16 @@ export class AlloySignature extends AlloyElement {
      * This signature's parent type
      */
     private readonly _type: AlloySignature | null;
+
+    /**
+     * An array of signatures for which this is the parent type
+     */
+    private readonly _subtypes: Array<AlloySignature>;
+
+    /**
+     * An array of [[AlloyAtom|atoms]] defined by this signature
+     */
+    private readonly _atoms: Array<AlloyAtom>;
 
     private readonly _is_builtin: boolean;
     private readonly _is_meta: boolean;
@@ -38,6 +49,8 @@ export class AlloySignature extends AlloyElement {
         super(name);
 
         this._type = null;
+        this._subtypes = [];
+        this._atoms = [];
 
         this._is_builtin = is_builtin ? is_builtin : false;
         this._is_meta = is_meta ? is_meta : false;
@@ -45,6 +58,27 @@ export class AlloySignature extends AlloyElement {
         this._is_private = is_private ? is_private : false;
         this._is_subset = is_subset ? is_subset : false;
 
+    }
+
+    /**
+     * Returns an array of atoms whose type are this signature.
+     *
+     * @remarks
+     * To return a list of atoms defined directly by this signature, omit the
+     * optional nest parameter. To include atoms defined by this signature
+     * and all subtypes of this signature, pass in a truthy value for the
+     * nest parameter.
+     *
+     * @param nest Whether or not to recursively include atoms
+     */
+    atoms (nest?: boolean): Array<AlloyAtom> {
+
+        return nest
+            ? this.atoms()
+                .concat(this.subTypes(true)
+                    .reduce((acc, cur) => acc.concat(cur.atoms()), [])
+                )
+            : this._atoms.slice();
     }
 
     /**
@@ -70,30 +104,48 @@ export class AlloySignature extends AlloyElement {
 
     }
 
+    /**
+     * Returns true if this is a builtin signature, false otherwise.
+     *
+     * @remarks
+     * Builtin signatures include "univ", "int", "seq/int", "string".
+     */
     isBuiltin (): boolean {
 
         return this._is_builtin;
 
     }
 
+    /**
+     * Returns true if this is a meta signature, false otherwise.
+     */
     isMeta (): boolean {
 
         return this._is_meta;
 
     }
 
+    /**
+     * Returns true if this is a singleton signature, false otherwise.
+     */
     isOne (): boolean {
 
         return this._is_one;
 
     }
 
+    /**
+     * Returns true if this is a private signature, false otherwise.
+     */
     isPrivate (): boolean {
 
         return this._is_private;
 
     }
 
+    /**
+     * Returns true if this is a subset signature, false otherwise.
+     */
     isSubset (): boolean {
 
         return this._is_subset;
@@ -101,7 +153,30 @@ export class AlloySignature extends AlloyElement {
     }
 
     /**
-     * Return a list, in order from highest to lowest, of this signature's
+     * Returns an array of signatures that are subtypes of this signature.
+     *
+     * @remarks
+     * To return a list of immediate subtypes, omit the optional nest parameter.
+     * To include all subtypes of this signature, including all of those that
+     * are below this one in the inheritance tree, pass in a truthy value for
+     * the nest parameter.
+     *
+     * @param nest Whether or not to recursively include subtypes
+     */
+    subTypes (nest?: boolean): Array<AlloySignature> {
+
+        return nest
+            ? this.subTypes()
+                .concat(this._subtypes
+                    .map(sig => sig.subTypes(true))
+                    .reduce((acc, cur) => acc.concat(cur), [])
+                )
+            : this._subtypes.slice();
+
+    }
+
+    /**
+     * Return a array, in order from highest to lowest, of this signature's
      * ancestors.
      *
      * @remarks

@@ -83,6 +83,9 @@ export class AlloyAtom extends AlloyElement {
 
     }
 
+    /**
+     * Return an array, in order from highest to lowest, of this atom's types.
+     */
     typeHierarchy (): Array<AlloySignature> {
 
         return this._type.typeHierarchy();
