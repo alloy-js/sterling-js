@@ -10426,6 +10426,32 @@
     function is_subset(element) {
         return element.tagName === 'sig' && !!element.querySelector('type');
     }
+    /**
+     * Comparison function that can be used to sort an array of subset sig elements
+     * based on type hierarchy. Guarantees that parents will appear before children.
+     * @param a A subset sig element from an Alloy XML file
+     * @param b A subset sig element from an Alloy XML file
+     */
+    function subset_sort(a, b) {
+        let aID = a.getAttribute('ID'), bID = b.getAttribute('ID'), aT = subset_type_id(a), bT = subset_type_id(b);
+        if (!aID || !bID)
+            throw Error('Element has no ID');
+        if (bT === parseInt(aID))
+            return -1;
+        if (aT === parseInt(bID))
+            return 1;
+        return 0;
+    }
+    /**
+     * Get the parent ID of a subset signature
+     * @param element The subset signature element
+     */
+    function subset_type_id(element) {
+        let t = element.querySelector('type').getAttribute('ID');
+        if (!t)
+            throw Error('Element is not a subset signature');
+        return parseInt(t);
+    }
 
     /**
      * A signature in an Alloy instance.
@@ -10437,16 +10463,15 @@
         /**
          * Create a new Alloy signature.
          * @param name The name of this signature
-         * @param type The parent type of this signature
          * @param is_builtin Is this a built-in signature?
          * @param is_meta Is this a meta signature?
          * @param is_one Is this a singleton signature?
          * @param is_private Is this a private signature?
          * @param is_subset Is this a subset signature?
          */
-        constructor(name, type, is_builtin, is_meta, is_one, is_private, is_subset) {
+        constructor(name, is_builtin, is_meta, is_one, is_private, is_subset) {
             super(name);
-            this._type = type ? type : null;
+            this._type = null;
             this._subtypes = [];
             this._atoms = [];
             this._is_builtin = is_builtin ? is_builtin : false;
@@ -10474,6 +10499,80 @@
                 : this._atoms.slice();
         }
         /**
+         * Returns the depth of this signature within the signature hierarchy. The
+         * root signature (typically univ) has depth zero.
+         */
+        depth() {
+            return this.typeHierarchy().length - 1;
+        }
+        /**
+         * Invokes the specified function for this signature and each descendant
+         * signature in [breadth-first order](https://en.wikipedia.org/wiki/Breadth-first_search), such that a given signature is only
+         * visited if all signatures of lesser depth have already been visited. The
+         * specified function is passed the current signature.
+         *
+         * @param callback The function to call for each signature
+         * @returns This signature is returned, allowing for method chaining.
+         */
+        each(callback) {
+            let sig = this, current, next = [sig], children, i, n;
+            do {
+                current = next.reverse();
+                next = [];
+                while (!!(sig = current.pop())) {
+                    callback(sig);
+                    children = sig.subTypes();
+                    if (children) {
+                        for (i = 0, n = children.length; i < n; ++i) {
+                            next.push(children[i]);
+                        }
+                    }
+                }
+            } while (next.length);
+            return this;
+        }
+        /**
+         * Invokes the specified function for this signature and each descendant
+         * signature in [post-order traversal](https://en.wikipedia.org/wiki/Tree_traversal#Post-order), such that a given signature is only
+         * visited after all of its descendants have already been visited. The
+         * specified function is passed the current signature.
+         *
+         * @param callback The function to call for each signature
+         * @returns This signature is returned, allowing for method chaining.
+         */
+        eachAfter(callback) {
+            this._subtypes.forEach(child => {
+                child.eachAfter(callback);
+            });
+            callback(this);
+            return this;
+        }
+        /**
+         * Invokes the specified function for this signature and each descendant
+         * signature in [pre-order traversal](https://en.wikipedia.org/wiki/Tree_traversal#Pre-order), such that a given signature is only
+         * visited after all of its ancestors have already been visited. The
+         * specified function is passed the current signature.
+         *
+         * @remarks
+         * As an example, to print the nested signature hierarchy:
+         * ```javascript
+         * let univ = ...; // retreive the univ signature
+         * univ.eachBefore(sig => {
+         *   console.log(' '.repeat(sig.depth()) + sig.name());
+         * }
+         * ```
+         *
+         * @param callback The function to call for each signature
+         * @returns This signature is returned, allowing for method chaining.
+         */
+        eachBefore(callback) {
+            callback(this);
+            this._subtypes.forEach(child => {
+                child.eachBefore(callback);
+            });
+            return this;
+        }
+        /**
          * Returns the string `signature`.
          */
         expressionType() {
@@ -10481,10 +10580,31 @@
         }
         /**
          * Returns the atom with the given name if it exists, otherwise null.
+         *
+         * @remarks
+         * This method searches this signature as well as all descendant signatures
+         * for the give atom using a breadth-first search algorithm.
+         *
          * @param name The name of the atom
          */
         findAtom(name) {
-            return this._atoms.find(atom => atom.name() === name) || null;
+            let sig = this, current, next = [sig], children, i, n, atom;
+            do {
+                current = next.reverse();
+                next = [];
+                while (!!(sig = current.pop())) {
+                    atom = sig._atoms.find(atom => atom.name() === name);
+                    if (atom)
+                        return atom;
+                    children = sig.subTypes();
+                    if (children) {
+                        for (i = 0, n = children.length; i < n; ++i) {
+                            next.push(children[i]);
+                        }
+                    }
+                }
+            } while (next.length);
+            return null;
         }
         /**
          * Return the unique ID of this signature.
@@ -10567,8 +10687,16 @@
             hierarchy.push(this);
             return hierarchy;
         }
+        /**
+         * Build all signatures in an XML Alloy instance.
+         *
+         * @param bitwidth The bitwidth, which defines the number of integers
+         * @param maxseq The maximum sequence length
+         * @param sigs An array of "sig" elements from the XML file
+         */
         static buildSigs(bitwidth, maxseq, sigs) {
             let ids = new Map();
+            let parents = new Map();
             // Int and seq/Int don't actually include atoms in the XML file,
             // so they need to be assembled separately from the rest of the sigs.
             let intElement = sigs.find(el => el.getAttribute('label') === 'Int');
@@ -10584,8 +10712,24 @@
                 .forEach(el => {
                 let sig = AlloySignature._buildSig(el);
                 ids.set(sig.id, sig.sig);
+                if (sig.parentID)
+                    parents.set(sig.id, sig.parentID);
             });
-            // TODO: Parse the subset signatures
+            sigs
+                .filter(el => is_subset(el))
+                .sort(subset_sort)
+                .forEach(el => {
+                let sig = AlloySignature._buildSub(el, ids);
+                ids.set(sig.id, sig.sig);
+                if (sig.parentID)
+                    parents.set(sig.id, sig.parentID);
+            });
+            parents.forEach((parentID, sigID) => {
+                let parent = ids.get(parentID);
+                let sig = ids.get(sigID);
+                sig._type = parent;
+                parent._subtypes.push(sig);
+            });
             return ids;
         }
         /**
@@ -10598,6 +10742,7 @@
          *
          * @param bitwidth The bitwidth
          * @param element The XML sig element with the "Int" label attribute
+         * @private
          */
         static _buildInt(bitwidth, element) {
             if (!element)
@@ -10631,7 +10776,8 @@
             let id = element.getAttribute('ID');
             if (!id)
                 throw Error('Invalid seq/Int element');
-            let seq = new AlloySignature('seq/Int', int, true, false, false, false, true);
+            let seq = new AlloySignature('seq/Int', true, false, false, false, true);
+            seq._type = int;
             for (let i = 0; i < maxseq; ++i) {
                 let atom = int.findAtom(i.toString());
                 if (!atom)
@@ -10651,6 +10797,7 @@
          * reference to their parent signature in order to extract existing atoms.
          *
          * @param element The XML sig element
+         * @private
          */
         static _buildSig(element) {
             if (!element)
@@ -10666,11 +10813,18 @@
             let meta = element.getAttribute('meta') === 'yes';
             let one = element.getAttribute('one') === 'yes';
             let priv = element.getAttribute('private') === 'yes';
-            let subset = element.getAttribute('subset') === 'yes';
+            let subset = is_subset(element);
             if (subset)
-                throw Error('Subset signature must be built using AlloySignature.buildSubset()');
-            let sig = new AlloySignature(label, null, builtin, meta, one, priv, subset);
-            // TODO: Parse and set atoms
+                throw Error('Subset signature must be built using AlloySignature._buildSub()');
+            let sig = new AlloySignature(label, builtin, meta, one, priv, subset);
+            element
+                .querySelectorAll('atom')
+                .forEach(atom => {
+                let atomLabel = atom.getAttribute('label');
+                if (!atomLabel)
+                    throw Error('Atom does not have a label');
+                sig._atoms.push(new AlloyAtom(sig, atomLabel));
+            });
             if (parentID) {
                 return {
                     id: parseInt(id),
@@ -10684,6 +10838,303 @@
                     sig: sig
                 };
             }
+        }
+        /**
+         * Assemble a subset signature from an element of an XML file.
+         *
+         * @remarks
+         * This method assumes that the subset's parent signature has already been
+         * created and is in the sigs map. Therefore, it's important to parse subset
+         * signatures in a top-down fashion.
+         *
+         * @param element The XML sig element
+         * @param sigs Map of sig ID's (as defined in XML) to signatures
+         * @private
+         */
+        static _buildSub(element, sigs) {
+            if (!element)
+                throw Error('Signature element does not exist');
+            let id = element.getAttribute('ID');
+            if (!id)
+                throw Error('Signature element has no ID attribute');
+            let label = element.getAttribute('label');
+            if (!label)
+                throw Error('Signature element has no label attribute');
+            let parentID = subset_type_id(element);
+            let builtin = element.getAttribute('builtin') === 'yes';
+            let meta = element.getAttribute('meta') === 'yes';
+            let one = element.getAttribute('one') === 'yes';
+            let priv = element.getAttribute('private') === 'yes';
+            let subset = is_subset(element);
+            if (!subset)
+                throw Error('Signatures must be built using AlloySignature._buildSig()');
+            let parent = sigs.get(parentID);
+            if (!parent)
+                throw Error('Unable to find parent of subset signature');
+            let sig = new AlloySignature(label, builtin, meta, one, priv, subset);
+            element
+                .querySelectorAll('atom')
+                .forEach(el => {
+                let atomLabel = el.getAttribute('label');
+                if (!atomLabel)
+                    throw Error('Atom does not have a label');
+                let atom = parent.findAtom(atomLabel);
+                if (!atom)
+                    throw Error(`Parent signature doesn not contain atom ${atomLabel}`);
+                sig._atoms.push(atom);
+            });
+            return {
+                id: parseInt(id),
+                parentID: parentID,
+                sig: sig
+            };
+        }
+    }
+
+    class AlloyTuple extends AlloyElement {
+        /**
+         * Create a new Alloy tuple.
+         *
+         * @remarks
+         * In Alloy, a tuple is a sequence of atoms. As part of an Alloy instance,
+         * tuples can either reside in a [[AlloyField|field]] or exist as a free
+         * variable that makes an existentially quantified formula true. Because
+         * it is possible for multiple tuples to contain the same ordered set of
+         * atoms, a unique ID cannot be generated based on content alone. Therefore,
+         * a unique ID must be provided upon creation.
+         *
+         * @param id The unique identifier for this tuple
+         * @param atoms The ordered array of atoms that comprise this tuple
+         */
+        constructor(id, atoms) {
+            super(`{${atoms.map(atom => atom.name()).join('->')}}`);
+            this._id = id;
+            this._atoms = atoms;
+            if (atoms.length < 2) {
+                throw Error('Tuples must have at least two atoms');
+            }
+        }
+        /**
+         * Returns the number of atoms in this tuple.
+         */
+        arity() {
+            return this._atoms.length;
+        }
+        /**
+         * Returns the ordered array of atoms that comprise this tuple.
+         */
+        atoms() {
+            return this._atoms.slice();
+        }
+        /**
+         * Returns the string `tuple`.
+         */
+        expressionType() {
+            return 'tuple';
+        }
+        /**
+         * Returns the unique ID of this tuple.
+         *
+         * @remarks
+         * This unique ID must be provided to the constructor, as uniqueness of an
+         * ID based on atoms alone cannot be guaranteed.
+         */
+        id() {
+            return this._id;
+        }
+        /**
+         * Returns a printable string.
+         */
+        toString() {
+            return this.name();
+        }
+        /**
+         * Returns an ordered array of the types of the atoms in this tuple.
+         */
+        types() {
+            return this._atoms.map(atom => atom.type());
+        }
+        /**
+         * Assemble a tuple for a [[AlloyField|field]].
+         *
+         * @remarks
+         * The ID generated for a tuple in a field is the ID of the first atom's
+         * type followed by the list of atoms separated by arrows.
+         *
+         * @param element The XML tuple element
+         * @param types The array of types for this tuple
+         */
+        static buildFieldTuple(element, types) {
+            let atomIDs = Array
+                .from(element.querySelectorAll('atom'))
+                .map(atom => atom.getAttribute('label'));
+            if (atomIDs.includes(null))
+                throw Error('Atom has no label attribute');
+            let atoms = atomIDs.map((id, i) => types[i].findAtom(id));
+            if (atoms.includes(null))
+                throw Error('Unable to find all atoms in tuple');
+            let id = types[0].id() + '<:' + atomIDs.join('->');
+            return new AlloyTuple(id, atoms);
+        }
+    }
+
+    class AlloyField extends AlloyElement {
+        /**
+         * Create a new Alloy field.
+         *
+         * @remarks
+         * An alloy field consists of an ordered array of
+         * [[AlloySignature|signatures]] that define the types of the "columns" of
+         * the relation defined by the field, as well as a list of
+         * [[AlloyTuple|tuples]] that define the contents (or "rows") of the
+         * relation. The arity of the field, or number of columns, must be at least
+         * two.
+         *
+         * @param name The name of this field
+         * @param types The types that define the columns of this relation
+         * @param tuples The contents of this relation
+         * @param is_meta Is this a meta field?
+         * @param is_private Is this a private field?
+         *
+         * @throws Error When the arity is less than two or an atom's type does not
+         * match the type of the column in which it resides.
+         */
+        constructor(name, types, tuples, is_meta, is_private) {
+            super(name);
+            this._types = types;
+            this._tuples = tuples;
+            this._is_meta = is_meta ? is_meta : false;
+            this._is_private = is_private ? is_private : false;
+            // Check that the field has an arity of at least two
+            if (types.length < 2) {
+                throw Error(`Field ${name} has arity less than two.`);
+            }
+            // Check that all tuples are composed of correct types
+            tuples.forEach(tuple => {
+                tuple.atoms().forEach((atom, i) => {
+                    if (!atom.isType(types[i])) {
+                        throw Error(`Tuple ${tuple} has incorrect types.`);
+                    }
+                });
+            });
+        }
+        /**
+         * Returns the number of "columns" in the relation defined by this field.
+         */
+        arity() {
+            return this._types.length;
+        }
+        /**
+         * Returns the string `field`.
+         */
+        expressionType() {
+            return 'field';
+        }
+        /**
+         * Returns the unique ID of this field.
+         *
+         * @remarks
+         * The unique ID of a field is constructed as the name of the type of the
+         * first column of the relation, followed by a `<:`, followed by the name
+         * of this field.
+         */
+        id() {
+            return this._types[0].name() + '<:' + this.name();
+        }
+        /**
+         * Returns true if this is a meta field, false otherwise.
+         */
+        is_meta() {
+            return this._is_meta;
+        }
+        /**
+         * Returns true if this is a private field, false otherwise.
+         */
+        is_private() {
+            return this._is_private;
+        }
+        /**
+         * Returns the number of "rows" in the relation defined by this field.
+         */
+        size() {
+            return this._tuples.length;
+        }
+        /**
+         * Returns a printable string.
+         */
+        toString() {
+            return this.name();
+        }
+        /**
+         * Returns a copy of this field's tuples.
+         */
+        tuples() {
+            return this._tuples.slice();
+        }
+        /**
+         * Returns a copy of the types that define the columns of this relation.
+         */
+        types() {
+            return this._types.slice();
+        }
+        /**
+         * Build all fields in an XML Alloy instance.
+         *
+         * @param elements An array of "field" elements from the XML file
+         * @param sigs A map of signature IDs (as assigned in the XML file) to signatures
+         */
+        static buildFields(elements, sigs) {
+            let fields = new Map();
+            elements
+                .map(element => AlloyField._buildField(element, sigs))
+                .forEach(field => fields.set(field.id, field.field));
+            return fields;
+        }
+        /**
+         * Assemble a field from an element of an XML file.
+         *
+         * @param element The XML field element
+         * @param sigs A map of signature IDs (as assigned in the XML file) to signatures
+         * @private
+         */
+        static _buildField(element, sigs) {
+            // Get and check field attributes
+            let id = element.getAttribute('ID');
+            let parentID = element.getAttribute('parentID');
+            let label = element.getAttribute('label');
+            let typesEl = element.querySelector('types');
+            let meta = element.getAttribute('meta') === 'yes';
+            let priv = element.getAttribute('private') === 'yes';
+            if (!id)
+                throw Error('Field has no ID attribute');
+            if (!parentID)
+                throw Error('Field has no parentID attribute');
+            if (!label)
+                throw Error('Field has no label attribute');
+            if (!typesEl)
+                throw Error('Field has no types');
+            // Get the parent signature of the field
+            let parent = sigs.get(parseInt(parentID));
+            if (!parent)
+                throw Error('Field parent type has not been created');
+            // Get and check the types used in this field
+            let typeIDs = Array
+                .from(typesEl.querySelectorAll('type'))
+                .map(el => el.getAttribute('ID'));
+            if (typeIDs.includes(null))
+                throw Error('Undefined type in field');
+            let types = typeIDs.map(id => sigs.get(parseInt(id)));
+            if (types.includes(null))
+                throw Error('A field type has not been created');
+            // Get and assemble the tuples
+            let tuples = Array
+                .from(element.querySelectorAll('tuple'))
+                .map(el => AlloyTuple.buildFieldTuple(el, types));
+            let field = new AlloyField(label, types, tuples, meta, priv);
+            return {
+                id: parseInt(id),
+                field: field
+            };
         }
     }
 
@@ -10709,7 +11160,12 @@
             this._parseAlloyAttributes(document.querySelector('alloy'));
             this._parseInstanceAttributes(document.querySelector('instance'));
             let sigElements = Array.from(document.querySelectorAll('sig'));
-            AlloySignature.buildSigs(this._bitwidth, this._maxseq, sigElements);
+            let fldElements = Array.from(document.querySelectorAll('field'));
+            let sigs = AlloySignature
+                .buildSigs(this._bitwidth, this._maxseq, sigElements);
+            let fields = AlloyField
+                .buildFields(fldElements, sigs);
+            console.log(Array.from(fields.values()).map(f => f.id()));
         }
         /**
          * Parse the attributes of the "alloy" XML element

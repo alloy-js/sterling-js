@@ -1,4 +1,5 @@
 import { AlloySignature } from './alloy-signature';
+import { AlloyField } from './alloy-field';
 
 export class AlloyInstance {
 
@@ -31,8 +32,15 @@ export class AlloyInstance {
         this._parseInstanceAttributes(document.querySelector('instance'));
 
         let sigElements = Array.from(document.querySelectorAll('sig'));
+        let fldElements = Array.from(document.querySelectorAll('field'));
 
-        AlloySignature.buildSigs(this._bitwidth, this._maxseq, sigElements);
+        let sigs: Map<number, AlloySignature> = AlloySignature
+            .buildSigs(this._bitwidth, this._maxseq, sigElements);
+
+        let fields: Map<number, AlloyField> = AlloyField
+            .buildFields(fldElements, sigs);
+
+        console.log(Array.from(fields.values()).map(f => f.id()));
 
     }
 

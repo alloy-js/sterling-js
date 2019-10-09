@@ -92,4 +92,32 @@ export class AlloyTuple extends AlloyElement {
 
     }
 
+    /**
+     * Assemble a tuple for a [[AlloyField|field]].
+     *
+     * @remarks
+     * The ID generated for a tuple in a field is the ID of the first atom's
+     * type followed by the list of atoms separated by arrows.
+     *
+     * @param element The XML tuple element
+     * @param types The array of types for this tuple
+     */
+    static buildFieldTuple (element: Element, types: Array<AlloySignature>): AlloyTuple {
+
+        let atomIDs = Array
+            .from(element.querySelectorAll('atom'))
+            .map(atom => atom.getAttribute('label'));
+
+        if (atomIDs.includes(null)) throw Error('Atom has no label attribute');
+
+        let atoms = atomIDs.map((id, i) => types[i].findAtom(id));
+
+        if (atoms.includes(null)) throw Error('Unable to find all atoms in tuple');
+
+        let id = types[0].id() + '<:' + atomIDs.join('->');
+
+        return new AlloyTuple(id, atoms);
+
+    }
+
 }

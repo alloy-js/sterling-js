@@ -2396,6 +2396,9 @@ img {
 			<a href="classes/alloytuple.html" class="tsd-kind-icon">Alloy<wbr>Tuple</a>
 		</li>
 		<li class=" tsd-kind-interface tsd-is-not-exported">
+			<a href="interfaces/idfield.html" class="tsd-kind-icon">IDField</a>
+		</li>
+		<li class=" tsd-kind-interface tsd-is-not-exported">
 			<a href="interfaces/idsig.html" class="tsd-kind-icon">IDSig</a>
 		</li>
 		<li class=" tsd-kind-function tsd-is-not-exported">
@@ -2406,6 +2409,12 @@ img {
 		</li>
 		<li class=" tsd-kind-function tsd-is-not-exported">
 			<a href="index.html#is_subset" class="tsd-kind-icon">is_<wbr>subset</a>
+		</li>
+		<li class=" tsd-kind-function tsd-is-not-exported">
+			<a href="index.html#subset_sort" class="tsd-kind-icon">subset_<wbr>sort</a>
+		</li>
+		<li class=" tsd-kind-function tsd-is-not-exported">
+			<a href="index.html#subset_type_id" class="tsd-kind-icon">subset_<wbr>type_<wbr>id</a>
 		</li>
 	</ul>
 </nav>
@@ -2429,6 +2438,7 @@ img {
 					<section class="tsd-index-section tsd-is-not-exported">
 						<h3>Interfaces</h3>
 						<ul class="tsd-index-list">
+							<li class="tsd-kind-interface tsd-is-not-exported"><a href="interfaces/idfield.html" class="tsd-kind-icon">IDField</a></li>
 							<li class="tsd-kind-interface tsd-is-not-exported"><a href="interfaces/idsig.html" class="tsd-kind-icon">IDSig</a></li>
 						</ul>
 					</section>
@@ -2438,6 +2448,8 @@ img {
 							<li class="tsd-kind-function tsd-is-not-exported"><a href="index.html#filter_exclude_attr" class="tsd-kind-icon">filter_<wbr>exclude_<wbr>attr</a></li>
 							<li class="tsd-kind-function tsd-is-not-exported"><a href="index.html#filter_exclude_labels" class="tsd-kind-icon">filter_<wbr>exclude_<wbr>labels</a></li>
 							<li class="tsd-kind-function tsd-is-not-exported"><a href="index.html#is_subset" class="tsd-kind-icon">is_<wbr>subset</a></li>
+							<li class="tsd-kind-function tsd-is-not-exported"><a href="index.html#subset_sort" class="tsd-kind-icon">subset_<wbr>sort</a></li>
+							<li class="tsd-kind-function tsd-is-not-exported"><a href="index.html#subset_type_id" class="tsd-kind-icon">subset_<wbr>type_<wbr>id</a></li>
 						</ul>
 					</section>
 				</div>
@@ -2455,7 +2467,7 @@ img {
 					<li class="tsd-description">
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-xml.ts#L44">alloy-xml.ts:44</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/81bcb24/src/ts/alloy-ts/alloy-xml.ts#L62">alloy-xml.ts:62</a></li>
 							</ul>
 						</aside>
 						<div class="tsd-comment tsd-typography">
@@ -2504,7 +2516,7 @@ img {
 					<li class="tsd-description">
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-xml.ts#L30">alloy-xml.ts:30</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/81bcb24/src/ts/alloy-ts/alloy-xml.ts#L48">alloy-xml.ts:48</a></li>
 							</ul>
 						</aside>
 						<div class="tsd-comment tsd-typography">
@@ -2554,7 +2566,7 @@ img {
 					<li class="tsd-description">
 						<aside class="tsd-sources">
 							<ul>
-								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/7b5defc/src/ts/alloy-ts/alloy-xml.ts#L61">alloy-xml.ts:61</a></li>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/81bcb24/src/ts/alloy-ts/alloy-xml.ts#L79">alloy-xml.ts:79</a></li>
 							</ul>
 						</aside>
 						<div class="tsd-comment tsd-typography">
@@ -2578,6 +2590,80 @@ img {
 							</li>
 						</ul>
 						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel tsd-member tsd-kind-function tsd-is-not-exported">
+				<a name="subset_sort" class="tsd-anchor"></a>
+				<h3>subset_<wbr>sort</h3>
+				<ul class="tsd-signatures tsd-kind-function tsd-is-not-exported">
+					<li class="tsd-signature tsd-kind-icon">subset_<wbr>sort<span class="tsd-signature-symbol">(</span>a<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Element</span>, b<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Element</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">1</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">-1</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">0</span></li>
+				</ul>
+				<ul class="tsd-descriptions">
+					<li class="tsd-description">
+						<aside class="tsd-sources">
+							<ul>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/81bcb24/src/ts/alloy-ts/alloy-xml.ts#L91">alloy-xml.ts:91</a></li>
+							</ul>
+						</aside>
+						<div class="tsd-comment tsd-typography">
+							<div class="lead">
+								<p>Comparison function that can be used to sort an array of subset sig elements
+								based on type hierarchy. Guarantees that parents will appear before children.</p>
+							</div>
+						</div>
+						<h4 class="tsd-parameters-title">Parameters</h4>
+						<ul class="tsd-parameters">
+							<li>
+								<h5>a: <span class="tsd-signature-type">Element</span></h5>
+								<div class="tsd-comment tsd-typography">
+									<p>A subset sig element from an Alloy XML file</p>
+								</div>
+							</li>
+							<li>
+								<h5>b: <span class="tsd-signature-type">Element</span></h5>
+								<div class="tsd-comment tsd-typography">
+									<p>A subset sig element from an Alloy XML file</p>
+								</div>
+							</li>
+						</ul>
+						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">1</span>
+							<span class="tsd-signature-symbol"> | </span>
+							<span class="tsd-signature-type">-1</span>
+							<span class="tsd-signature-symbol"> | </span>
+							<span class="tsd-signature-type">0</span>
+						</h4>
+					</li>
+				</ul>
+			</section>
+			<section class="tsd-panel tsd-member tsd-kind-function tsd-is-not-exported">
+				<a name="subset_type_id" class="tsd-anchor"></a>
+				<h3>subset_<wbr>type_<wbr>id</h3>
+				<ul class="tsd-signatures tsd-kind-function tsd-is-not-exported">
+					<li class="tsd-signature tsd-kind-icon">subset_<wbr>type_<wbr>id<span class="tsd-signature-symbol">(</span>element<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Element</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+				</ul>
+				<ul class="tsd-descriptions">
+					<li class="tsd-description">
+						<aside class="tsd-sources">
+							<ul>
+								<li>Defined in <a href="https://github.com/alloy-js/sterling-js/blob/81bcb24/src/ts/alloy-ts/alloy-xml.ts#L106">alloy-xml.ts:106</a></li>
+							</ul>
+						</aside>
+						<div class="tsd-comment tsd-typography">
+							<div class="lead">
+								<p>Get the parent ID of a subset signature</p>
+							</div>
+						</div>
+						<h4 class="tsd-parameters-title">Parameters</h4>
+						<ul class="tsd-parameters">
+							<li>
+								<h5>element: <span class="tsd-signature-type">Element</span></h5>
+								<div class="tsd-comment tsd-typography">
+									<p>The subset signature element</p>
+								</div>
+							</li>
+						</ul>
+						<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
 					</li>
 				</ul>
 			</section>

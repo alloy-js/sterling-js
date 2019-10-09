@@ -1,7 +1,8 @@
 import { AlloySignature } from './alloy-signature';
+import { AlloyField } from './alloy-field';
 
 /**
- * An Alloy signature paired with the ID assigned to it in the instance XML file
+ * An Alloy signature paired with the IDs assigned to it in the instance XML file
  */
 interface IDSig {
 
@@ -19,6 +20,23 @@ interface IDSig {
      * The signature
      */
     sig: AlloySignature
+
+}
+
+/**
+ * An Alloy field paired with the ID assigned to it in the instance XML file
+ */
+interface IDField {
+
+    /**
+     * The ID assigned to the field in the instance XML file
+     */
+    id: number,
+
+    /**
+     * The field
+     */
+    field: AlloyField
 
 }
 
@@ -64,9 +82,39 @@ function is_subset (element: Element) {
 
 }
 
+/**
+ * Comparison function that can be used to sort an array of subset sig elements
+ * based on type hierarchy. Guarantees that parents will appear before children.
+ * @param a A subset sig element from an Alloy XML file
+ * @param b A subset sig element from an Alloy XML file
+ */
+function subset_sort (a: Element, b: Element) {
+    let aID = a.getAttribute('ID'),
+        bID = b.getAttribute('ID'),
+        aT = subset_type_id(a),
+        bT = subset_type_id(b);
+    if (!aID || !bID) throw Error('Element has no ID');
+    if (bT === parseInt(aID)) return -1;
+    if (aT === parseInt(bID)) return 1;
+    return 0;
+}
+
+/**
+ * Get the parent ID of a subset signature
+ * @param element The subset signature element
+ */
+function subset_type_id (element: Element): number {
+    let t = element.querySelector('type').getAttribute('ID');
+    if (!t) throw Error('Element is not a subset signature');
+    return parseInt(t);
+}
+
 export {
+    IDField,
     IDSig,
     filter_exclude_attr,
     filter_exclude_labels,
-    is_subset
+    is_subset,
+    subset_sort,
+    subset_type_id
 }

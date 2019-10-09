@@ -1,4 +1,5 @@
 import { AlloySignature } from './alloy-signature';
+import { AlloyField } from './alloy-field';
 export class AlloyInstance {
     /**
      * Assemble an Alloy instance from an XML document.
@@ -21,7 +22,12 @@ export class AlloyInstance {
         this._parseAlloyAttributes(document.querySelector('alloy'));
         this._parseInstanceAttributes(document.querySelector('instance'));
         let sigElements = Array.from(document.querySelectorAll('sig'));
-        AlloySignature.buildSigs(this._bitwidth, this._maxseq, sigElements);
+        let fldElements = Array.from(document.querySelectorAll('field'));
+        let sigs = AlloySignature
+            .buildSigs(this._bitwidth, this._maxseq, sigElements);
+        let fields = AlloyField
+            .buildFields(fldElements, sigs);
+        console.log(Array.from(fields.values()).map(f => f.id()));
     }
     /**
      * Parse the attributes of the "alloy" XML element
