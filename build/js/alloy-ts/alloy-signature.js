@@ -22,6 +22,7 @@ export class AlloySignature extends AlloyElement {
         this._type = null;
         this._subtypes = [];
         this._atoms = [];
+        this._fields = [];
         this._is_builtin = is_builtin ? is_builtin : false;
         this._is_meta = is_meta ? is_meta : false;
         this._is_one = is_one ? is_one : false;
@@ -125,6 +126,17 @@ export class AlloySignature extends AlloyElement {
      */
     expressionType() {
         return 'signature';
+    }
+    /**
+     * Returns an array of fields that are declared by this signature.
+     *
+     * @remarks
+     * In Alloy, a field is defined within a signature block. In doing so, the
+     * first column on that field is established to have the type of that
+     * signature.
+     */
+    fields() {
+        return this._fields.slice();
     }
     /**
      * Returns the atom with the given name if it exists, otherwise null.
@@ -234,6 +246,16 @@ export class AlloySignature extends AlloyElement {
         let hierarchy = this._type ? this._type.typeHierarchy() : [];
         hierarchy.push(this);
         return hierarchy;
+    }
+    /**
+     * Assign all fields in the given list to their respective parent signatures.
+     *
+     * @param fields The list of fields.
+     */
+    static assignFields(fields) {
+        fields.forEach(field => {
+            field.parent()._fields.push(field);
+        });
     }
     /**
      * Build all signatures in an XML Alloy instance.

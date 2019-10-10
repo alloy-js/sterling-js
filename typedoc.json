@@ -3,5 +3,5 @@
   "mode": "file",
   "out": "docs",
   "readme": "none",
-  "theme": "minimal"
+  "theme": "../typedoc-themes/bin/minimal/"
 }

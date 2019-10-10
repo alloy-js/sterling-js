@@ -15,7 +15,7 @@ export class AlloyField extends AlloyElement {
      * Create a new Alloy field.
      *
      * @remarks
-     * An alloy field consists of an ordered array of
+     * An Alloy field consists of an ordered array of
      * [[AlloySignature|signatures]] that define the types of the "columns" of
      * the relation defined by the field, as well as a list of
      * [[AlloyTuple|tuples]] that define the contents (or "rows") of the
@@ -111,6 +111,15 @@ export class AlloyField extends AlloyElement {
     }
 
     /**
+     * Returns the signature that defines this field.
+     */
+    parent (): AlloySignature {
+
+        return this._types[0];
+
+    }
+
+    /**
      * Returns the number of "rows" in the relation defined by this field.
      */
     size (): number {
@@ -167,7 +176,7 @@ export class AlloyField extends AlloyElement {
     /**
      * Assemble a field from an element of an XML file.
      *
-     * @param element The XML field element
+     * @param element The XML "field" element
      * @param sigs A map of signature IDs (as assigned in the XML file) to signatures
      * @private
      */

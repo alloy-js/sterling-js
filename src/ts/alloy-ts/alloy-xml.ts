@@ -1,5 +1,6 @@
 import { AlloySignature } from './alloy-signature';
 import { AlloyField } from './alloy-field';
+import { AlloySkolem } from './alloy-skolem';
 
 /**
  * An Alloy signature paired with the IDs assigned to it in the instance XML file
@@ -37,6 +38,20 @@ interface IDField {
      * The field
      */
     field: AlloyField
+
+}
+
+interface IDSkolem {
+
+    /**
+     * The ID assigned to the skolem in the instance XML file
+     */
+    id: number,
+
+    /**
+     * The skolem
+     */
+    skolem: AlloySkolem
 
 }
 
@@ -112,6 +127,7 @@ function subset_type_id (element: Element): number {
 export {
     IDField,
     IDSig,
+    IDSkolem,
     filter_exclude_attr,
     filter_exclude_labels,
     is_subset,

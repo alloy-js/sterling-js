@@ -25,6 +25,7 @@
                             doc = parser.parseFromString(reader.result, 'application/xml');
 
                         let instance = new sterling.AlloyInstance(doc);
+                        console.log(instance.signatures());
 
                     };
 

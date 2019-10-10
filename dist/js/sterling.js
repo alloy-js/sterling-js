@@ -10474,6 +10474,7 @@
             this._type = null;
             this._subtypes = [];
             this._atoms = [];
+            this._fields = [];
             this._is_builtin = is_builtin ? is_builtin : false;
             this._is_meta = is_meta ? is_meta : false;
             this._is_one = is_one ? is_one : false;
@@ -10577,6 +10578,17 @@
          */
         expressionType() {
             return 'signature';
+        }
+        /**
+         * Returns an array of fields that are declared by this signature.
+         *
+         * @remarks
+         * In Alloy, a field is defined within a signature block. In doing so, the
+         * first column on that field is established to have the type of that
+         * signature.
+         */
+        fields() {
+            return this._fields.slice();
         }
         /**
          * Returns the atom with the given name if it exists, otherwise null.
@@ -10686,6 +10698,16 @@
             let hierarchy = this._type ? this._type.typeHierarchy() : [];
             hierarchy.push(this);
             return hierarchy;
+        }
+        /**
+         * Assign all fields in the given list to their respective parent signatures.
+         *
+         * @param fields The list of fields.
+         */
+        static assignFields(fields) {
+            fields.forEach(field => {
+                field.parent()._fields.push(field);
+            });
         }
         /**
          * Build all signatures in an XML Alloy instance.
@@ -10891,17 +10913,22 @@
         }
     }
 
+    /**
+     * # AlloyTuple
+     *
+     * In Alloy, a tuple is a sequence of one or more atoms. As part of an Alloy
+     * instance, tuples can either reside in a [[AlloyField|field]] or exist as a
+     * free variable that makes an existentially quantified formula true, known as a
+     * [[AlloySkolem|skolemization]].
+     */
     class AlloyTuple extends AlloyElement {
         /**
          * Create a new Alloy tuple.
          *
          * @remarks
-         * In Alloy, a tuple is a sequence of atoms. As part of an Alloy instance,
-         * tuples can either reside in a [[AlloyField|field]] or exist as a free
-         * variable that makes an existentially quantified formula true. Because
-         * it is possible for multiple tuples to contain the same ordered set of
-         * atoms, a unique ID cannot be generated based on content alone. Therefore,
-         * a unique ID must be provided upon creation.
+         * Because it is possible for multiple tuples to contain the same ordered
+         * set of atoms, a unique ID cannot be generated based on content alone.
+         * Therefore, a unique ID must be provided upon creation.
          *
          * @param id The unique identifier for this tuple
          * @param atoms The ordered array of atoms that comprise this tuple
@@ -10910,9 +10937,6 @@
             super(`{${atoms.map(atom => atom.name()).join('->')}}`);
             this._id = id;
             this._atoms = atoms;
-            if (atoms.length < 2) {
-                throw Error('Tuples must have at least two atoms');
-            }
         }
         /**
          * Returns the number of atoms in this tuple.
@@ -10958,23 +10982,50 @@
          * Assemble a tuple for a [[AlloyField|field]].
          *
          * @remarks
-         * The ID generated for a tuple in a field is the ID of the first atom's
+         * The ID generated for a tuple in a field is the name of the first atom's
          * type followed by the list of atoms separated by arrows.
          *
          * @param element The XML tuple element
          * @param types The array of types for this tuple
          */
         static buildFieldTuple(element, types) {
-            let atomIDs = Array
+            let atoms = AlloyTuple._getTupleAtoms(element, types);
+            let id = types[0].id() + '<:' + atoms.map(a => a.name()).join('->');
+            return new AlloyTuple(id, atoms);
+        }
+        /**
+         * Assemble a tuple for a [[AlloySkolem|skolem]].
+         *
+         * @remarks
+         * The ID generated for a tuple in a skolem is the name of the skolem
+         * followed by the list of atoms separated by arrows.
+         *
+         * @param skolemName The name of the skolem
+         * @param element The XML tuple element
+         * @param types The array of types for this tuple
+         */
+        static buildSkolemTuple(skolemName, element, types) {
+            let atoms = AlloyTuple._getTupleAtoms(element, types);
+            let id = skolemName + '<:' + atoms.map(a => a.name()).join('->');
+            return new AlloyTuple(id, atoms);
+        }
+        /**
+         * Assemble the array of [[AlloyAtom|atoms]] that comprise a tuple.
+         *
+         * @param element The XML tuple element
+         * @param types The array of types for this tuple
+         * @private
+         */
+        static _getTupleAtoms(element, types) {
+            let atomLabels = Array
                 .from(element.querySelectorAll('atom'))
                 .map(atom => atom.getAttribute('label'));
-            if (atomIDs.includes(null))
+            if (atomLabels.includes(null))
                 throw Error('Atom has no label attribute');
-            let atoms = atomIDs.map((id, i) => types[i].findAtom(id));
+            let atoms = atomLabels.map((label, i) => types[i].findAtom(label));
             if (atoms.includes(null))
                 throw Error('Unable to find all atoms in tuple');
-            let id = types[0].id() + '<:' + atomIDs.join('->');
-            return new AlloyTuple(id, atoms);
+            return atoms;
         }
     }
 
@@ -10983,7 +11034,7 @@
          * Create a new Alloy field.
          *
          * @remarks
-         * An alloy field consists of an ordered array of
+         * An Alloy field consists of an ordered array of
          * [[AlloySignature|signatures]] that define the types of the "columns" of
          * the relation defined by the field, as well as a list of
          * [[AlloyTuple|tuples]] that define the contents (or "rows") of the
@@ -11054,6 +11105,12 @@
             return this._is_private;
         }
         /**
+         * Returns the signature that defines this field.
+         */
+        parent() {
+            return this._types[0];
+        }
+        /**
          * Returns the number of "rows" in the relation defined by this field.
          */
         size() {
@@ -11093,7 +11150,7 @@
         /**
          * Assemble a field from an element of an XML file.
          *
-         * @param element The XML field element
+         * @param element The XML "field" element
          * @param sigs A map of signature IDs (as assigned in the XML file) to signatures
          * @private
          */
@@ -11138,6 +11195,158 @@
         }
     }
 
+    /**
+     * # AlloySkolem
+     *
+     * In Alloy, values for variables that make the body of an existentially
+     * quantified formula true are found using a transformation known as
+     * skolemization. We represent these values using the AlloySkolem class and
+     * typically refer to them as skolems. Skolems can be scalars, sets, or
+     * relations and the internal representation is similar to a field; the
+     * exception for skolems is that the arity of a skolem can be one, allowing
+     * us to represent scalars and sets.
+     */
+    class AlloySkolem extends AlloyElement {
+        /**
+         * Create a new Alloy skolem.
+         *
+         * @param name The name of this skolem
+         * @param types The types that define the columns of this skolem
+         * @param tuples The contents of this skolem
+         */
+        constructor(name, types, tuples) {
+            super(name);
+            this._types = types;
+            this._tuples = tuples;
+        }
+        /**
+         * Returns the number of "columns" in this skolem.
+         *
+         * @remarks
+         * Skolems that are scalars or sets will have an arity of one.
+         */
+        arity() {
+            return this._types.length;
+        }
+        /**
+         * Returns the string `skolem`.
+         */
+        expressionType() {
+            return 'skolem';
+        }
+        /**
+         * Returns the unique ID of this skolem.
+         *
+         * @remarks
+         * The unique ID of a skolem is also its name, as Alloy generates unique
+         * names for all skolemized variables.
+         */
+        id() {
+            return this.name();
+        }
+        /**
+         * Returns the number of "rows" in this skolem.
+         *
+         * @remarks
+         * Skolems that are scalars will have a size of one.
+         */
+        size() {
+            return this._tuples.length;
+        }
+        /**
+         * Returns a printable string.
+         */
+        toString() {
+            return this.name();
+        }
+        /**
+         * Returns a copy of this skolem's tuples.
+         */
+        tuples() {
+            return this._tuples.slice();
+        }
+        /**
+         * Returns a copy of the types that define the columns of this skolem.
+         */
+        types() {
+            return this._types.slice();
+        }
+        /**
+         * Build all skolems in an XML Alloy instance
+         * @param elements An array of "skolem" elements from the XML file
+         * @param sigs A map of signature IDs (as assigned in the XML file) to signatures
+         */
+        static buildSkolem(elements, sigs) {
+            let skolems = new Map();
+            elements
+                .map(element => AlloySkolem._buildSkolem(element, sigs))
+                .forEach(skolem => skolems.set(skolem.id, skolem.skolem));
+            return skolems;
+        }
+        /**
+         * Assemble a skolem from an element of an XML file.
+         *
+         * @param element The XML "skolem" element
+         * @param sigs A map of signature IDs (as assigned in the XML file) to signatures
+         * @private
+         */
+        static _buildSkolem(element, sigs) {
+            // Get and check skolem attributes
+            let id = element.getAttribute('ID');
+            let label = element.getAttribute('label');
+            let typesEl = element.querySelector('types');
+            if (!id)
+                throw Error('Skolem has no ID attribute');
+            if (!label)
+                throw Error('Skolem has no label attribute');
+            if (!typesEl)
+                throw Error('Skolem has no type(s)');
+            // Get and check the types of this skolem
+            let typeIDs = Array
+                .from(typesEl.querySelectorAll('type'))
+                .map(el => el.getAttribute('ID'));
+            if (typeIDs.includes(null))
+                throw Error('Undefined type in skolem');
+            let types = typeIDs.map(id => sigs.get(parseInt(id)));
+            if (types.includes(null))
+                throw Error('A skolem type has not been created');
+            // Get and assemble the tuples
+            let tuples = Array
+                .from(element.querySelectorAll('tuple'))
+                .map(el => AlloyTuple.buildSkolemTuple(label, el, types));
+            let skolem = new AlloySkolem(label, types, tuples);
+            return {
+                id: parseInt(id),
+                skolem: skolem
+            };
+        }
+    }
+
+    class AlloySource {
+        /**
+         * Create a new source by extracting the Alloy source code from an XML
+         * element.
+         *
+         * @param element The "source" element from an Alloy XML file
+         */
+        constructor(element) {
+            this._filename = element.getAttribute('filename');
+            this._source = element.getAttribute('content');
+        }
+        /**
+         * Return the full file path this source comes from.
+         */
+        filename() {
+            return this._filename;
+        }
+        /**
+         * Return the Alloy source code.
+         */
+        source() {
+            return this._source;
+        }
+    }
+
     class AlloyInstance {
         /**
          * Assemble an Alloy instance from an XML document.
@@ -11159,13 +11368,107 @@
         constructor(document) {
             this._parseAlloyAttributes(document.querySelector('alloy'));
             this._parseInstanceAttributes(document.querySelector('instance'));
+            this._parseSourceCode(Array.from(document.querySelectorAll('source')));
             let sigElements = Array.from(document.querySelectorAll('sig'));
             let fldElements = Array.from(document.querySelectorAll('field'));
+            let skoElements = Array.from(document.querySelectorAll('skolem'));
             let sigs = AlloySignature
                 .buildSigs(this._bitwidth, this._maxseq, sigElements);
             let fields = AlloyField
                 .buildFields(fldElements, sigs);
-            console.log(Array.from(fields.values()).map(f => f.id()));
+            let skolems = AlloySkolem
+                .buildSkolem(skoElements, sigs);
+            AlloySignature.assignFields(Array.from(fields.values()));
+            this._signatures = Array.from(sigs.values());
+            this._fields = Array.from(fields.values());
+            this._skolems = Array.from(skolems.values());
+        }
+        /**
+         * Return an array of all atoms in this instance.
+         */
+        atoms() {
+            return this.signatures()
+                .filter(sig => !sig.isSubset())
+                .map(sig => sig.atoms())
+                .reduce((acc, cur) => acc.concat(cur), []);
+        }
+        /**
+         * Return the bitwidth of this instance.
+         */
+        bidwidth() {
+            return this._bitwidth;
+        }
+        /**
+         * Return this build date of Alloy that generated this instance.
+         */
+        builddate() {
+            return new Date(this._builddate.getTime());
+        }
+        /**
+         * Return the command used to generate this instance.
+         */
+        command() {
+            return this._command;
+        }
+        /**
+         * Return an array of all fields in this instance.
+         */
+        fields() {
+            return this._fields.slice();
+        }
+        /**
+         * Return the full path of the file that was used to generate this instance.
+         */
+        filename() {
+            return this._filename;
+        }
+        /**
+         * Return the maximum sequence length.
+         */
+        maxseq() {
+            return this._maxseq;
+        }
+        /**
+         * Return an array of all signatures in this instance.
+         */
+        signatures() {
+            return this._signatures.slice();
+        }
+        /**
+         * Return an array of all skolems in this instance.
+         */
+        skolems() {
+            return this._skolems.slice();
+        }
+        /**
+         * Return an array of all Alloy source files that define the model from
+         * which this instance was created.
+         */
+        sources() {
+            return this._sources.slice();
+        }
+        /**
+         * Return an array of all tuples in this instance.
+         *
+         * @param includeSkolem If true, skolem tuples will be included, if false,
+         * they will not be included.
+         */
+        tuples(includeSkolem = false) {
+            let skolems = includeSkolem
+                ? this.skolems()
+                    .map(skolem => skolem.tuples())
+                    .reduce((acc, cur) => acc.concat(cur), [])
+                : [];
+            let fields = this.fields()
+                .map(field => field.tuples())
+                .reduce((acc, cur) => acc.concat(cur), []);
+            return fields.concat(skolems);
+        }
+        /**
+         * Returns the "univ" signature, of which all other signatures are children.
+         */
+        univ() {
+            return this._signatures.find(s => s.name() === 'univ');
         }
         /**
          * Parse the attributes of the "alloy" XML element
@@ -11216,6 +11519,16 @@
             if (!filename)
                 throw Error('Instance does not contain a filename');
             this._setFilename(filename);
+        }
+        /**
+         * Parse the "source" XML elements, retrieving all source code used to
+         * create this instance.
+         *
+         * @param elements The array our "source" elements
+         * @private
+         */
+        _parseSourceCode(elements) {
+            this._sources = elements.map(element => new AlloySource(element));
         }
         /**
          * Set the [[_bitwidth]] attribute

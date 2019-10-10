@@ -6,6 +6,7 @@ import {
     is_subset,
     subset_sort, subset_type_id
 } from './alloy-xml';
+import { AlloyField } from './alloy-field';
 
 /**
  * A signature in an Alloy instance.
@@ -29,6 +30,11 @@ export class AlloySignature extends AlloyElement {
      * An array of [[AlloyAtom|atoms]] defined by this signature
      */
     private _atoms: Array<AlloyAtom>;
+
+    /**
+     * An array of [[AlloyField|fields]] defined by this signature
+     */
+    private _fields: Array<AlloyField>;
 
     private readonly _is_builtin: boolean;
     private readonly _is_meta: boolean;
@@ -57,6 +63,7 @@ export class AlloySignature extends AlloyElement {
         this._type = null;
         this._subtypes = [];
         this._atoms = [];
+        this._fields = [];
 
         this._is_builtin = is_builtin ? is_builtin : false;
         this._is_meta = is_meta ? is_meta : false;
@@ -183,6 +190,20 @@ export class AlloySignature extends AlloyElement {
     expressionType (): string {
 
         return 'signature';
+
+    }
+
+    /**
+     * Returns an array of fields that are declared by this signature.
+     *
+     * @remarks
+     * In Alloy, a field is defined within a signature block. In doing so, the
+     * first column on that field is established to have the type of that
+     * signature.
+     */
+    fields (): Array<AlloyField> {
+
+        return this._fields.slice();
 
     }
 
@@ -324,6 +345,21 @@ export class AlloySignature extends AlloyElement {
         let hierarchy = this._type ? this._type.typeHierarchy() : [];
         hierarchy.push(this);
         return hierarchy;
+
+    }
+
+    /**
+     * Assign all fields in the given list to their respective parent signatures.
+     *
+     * @param fields The list of fields.
+     */
+    static assignFields (fields: Array<AlloyField>) {
+
+        fields.forEach(field => {
+
+            field.parent()._fields.push(field);
+
+        });
 
     }
 
