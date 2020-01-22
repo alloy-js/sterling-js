@@ -10,6 +10,7 @@ export class AlloyConnection {
     _heartbeat_latency: DOMHighResTimeStamp;
     _heartbeat_timestamp: DOMHighResTimeStamp;
 
+    _on_eval_cb: Function;
     _on_connected_cb: Function;
     _on_disconnected_cb: Function;
     _on_error_cb: Function;
@@ -74,6 +75,13 @@ export class AlloyConnection {
 
     }
 
+    on_eval (cb: Function): AlloyConnection {
+
+        this._on_eval_cb = cb;
+        return this;
+
+    }
+
     on_instance (cb: Function): AlloyConnection {
 
         this._on_instance_cb = cb;
@@ -86,6 +94,18 @@ export class AlloyConnection {
         if (this._ws) this._ws.send('current');
         return this;
 
+    }
+
+    request_eval (id: number, command: string): AlloyConnection {
+
+        // temporarily immediately call cb with dummy solution
+        if (this._on_eval_cb) {
+
+            const rando = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            this._on_eval_cb(id, rando);
+        }
+
+        return this;
     }
 
     request_next (): AlloyConnection {
@@ -126,6 +146,9 @@ export class AlloyConnection {
             case 'pong':
                 this._heartbeat_latency += performance.now() - this._heartbeat_timestamp;
                 this._heartbeat_count += 1;
+                break;
+
+            case 'EVL:':
                 break;
 
             case 'XML:':

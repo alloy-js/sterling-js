@@ -2,6 +2,7 @@ import * as d3 from 'd3';
 import { AlloyConnection } from './server/alloy-connection';
 import { NavBar } from './bars/nav-bar';
 import { StatusBar } from './bars/status-bar';
+import { EvaluatorView } from './views/evaluator-view';
 import { GraphView } from './views/graph-view';
 import { TableView } from './views/table-view';
 import { TreeView } from './views/tree-view';
@@ -11,6 +12,7 @@ export class UI {
         this._initialize_alloy_connection();
         this._nav_bar = null;
         this._status_bar = null;
+        this._eval_view = null;
         this._graph_view = null;
         this._table_view = null;
         this._tree_view = null;
@@ -21,6 +23,11 @@ export class UI {
         this._alloy.connect();
         return this;
     }
+    eval_view(selector) {
+        this._eval_view = new EvaluatorView(d3.select(selector));
+        this._eval_view.set_alloy(this._alloy);
+        return this;
+    }
     graph_view(selector) {
         this._graph_view = new GraphView(d3.select(selector));
         return this;
@@ -29,6 +36,7 @@ export class UI {
         // Initialize navbar
         this._nav_bar = new NavBar(d3.select(selector));
         // Register events
+        this._nav_bar.on_eval(this.show_eval.bind(this));
         this._nav_bar.on_graph(this.show_graph.bind(this));
         this._nav_bar.on_next(this._alloy.request_next.bind(this._alloy));
         this._nav_bar.on_source(this.show_source.bind(this));
@@ -64,6 +72,8 @@ export class UI {
         });
         if (this._status_bar)
             this._status_bar.set_command(instance.command());
+        if (this._eval_view)
+            this._eval_view.set_instance(instance);
         if (this._graph_view)
             this._graph_view.set_instance(instance);
         if (this._table_view)
@@ -73,8 +83,23 @@ export class UI {
         if (this._source_view)
             this._source_view.set_files(sources);
     }
+    show_eval() {
+        this._nav_bar.set_eval_active();
+        if (this._eval_view)
+            this._eval_view.show();
+        if (this._graph_view)
+            this._graph_view.hide();
+        if (this._source_view)
+            this._source_view.hide();
+        if (this._table_view)
+            this._table_view.hide();
+        if (this._tree_view)
+            this._tree_view.hide();
+    }
     show_graph() {
         this._nav_bar.set_graph_active();
+        if (this._eval_view)
+            this._eval_view.hide();
         if (this._graph_view)
             this._graph_view.show();
         if (this._source_view)
@@ -86,6 +111,8 @@ export class UI {
     }
     show_source() {
         this._nav_bar.set_source_active();
+        if (this._eval_view)
+            this._eval_view.hide();
         if (this._graph_view)
             this._graph_view.hide();
         if (this._source_view)
@@ -97,6 +124,8 @@ export class UI {
     }
     show_table() {
         this._nav_bar.set_table_active();
+        if (this._eval_view)
+            this._eval_view.hide();
         if (this._graph_view)
             this._graph_view.hide();
         if (this._source_view)
@@ -108,6 +137,8 @@ export class UI {
     }
     show_tree() {
         this._nav_bar.set_tree_active();
+        if (this._eval_view)
+            this._eval_view.hide();
         if (this._graph_view)
             this._graph_view.hide();
         if (this._source_view)

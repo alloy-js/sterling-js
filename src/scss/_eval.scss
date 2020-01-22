@@ -1,0 +1,117 @@
+@import "variables";
+
+.eval {
+
+  display: flex;
+  flex: 1 0 auto;
+  min-height: 0;
+  max-height: 100%;
+
+  .eval-editor {
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    .eval-output {
+
+      flex: 0 1 auto;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      margin-bottom: 0.5em;
+
+      .output {
+
+        display: flex;
+        flex-direction: column;
+        font-family: 'Fira Code', monospace;
+        font-size: 0.9em;
+        border: 1px solid $color-bg-dark;
+        border-radius: 4px 4px 0 0;
+        margin: 0.5em;
+
+        &.active {
+
+          border: 1px solid $color-primary-light;
+
+          .expression {
+            padding: 0.5em;
+            background-color: $color-primary-light;
+            color: $color-primary-text;
+          }
+
+          .result {
+            min-height: 1em;
+            padding: 0.5em;
+            color: $color-primary-text-dark;
+          }
+
+        }
+
+        .expression {
+          padding: 0.5em;
+          background-color: $color-bg-light;
+          color: $color-primary-text-dark;
+          overflow-wrap: break-word;
+        }
+
+        .result {
+          min-height: 1em;
+          padding: 0.5em;
+          color: $color-primary-text-light;
+          overflow-wrap: break-word;
+
+          &.error {
+            color: red !important;
+          }
+
+        }
+
+      }
+
+    }
+
+    .eval-input {
+
+      display: flex;
+      align-items: stretch;
+      min-height: 12em;
+      max-height: 12em;
+      height: 12em;
+      flex: 0;
+      border-top: 4px solid $color-primary-light;
+
+      textarea {
+        font-family: 'Fira Code', monospace;
+        font-size: 0.9em;
+        outline: none;
+        border: none;
+        flex: 1 0 auto;
+        resize: none;
+        padding: 0.75em;
+        overflow-wrap: break-word;
+      }
+
+    }
+
+  }
+
+  .eval-display {
+    flex: 1 0 auto;
+  }
+
+}
+
+.gutter {
+  background-color: $color-primary-light;
+}
+
+.gutter.gutter-horizontal {
+  cursor: col-resize;
+}
+
+.gutter.gutter-vertical {
+  cursor: row-resize;
+}
+

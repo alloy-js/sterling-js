@@ -41,6 +41,10 @@ export class AlloyConnection {
         this._on_error_cb = cb;
         return this;
     }
+    on_eval(cb) {
+        this._on_eval_cb = cb;
+        return this;
+    }
     on_instance(cb) {
         this._on_instance_cb = cb;
         return this;
@@ -48,6 +52,14 @@ export class AlloyConnection {
     request_current() {
         if (this._ws)
             this._ws.send('current');
+        return this;
+    }
+    request_eval(id, command) {
+        // temporarily immediately call cb with dummy solution
+        if (this._on_eval_cb) {
+            const rando = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            this._on_eval_cb(id, rando);
+        }
         return this;
     }
     request_next() {
@@ -77,6 +89,8 @@ export class AlloyConnection {
             case 'pong':
                 this._heartbeat_latency += performance.now() - this._heartbeat_timestamp;
                 this._heartbeat_count += 1;
+                break;
+            case 'EVL:':
                 break;
             case 'XML:':
                 if (data.length) {

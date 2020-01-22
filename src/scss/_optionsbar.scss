@@ -1,9 +1,16 @@
 @import "variables";
 @import "properties";
 
+.no-options-bar {
+  height: 10px;
+  box-shadow: 0 2px 4px $color-primary-light;
+  z-index: 20;
+}
+
 .options-bar {
 
   display: flex;
+  z-index: 20;
 
   width: 100%;
   min-height: $options-bar-height;
@@ -34,6 +41,11 @@
 
       &:hover {
         background-color: $color-primary-light;
+        color: $color-primary-text;
+      }
+
+      &.selected {
+        background-color: $color-primary;
         color: $color-primary-text;
       }
 
