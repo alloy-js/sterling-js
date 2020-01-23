@@ -1,12 +1,14 @@
-import { View } from './view';
+import { View } from '../view';
 import Split from 'split.js';
 import * as d3 from 'd3';
+import { EvaluatorStage } from './evaluator-stage';
 
 export class EvaluatorView extends View {
 
     _alloy = null;
     _input = null;
     _output = null;
+    _stage = null;
     _active = null;
     _nextid = 0;
     _expressions = [];
@@ -14,14 +16,21 @@ export class EvaluatorView extends View {
     constructor (selection) {
 
         super(selection);
+
         Split(['#eval-editor', '#eval-display'], {
-            sizes: [40, 60],
+            sizes: [30, 70],
             minSize: [300, 100],
+            gutterSize: 4
+        });
+        Split(['#eval-output', '#eval-console'], {
+            sizes: [75, 25],
+            direction: 'vertical',
             gutterSize: 4
         });
 
         this._input = selection.select('#eval-input');
         this._output = selection.select('#eval-output');
+        this._stage = new EvaluatorStage(selection.select('#eval-display'));
 
         this._initialize_input();
 
@@ -32,7 +41,7 @@ export class EvaluatorView extends View {
         if (alloy) {
 
             this._alloy = alloy;
-            this._alloy.on_eval(this._parse_result.bind(this));
+            this._alloy.on_eval(this._parse_response.bind(this));
 
         }
 
@@ -46,10 +55,25 @@ export class EvaluatorView extends View {
 
     }
 
+    _add_error (message) {
+
+        this._expressions.push({
+            id: -1,
+            expression: 'ERROR',
+            result: message,
+            active: false,
+            error: true
+        });
+
+        this._update();
+
+    }
+
     _clear () {
 
         this._expressions = [];
         this._active = null;
+        this._stage.clear();
         this._update();
 
     }
@@ -86,9 +110,7 @@ export class EvaluatorView extends View {
             };
 
             this._expressions.push(expression);
-            this._set_active(expression);
             this._update();
-            this._scroll_down();
 
             if (this._alloy) {
                 this._alloy.request_eval(expression.id, expression.expression);
@@ -122,21 +144,62 @@ export class EvaluatorView extends View {
 
     }
 
-    _parse_result (id: number, result: string) {
+    _parse_response (result: string) {
 
-        // ... calculate result
+        const tokens = result.match(/EVL:(-?\d+):(.*)/);
 
-        // Find corresponding command by id
-        const expr = this._expressions.find(expr => expr.id === id);
+        if (tokens === null) {
 
-        if (expr) {
+            this._add_error(`Invalid response:\n${result}`);
 
-            expr.result = result;
+        } else {
+
+            const id = parseInt(tokens[1]);
+            const result = tokens[2];
+
+            if (id === -1) {
+
+                this._add_error(result);
+
+            } else {
+
+                const expr = this._expressions.find(expr => expr.id === id);
+
+                if (expr) {
+
+                    expr.result = result;
+                    this._parse_result(expr);
+                    this._set_active(expr);
+
+                } else {
+
+                    this._add_error(`Unable to find expression ID: ${id}`);
+
+                }
+
+            }
 
         }
 
         this._update();
         this._enable();
+
+    }
+
+    _parse_result (expression) {
+
+        const result = expression.result;
+        if (result.slice(0, 4) === 'ERR:') {
+            expression.result = result.slice(4);
+            expression.error = true;
+        }
+
+    }
+
+    _scroll_down () {
+
+        this._output
+            .property('scrollTop', this._output.property('scrollHeight'));
 
     }
 
@@ -146,13 +209,7 @@ export class EvaluatorView extends View {
         this._expressions.forEach(expr => {
             expr.active = expr === expression;
         });
-
-    }
-
-    _scroll_down () {
-
-        this._output
-            .property('scrollTop', this._output.property('scrollHeight'));
+        this._stage.render(expression);
 
     }
 
@@ -180,6 +237,8 @@ export class EvaluatorView extends View {
                     ? d.expression
                     : d.result;
             });
+
+        this._scroll_down();
 
     }
 

@@ -45,6 +45,7 @@
             min-height: 1em;
             padding: 0.5em;
             color: $color-primary-text-dark;
+
           }
 
         }
@@ -59,11 +60,11 @@
         .result {
           min-height: 1em;
           padding: 0.5em;
-          color: $color-primary-text-light;
+          color: $color-primary-light;
           overflow-wrap: break-word;
 
           &.error {
-            color: red !important;
+            color: crimson;
           }
 
         }
@@ -76,18 +77,13 @@
 
       display: flex;
       align-items: stretch;
-      min-height: 12em;
-      max-height: 12em;
-      height: 12em;
-      flex: 0;
-      border-top: 4px solid $color-primary-light;
 
       textarea {
         font-family: 'Fira Code', monospace;
         font-size: 0.9em;
         outline: none;
         border: none;
-        flex: 1 0 auto;
+        flex: 1 1 auto;
         resize: none;
         padding: 0.75em;
         overflow-wrap: break-word;
@@ -98,7 +94,14 @@
   }
 
   .eval-display {
+
     flex: 1 0 auto;
+    display: flex;
+
+    svg, canvas {
+      flex: 1 1 auto;
+    }
+
   }
 
 }

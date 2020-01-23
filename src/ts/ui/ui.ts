@@ -2,7 +2,7 @@ import * as d3 from 'd3';
 import { AlloyConnection } from './server/alloy-connection';
 import { NavBar } from './bars/nav-bar';
 import { StatusBar } from './bars/status-bar';
-import { EvaluatorView } from './views/evaluator-view';
+import { EvaluatorView } from './views/evaluator-view/evaluator-view';
 import { GraphView } from './views/graph-view';
 import { TableView } from './views/table-view';
 import { TreeView } from './views/tree-view';

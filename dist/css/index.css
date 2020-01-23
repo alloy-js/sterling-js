@@ -6358,33 +6358,32 @@ code {
 .eval .eval-editor .eval-output .output .result {
   min-height: 1em;
   padding: 0.5em;
-  color: #a5abb8;
+  color: #708690;
   overflow-wrap: break-word;
 }
 .eval .eval-editor .eval-output .output .result.error {
-  color: red !important;
+  color: crimson;
 }
 .eval .eval-editor .eval-input {
   display: flex;
   align-items: stretch;
-  min-height: 12em;
-  max-height: 12em;
-  height: 12em;
-  flex: 0;
-  border-top: 4px solid #708690;
 }
 .eval .eval-editor .eval-input textarea {
   font-family: "Fira Code", monospace;
   font-size: 0.9em;
   outline: none;
   border: none;
-  flex: 1 0 auto;
+  flex: 1 1 auto;
   resize: none;
   padding: 0.75em;
   overflow-wrap: break-word;
 }
 .eval .eval-display {
   flex: 1 0 auto;
+  display: flex;
+}
+.eval .eval-display svg, .eval .eval-display canvas {
+  flex: 1 1 auto;
 }
 
 .gutter {

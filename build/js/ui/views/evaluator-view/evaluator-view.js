@@ -1,12 +1,14 @@
-import { View } from './view';
+import { View } from '../view';
 import Split from 'split.js';
 import * as d3 from 'd3';
+import { EvaluatorStage } from './evaluator-stage';
 export class EvaluatorView extends View {
     constructor(selection) {
         super(selection);
         this._alloy = null;
         this._input = null;
         this._output = null;
+        this._stage = null;
         this._active = null;
         this._nextid = 0;
         this._expressions = [];
@@ -22,6 +24,7 @@ export class EvaluatorView extends View {
         });
         this._input = selection.select('#eval-input');
         this._output = selection.select('#eval-output');
+        this._stage = new EvaluatorStage(selection.select('#eval-display'));
         this._initialize_input();
     }
     set_alloy(alloy) {
@@ -47,6 +50,7 @@ export class EvaluatorView extends View {
     _clear() {
         this._expressions = [];
         this._active = null;
+        this._stage.clear();
         this._update();
     }
     _disable() {
@@ -70,7 +74,6 @@ export class EvaluatorView extends View {
                 error: !this._alloy
             };
             this._expressions.push(expression);
-            this._set_active(expression);
             this._update();
             if (this._alloy) {
                 this._alloy.request_eval(expression.id, expression.expression);
@@ -109,6 +112,7 @@ export class EvaluatorView extends View {
                 if (expr) {
                     expr.result = result;
                     this._parse_result(expr);
+                    this._set_active(expr);
                 }
                 else {
                     this._add_error(`Unable to find expression ID: ${id}`);
@@ -134,6 +138,7 @@ export class EvaluatorView extends View {
         this._expressions.forEach(expr => {
             expr.active = expr === expression;
         });
+        this._stage.render(expression);
     }
     _update() {
         const selection = this._output.selectAll('div.output')

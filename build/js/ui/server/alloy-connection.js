@@ -55,10 +55,13 @@ export class AlloyConnection {
         return this;
     }
     request_eval(id, command) {
-        // temporarily immediately call cb with dummy solution
         if (this._on_eval_cb) {
-            const rando = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-            this._on_eval_cb(id, rando);
+            if (this._ws) {
+                this._ws.send('EVL:' + id + ':' + command);
+            }
+            else {
+                this._on_eval_cb(`EVL:${id}:No connection.`);
+            }
         }
         return this;
     }
@@ -91,6 +94,8 @@ export class AlloyConnection {
                 this._heartbeat_count += 1;
                 break;
             case 'EVL:':
+                if (this._on_eval_cb)
+                    this._on_eval_cb(e.data);
                 break;
             case 'XML:':
                 if (data.length) {
