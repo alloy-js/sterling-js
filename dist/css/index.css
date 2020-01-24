@@ -6361,6 +6361,9 @@ code {
   color: #708690;
   overflow-wrap: break-word;
 }
+.eval .eval-editor .eval-output .output .result:not(.expanded) {
+  display: none;
+}
 .eval .eval-editor .eval-output .output .result.error {
   color: crimson;
 }

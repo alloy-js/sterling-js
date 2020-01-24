@@ -7531,22 +7531,6 @@
         }
     }
 
-    class View {
-        constructor(selection) {
-            this._view_selection = selection;
-        }
-        show() {
-            if (this._view_selection)
-                this._view_selection.style('display', null);
-            this._on_show();
-        }
-        hide() {
-            if (this._view_selection)
-                this._view_selection.style('display', 'none');
-            this._on_hide();
-        }
-    }
-
     // The programming goals of Split.js are to deliver readable, understandable and
     // maintainable code, while at the same time manually optimizing for tiny minified file size,
     // browser compatibility without additional requirements, graceful fallback (IE8 is supported)
@@ -8318,138 +8302,256 @@
         }
     };
 
-    class EvaluatorStage {
+    class View {
+        constructor(selection) {
+            this._view_selection = selection;
+        }
+        show() {
+            if (this._view_selection)
+                this._view_selection.style('display', null);
+            this._on_show();
+        }
+        hide() {
+            if (this._view_selection)
+                this._view_selection.style('display', 'none');
+            this._on_hide();
+        }
+    }
+
+    class EvaluatorStageNew {
         constructor(selection) {
             this._stage = null;
-            this._svg = null;
-            this._type = 'graph';
+            this._canvas = null;
+            this._context = null;
+            this._width = 0;
+            this._height = 0;
+            this._simulation = simulation();
+            this._forceLink = link().id(d => d.id);
+            this._forceCenter = center();
+            this._forceCharge = manyBody();
+            this._radius = 30;
+            this._tuples = [];
+            this._nodes = []; // all nodes
+            this._disconnected = []; // nodes not part of simulation
+            this._connected = []; // nodes part of simulation
+            this._fixed = []; // nodes in simulation with a fixed position
+            this._free = []; // nodes in simulation with a non-fixed position
             this._stage = selection;
+            this._canvas = selection.append('canvas');
+            this._context = this._canvas.node().getContext('2d');
+            this._width = parseInt(this._canvas.style('width'));
+            this._height = parseInt(this._canvas.style('height'));
+            this._canvas.attr('width', this._width);
+            this._canvas.attr('height', this._height);
+            this._forceLink.distance(6 * this._radius);
+            this._forceCenter.x(this._width / 2).y(this._height / 2);
+            this._forceCharge.strength(-100);
+            this._simulation
+                .force('link', this._forceLink)
+                .force('center', this._forceCenter)
+                .force('charge', this._forceCharge)
+                .on('tick', this._repaint.bind(this));
+            this._canvas.call(drag()
+                .container(this._canvas.node())
+                .subject(this._dragSubject.bind(this))
+                .on('start', this._dragStarted.bind(this))
+                .on('drag', this._dragged.bind(this))
+                .on('end', this._dragEnded.bind(this)));
+            this._canvas
+                .on('click', this._onClick.bind(this))
+                .on('dblclick', this._onDblClick.bind(this));
         }
-        render(expression) {
-            if (expression.error)
-                return this.clear();
-            const result = expression.result;
-            const re = /\{(.*)\}/g;
-            if (re.test(result)) {
-                if (result === '{}')
-                    return this.clear();
-                const raw_tuples = result.slice(1, -1).split(',');
-                const tuples = raw_tuples
-                    .map(tuple => tuple.split('->')
-                    .map(atom => atom.trim()));
-                this._force(tuples);
+        addTuple(tuple) {
+            this._addTuple(tuple);
+            arrange_rows(this._disconnected, this._width, this._height, this._radius);
+            this._repaint();
+        }
+        addTuples(tuples) {
+            tuples.forEach(this._addTuple.bind(this));
+            arrange_rows(this._disconnected, this._width, this._height, this._radius);
+            this._simulation.nodes(this._connected);
+            this._forceLink.links(this._tuples);
+            this._repaint();
+        }
+        nodes(nodes) {
+            this._nodes = nodes;
+            this._tuples = [];
+            this._connected = [];
+            this._disconnected = nodes.slice().sort((a, b) => a.id < b.id);
+            arrange_rows(this._disconnected, this._width, this._height, this._radius);
+            this._forceLink.links([]);
+            this._simulation.nodes(this._connected);
+        }
+        _addTuple(tuple) {
+            const source = tuple.source;
+            const target = tuple.target;
+            // Check that source and target are valid nodes
+            if (!this._nodes.find(node => node.id === source))
+                throw Error(`Tuple source node is not valid: ${source}`);
+            if (!this._nodes.find(node => node.id === target))
+                throw Error(`Tuple target node is not valid: ${target}`);
+            // If the link for this tuple exists already, add to its relation,
+            // otherwise create a new link.
+            const existing = this._tuples.find(tuple => tuple.source === source && tuple.target === target);
+            if (existing) {
+                if (!existing.relations.includes(tuple.relation))
+                    existing.relations.push(tuple.relation);
             }
             else {
-                this.clear();
+                this._tuples.push({
+                    source: source,
+                    target: target,
+                    relations: [tuple.relation]
+                });
+            }
+            // If the source or target is a disconnected node, un-disconnect it
+            const srcindex = this._disconnected.findIndex(node => node.id === source);
+            if (srcindex !== -1) {
+                const srcnode = this._disconnected[srcindex];
+                delete srcnode.fx;
+                delete srcnode.fy;
+                this._connected.push(srcnode);
+                this._free.push(srcnode);
+                this._disconnected.splice(srcindex, 1);
+            }
+            const trgindex = this._disconnected.findIndex(node => node.id === target);
+            if (trgindex !== -1) {
+                const trgnode = this._disconnected[trgindex];
+                delete trgnode.fx;
+                delete trgnode.fy;
+                this._connected.push(trgnode);
+                this._free.push(trgnode);
+                this._disconnected.splice(trgindex, 1);
             }
         }
-        clear() {
-            this._stage.selectAll('*').remove();
+        _dragSubject() {
+            return this._simulation.find(event.x, event.y, this._radius);
         }
-        _force(tuples) {
-            this.clear();
-            const canvas = this._stage.append('canvas');
-            const context = canvas.node().getContext('2d');
-            const width = parseInt(canvas.style('width'));
-            const height = parseInt(canvas.style('height'));
-            const radius = 30;
-            canvas.attr('width', width);
-            canvas.attr('height', height);
-            const atomset = new Set();
-            tuples.forEach(tuple => tuple.forEach(atom => atomset.add(atom)));
-            const nodes = Array.from(atomset).map(atom => ({ id: atom }));
-            const links = tuples
-                .filter(tuple => tuple.length > 1)
-                .map(tuple => {
-                return {
-                    id: tuple.join('->'),
-                    source: tuple[0],
-                    target: tuple[tuple.length - 1]
-                };
-            });
-            const simulation$1 = simulation(nodes)
-                .force('link', link()
-                .id(d => d.id)
-                .links(links)
-                .distance(4 * radius))
-                .force('charge', manyBody().strength(-100))
-                .force('center', center(width / 2, height / 2))
-                .on('tick', ticked);
-            canvas
-                .call(drag()
-                .container(canvas.node())
-                .subject(dragsubject)
-                .on('start', dragstarted)
-                .on('drag', dragged)
-                .on('end', dragended));
-            function ticked() {
-                context.clearRect(0, 0, width, height);
-                // Draw links
-                context.beginPath();
-                links.forEach(drawLink);
-                context.strokeStyle = '#111';
-                context.stroke();
-                // Draw nodes
-                context.beginPath();
-                nodes.forEach(drawNode);
-                context.fillStyle = 'white';
-                context.fill();
-                context.strokeStyle = '#111';
-                context.stroke();
-                // Draw arrowheads
-                context.beginPath();
-                links.forEach(drawArrow);
-                context.fillStyle = '#111';
-                context.fill();
-                // Draw node labels
-                context.fillStyle = '#111';
-                context.font = '12px monospace';
-                context.textAlign = 'center';
-                context.textBaseline = 'middle';
-                nodes.forEach(drawLabel);
-            }
-            function dragsubject() {
-                return simulation$1.find(event.x, event.y);
-            }
-            function dragstarted() {
-                if (!event.active)
-                    simulation$1.alphaTarget(0.3).restart();
-                event.subject.fx = event.subject.x;
-                event.subject.fy = event.subject.y;
-            }
-            function dragged() {
-                event.subject.fx = event.x;
-                event.subject.fy = event.y;
-            }
-            function dragended() {
-                if (!event.active)
-                    simulation$1.alphaTarget(0);
+        _dragStarted() {
+            if (!event.active)
+                this._simulation.alphaTarget(0.3).restart();
+            event.subject.fx = event.subject.x;
+            event.subject.fy = event.subject.y;
+        }
+        _dragged() {
+            event.subject.fx = event.x;
+            event.subject.fy = event.y;
+        }
+        _dragEnded() {
+            if (!event.active)
+                this._simulation.alphaTarget(0);
+            if (!event.subject.fixed)
                 event.subject.fx = null;
+            if (!event.subject.fixed)
                 event.subject.fy = null;
-            }
-            function drawLink(d) {
-                context.moveTo(d.source.x, d.source.y);
-                context.lineTo(d.target.x, d.target.y);
-            }
-            const PI6 = Math.PI / 6;
-            function drawArrow(d) {
-                const angle = Math.atan2(d.target.y - d.source.y, d.target.x - d.source.x);
-                const x = d.target.x - radius * Math.cos(angle);
-                const y = d.target.y - radius * Math.sin(angle);
-                context.moveTo(x, y);
-                context.lineTo(x - 10 * Math.cos(angle - PI6), y - 10 * Math.sin(angle - PI6));
-                context.lineTo(x - 10 * Math.cos(angle + PI6), y - 10 * Math.sin(angle + PI6));
-                context.closePath();
-            }
-            function drawNode(d) {
-                context.moveTo(d.x + radius, d.y);
-                context.arc(d.x, d.y, radius, 0, 2 * Math.PI);
-            }
-            function drawLabel(d) {
-                context.moveTo(d.x, d.y);
-                context.fillText(d.id, d.x, d.y);
+        }
+        _onClick() {
+            if (event.ctrlKey) {
+                const [x, y] = mouse(this._canvas.node());
+                const node = this._simulation.find(x, y, this._radius);
+                if (node)
+                    this._toggleFixed(node);
             }
         }
+        _onDblClick() {
+            const [x, y] = mouse(this._canvas.node());
+            const node = this._simulation.find(x, y, this._radius);
+            if (node)
+                this._toggleFixed(node);
+        }
+        _repaint() {
+            const context = this._context;
+            const radius = this._radius;
+            // Clear the context
+            context.clearRect(0, 0, this._width, this._height);
+            // Draw links
+            context.beginPath();
+            this._tuples.forEach(tuple => drawLink(context, tuple));
+            context.strokeStyle = '#111';
+            context.stroke();
+            // Draw arrowheads
+            context.beginPath();
+            this._tuples.forEach(tuple => drawArrow(context, tuple, radius));
+            context.fillStyle = '#111';
+            context.fill();
+            // Draw fixed nodes
+            context.beginPath();
+            this._fixed.forEach(node => drawNode(context, node, radius));
+            this._disconnected.forEach(node => drawNode(context, node, radius));
+            context.fillStyle = 'white';
+            context.fill();
+            context.lineWidth = 2;
+            context.strokeStyle = '#111';
+            context.stroke();
+            // Draw non-fixed nodes
+            context.beginPath();
+            this._free.forEach(node => drawNode(context, node, radius));
+            context.fill();
+            context.lineWidth = 1;
+            context.stroke();
+            // Draw node labels
+            context.fillStyle = '#111';
+            context.font = '12px monospace';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            this._nodes.forEach(node => drawLabel(context, node));
+        }
+        _toggleFixed(node) {
+            const freeindex = this._free.indexOf(node);
+            if (freeindex !== -1) {
+                const [free] = this._free.splice(freeindex, 1);
+                this._fixed.push(free);
+                free.fixed = true;
+                free.fx = free.x;
+                free.fy = free.y;
+            }
+            else {
+                const fixedindex = this._fixed.indexOf(node);
+                if (fixedindex !== -1) {
+                    const [fixed] = this._fixed.splice(fixedindex, 1);
+                    this._free.push(fixed);
+                    fixed.fixed = false;
+                    fixed.fx = null;
+                    fixed.fy = null;
+                }
+            }
+        }
+    }
+    function arrange_rows(nodes, width, height, radius) {
+        const padding = radius / 2;
+        let x = radius + padding, y = radius + padding;
+        nodes.forEach(node => {
+            node.fx = node.x = x;
+            node.fy = node.y = y;
+            x += 2 * radius + padding;
+            if (x > width - padding - radius) {
+                x = radius + padding;
+                y += 2 * radius + padding;
+            }
+        });
+    }
+    const TWOPI = 2 * Math.PI;
+    const PI6 = Math.PI / 6;
+    function drawArrow(context, link, radius) {
+        const ng = Math.atan2(link.target.y - link.source.y, link.target.x - link.source.x);
+        const x = link.target.x - radius * Math.cos(ng);
+        const y = link.target.y - radius * Math.sin(ng);
+        context.moveTo(x, y);
+        context.lineTo(x - 10 * Math.cos(ng - PI6), y - 10 * Math.sin(ng - PI6));
+        context.lineTo(x - 10 * Math.cos(ng + PI6), y - 10 * Math.sin(ng + PI6));
+        context.closePath();
+    }
+    function drawLabel(context, node) {
+        context.moveTo(node.x, node.y);
+        context.fillText(node.id, node.x, node.y);
+    }
+    function drawLink(context, link) {
+        context.moveTo(link.source.x, link.source.y);
+        context.lineTo(link.target.x, link.target.y);
+    }
+    function drawNode(context, node, radius) {
+        context.moveTo(node.x + radius, node.y);
+        context.arc(node.x, node.y, radius, 0, TWOPI);
     }
 
     class EvaluatorView extends View {
@@ -8462,6 +8564,8 @@
             this._active = null;
             this._nextid = 0;
             this._expressions = [];
+            this._nodes = null;
+            this._tuples = null;
             Split(['#eval-editor', '#eval-display'], {
                 sizes: [30, 70],
                 minSize: [300, 100],
@@ -8474,7 +8578,7 @@
             });
             this._input = selection.select('#eval-input');
             this._output = selection.select('#eval-output');
-            this._stage = new EvaluatorStage(selection.select('#eval-display'));
+            this._stage = new EvaluatorStageNew(selection.select('#eval-display'));
             this._initialize_input();
         }
         set_alloy(alloy) {
@@ -8484,8 +8588,42 @@
             }
         }
         set_instance(instance) {
-            // TODO: parse instance for autocompletion data
-            this._clear();
+            const nodes = instance.atoms().map(atom => ({
+                id: atom.id()
+            }));
+            this._stage.nodes(nodes);
+            const tuples = instance.tuples().map(tuple => {
+                const atoms = tuple.atoms();
+                return {
+                    source: atoms[0].id(),
+                    target: atoms[atoms.length - 1].id(),
+                    relation: tuple.parent().id()
+                };
+            });
+            this._stage.addTuples(tuples);
+            // // Get the complete set of nodes
+            // this._nodes = instance.atoms().map(atom => ({
+            //     id: atom.id()
+            // }));
+            //
+            // // Get all relations
+            // this._tuples = new Map();
+            // instance.tuples().forEach(tuple => {
+            //     const parent = tuple.parent().id();
+            //     const atoms = tuple.atoms();
+            //     const arity = atoms.length;
+            //     if (arity > 1) {
+            //         const source = atoms[0];
+            //         const target = atoms[atoms.length-1];
+            //         const id = source + '->' + target;
+            //         if (!this._tuples.has(id))
+            //             this._tuples.set(id, new Set());
+            //         this._tuples.get(id).add(parent);
+            //     }
+            // });
+            //
+            // this._stage.reset(this._nodes, this._tuples);
+            // this._clear();
         }
         _add_error(message) {
             this._expressions.push({
@@ -8500,7 +8638,6 @@
         _clear() {
             this._expressions = [];
             this._active = null;
-            this._stage.clear();
             this._update();
         }
         _disable() {
@@ -8508,6 +8645,11 @@
         }
         _enable() {
             this._input.attr('disabled', null);
+        }
+        _expand_only(expression) {
+            this._expressions.forEach(expr => {
+                expr.expanded = expr === expression;
+            });
         }
         _evaluate() {
             const input = this._input.property('value');
@@ -8521,7 +8663,8 @@
                     expression: input,
                     result: tmpres,
                     active: false,
-                    error: !this._alloy
+                    error: !this._alloy,
+                    expanded: true
                 };
                 this._expressions.push(expression);
                 this._update();
@@ -8562,6 +8705,7 @@
                     if (expr) {
                         expr.result = result;
                         this._parse_result(expr);
+                        this._expand_only(expr);
                         this._set_active(expr);
                     }
                     else {
@@ -8588,7 +8732,6 @@
             this._expressions.forEach(expr => {
                 expr.active = expr === expression;
             });
-            this._stage.render(expression);
         }
         _update() {
             const selection = this._output.selectAll('div.output')
@@ -8607,6 +8750,7 @@
                 .classed('error', (d, i) => {
                 return i === 1 && d.error;
             })
+                .classed('expanded', d => d.expanded)
                 .text((d, i) => {
                 return i === 0
                     ? d.expression

@@ -1,7 +1,7 @@
-import { View } from '../view';
-import Split from 'split.js';
 import * as d3 from 'd3';
-import { EvaluatorStage } from './evaluator-stage';
+import Split from 'split.js';
+import { View } from '../view';
+import { EvaluatorStageNew } from './evaluator-stage-new';
 export class EvaluatorView extends View {
     constructor(selection) {
         super(selection);
@@ -12,6 +12,8 @@ export class EvaluatorView extends View {
         this._active = null;
         this._nextid = 0;
         this._expressions = [];
+        this._nodes = null;
+        this._tuples = null;
         Split(['#eval-editor', '#eval-display'], {
             sizes: [30, 70],
             minSize: [300, 100],
@@ -24,7 +26,7 @@ export class EvaluatorView extends View {
         });
         this._input = selection.select('#eval-input');
         this._output = selection.select('#eval-output');
-        this._stage = new EvaluatorStage(selection.select('#eval-display'));
+        this._stage = new EvaluatorStageNew(selection.select('#eval-display'));
         this._initialize_input();
     }
     set_alloy(alloy) {
@@ -34,8 +36,42 @@ export class EvaluatorView extends View {
         }
     }
     set_instance(instance) {
-        // TODO: parse instance for autocompletion data
-        this._clear();
+        const nodes = instance.atoms().map(atom => ({
+            id: atom.id()
+        }));
+        this._stage.nodes(nodes);
+        const tuples = instance.tuples().map(tuple => {
+            const atoms = tuple.atoms();
+            return {
+                source: atoms[0].id(),
+                target: atoms[atoms.length - 1].id(),
+                relation: tuple.parent().id()
+            };
+        });
+        this._stage.addTuples(tuples);
+        // // Get the complete set of nodes
+        // this._nodes = instance.atoms().map(atom => ({
+        //     id: atom.id()
+        // }));
+        //
+        // // Get all relations
+        // this._tuples = new Map();
+        // instance.tuples().forEach(tuple => {
+        //     const parent = tuple.parent().id();
+        //     const atoms = tuple.atoms();
+        //     const arity = atoms.length;
+        //     if (arity > 1) {
+        //         const source = atoms[0];
+        //         const target = atoms[atoms.length-1];
+        //         const id = source + '->' + target;
+        //         if (!this._tuples.has(id))
+        //             this._tuples.set(id, new Set());
+        //         this._tuples.get(id).add(parent);
+        //     }
+        // });
+        //
+        // this._stage.reset(this._nodes, this._tuples);
+        // this._clear();
     }
     _add_error(message) {
         this._expressions.push({
@@ -50,7 +86,6 @@ export class EvaluatorView extends View {
     _clear() {
         this._expressions = [];
         this._active = null;
-        this._stage.clear();
         this._update();
     }
     _disable() {
@@ -58,6 +93,11 @@ export class EvaluatorView extends View {
     }
     _enable() {
         this._input.attr('disabled', null);
+    }
+    _expand_only(expression) {
+        this._expressions.forEach(expr => {
+            expr.expanded = expr === expression;
+        });
     }
     _evaluate() {
         const input = this._input.property('value');
@@ -71,7 +111,8 @@ export class EvaluatorView extends View {
                 expression: input,
                 result: tmpres,
                 active: false,
-                error: !this._alloy
+                error: !this._alloy,
+                expanded: true
             };
             this._expressions.push(expression);
             this._update();
@@ -112,6 +153,7 @@ export class EvaluatorView extends View {
                 if (expr) {
                     expr.result = result;
                     this._parse_result(expr);
+                    this._expand_only(expr);
                     this._set_active(expr);
                 }
                 else {
@@ -138,7 +180,6 @@ export class EvaluatorView extends View {
         this._expressions.forEach(expr => {
             expr.active = expr === expression;
         });
-        this._stage.render(expression);
     }
     _update() {
         const selection = this._output.selectAll('div.output')
@@ -157,6 +198,7 @@ export class EvaluatorView extends View {
             .classed('error', (d, i) => {
             return i === 1 && d.error;
         })
+            .classed('expanded', d => d.expanded)
             .text((d, i) => {
             return i === 0
                 ? d.expression

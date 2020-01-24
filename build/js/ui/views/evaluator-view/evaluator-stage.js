@@ -4,31 +4,39 @@ export class EvaluatorStage {
         this._stage = null;
         this._svg = null;
         this._type = 'graph';
+        this._nodes = [];
+        this._tuples = new Map();
         this._stage = selection;
     }
-    render(expression) {
-        if (expression.error)
-            return this.clear();
-        const result = expression.result;
-        const re = /\{(.*)\}/g;
-        if (re.test(result)) {
-            if (result === '{}')
-                return this.clear();
-            const raw_tuples = result.slice(1, -1).split(',');
-            const tuples = raw_tuples
-                .map(tuple => tuple.split('->')
-                .map(atom => atom.trim()));
-            this._force(tuples);
-        }
-        else {
-            this.clear();
-        }
+    add_expression(expression) {
+        // if (expression.error) return;
+        //
+        // const result = expression.result;
+        // const re = /\{(.*)\}/g;
+        // if (re.test(result)) {
+        //
+        //     if (result === '{}') return;
+        //
+        //     const raw_tuples = result.slice(1, -1).split(',');
+        //     const tuples = raw_tuples
+        //         .map(tuple => tuple.split('->')
+        //             .map(atom => atom.trim()));
+        //
+        //     // Do stuff with new tuples here
+        //
+        //     this._render();
+        //
+        // }
     }
-    clear() {
+    reset(nodes, tuples) {
+        this._nodes = nodes || [];
+        this._tuples = tuples || new Set();
         this._stage.selectAll('*').remove();
+        this._render();
     }
-    _force(tuples) {
-        this.clear();
+    _render() {
+        const nodes = this._nodes;
+        const tuples = this._tuples;
         const canvas = this._stage.append('canvas');
         const context = canvas.node().getContext('2d');
         const width = parseInt(canvas.style('width'));
@@ -38,21 +46,24 @@ export class EvaluatorStage {
         canvas.attr('height', height);
         const atomset = new Set();
         tuples.forEach(tuple => tuple.forEach(atom => atomset.add(atom)));
-        const nodes = Array.from(atomset).map(atom => ({ id: atom }));
-        const links = tuples
-            .filter(tuple => tuple.length > 1)
-            .map(tuple => {
-            return {
-                id: tuple.join('->'),
-                source: tuple[0],
-                target: tuple[tuple.length - 1]
-            };
+        const links = [];
+        this._tuples.forEach((relationset, key) => {
+            const ids = key.split('->');
+            const source = ids[0];
+            const target = ids[1];
+            const relations = Array.from(relationset);
+            links.push({
+                id: key,
+                source: source,
+                target: target,
+                relations: relations
+            });
         });
         const simulation = d3.forceSimulation(nodes)
             .force('link', d3.forceLink()
             .id(d => d.id)
             .links(links)
-            .distance(4 * radius))
+            .distance(6 * radius))
             .force('charge', d3.forceManyBody().strength(-100))
             .force('center', d3.forceCenter(width / 2, height / 2))
             .on('tick', ticked);

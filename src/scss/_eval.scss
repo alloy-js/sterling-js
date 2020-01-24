@@ -58,6 +58,11 @@
         }
 
         .result {
+
+          &:not(.expanded) {
+            display: none;
+          }
+
           min-height: 1em;
           padding: 0.5em;
           color: $color-primary-light;
