@@ -42,11 +42,6 @@ export class EvaluatorStageNew {
             .on('click', this._onClick.bind(this))
             .on('dblclick', this._onDblClick.bind(this));
     }
-    addTuple(tuple) {
-        this._addTuple(tuple);
-        arrange_rows(this._disconnected, this._width, this._height, this._radius);
-        this._repaint();
-    }
     addTuples(tuples) {
         tuples.forEach(this._addTuple.bind(this));
         arrange_rows(this._disconnected, this._width, this._height, this._radius);
@@ -58,6 +53,8 @@ export class EvaluatorStageNew {
         this._nodes = nodes;
         this._tuples = [];
         this._connected = [];
+        this._fixed = [];
+        this._free = [];
         this._disconnected = nodes.slice().sort((a, b) => a.id < b.id);
         arrange_rows(this._disconnected, this._width, this._height, this._radius);
         this._forceLink.links([]);

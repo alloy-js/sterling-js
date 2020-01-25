@@ -1,12 +1,12 @@
 import * as d3 from 'd3';
-import { AlloyConnection } from './server/alloy-connection';
 import { NavBar } from './bars/nav-bar';
 import { StatusBar } from './bars/status-bar';
-import { EvaluatorView } from './views/evaluator-view/evaluator-view';
+import { AlloyConnection } from './server/alloy-connection';
+import { EvaluatorViewNew } from './views/evaluator-view/evaluator-view-new';
 import { GraphView } from './views/graph-view';
+import { SourceView } from './views/source-view';
 import { TableView } from './views/table-view';
 import { TreeView } from './views/tree-view';
-import { SourceView } from './views/source-view';
 export class UI {
     constructor() {
         this._initialize_alloy_connection();
@@ -24,8 +24,7 @@ export class UI {
         return this;
     }
     eval_view(selector) {
-        this._eval_view = new EvaluatorView(d3.select(selector));
-        this._eval_view.set_alloy(this._alloy);
+        this._eval_view = new EvaluatorViewNew(d3.select(selector), this._alloy);
         return this;
     }
     graph_view(selector) {

@@ -7310,127 +7310,6 @@
         };
     }
 
-    class AlloyConnection {
-        constructor() {
-            this._ws = null;
-            this._heartbeat_count = 0;
-            this._heartbeat_id = null;
-            this._heartbeat_interval = 15000;
-            this._heartbeat_latency = 0;
-            this._heartbeat_timestamp = 0;
-            this._on_connected_cb = null;
-            this._on_disconnected_cb = null;
-            this._on_error_cb = null;
-            this._on_instance_cb = null;
-        }
-        average_latency() {
-            if (this._heartbeat_count > 0) {
-                return this._heartbeat_latency / this._heartbeat_count;
-            }
-            return 0;
-        }
-        connect() {
-            if (this._ws) {
-                this._ws.onclose = null;
-                this._ws.close();
-            }
-            this._ws = new WebSocket('ws://' + location.hostname + ':' + location.port + '/alloy');
-            this._ws.onopen = this._on_open.bind(this);
-            this._ws.onclose = this._on_close.bind(this);
-            this._ws.onerror = this._on_error.bind(this);
-            this._ws.onmessage = this._on_message.bind(this);
-        }
-        on_connected(cb) {
-            this._on_connected_cb = cb;
-            return this;
-        }
-        on_disconnected(cb) {
-            this._on_disconnected_cb = cb;
-            return this;
-        }
-        on_error(cb) {
-            this._on_error_cb = cb;
-            return this;
-        }
-        on_eval(cb) {
-            this._on_eval_cb = cb;
-            return this;
-        }
-        on_instance(cb) {
-            this._on_instance_cb = cb;
-            return this;
-        }
-        request_current() {
-            if (this._ws)
-                this._ws.send('current');
-            return this;
-        }
-        request_eval(id, command) {
-            if (this._on_eval_cb) {
-                if (this._ws) {
-                    this._ws.send('EVL:' + id + ':' + command);
-                }
-                else {
-                    this._on_eval_cb(`EVL:${id}:No connection.`);
-                }
-            }
-            return this;
-        }
-        request_next() {
-            if (this._ws)
-                this._ws.send('next');
-            return this;
-        }
-        _on_open(e) {
-            this._reset_heartbeat();
-            if (this._on_connected_cb)
-                this._on_connected_cb();
-        }
-        _on_close(e) {
-            this._ws = null;
-            if (this._on_disconnected_cb)
-                this._on_disconnected_cb();
-        }
-        _on_error(e) {
-            if (this._on_error_cb)
-                this._on_error_cb(e);
-        }
-        _on_message(e) {
-            this._reset_heartbeat();
-            let header = e.data.slice(0, 4);
-            let data = e.data.slice(4);
-            switch (header) {
-                case 'pong':
-                    this._heartbeat_latency += performance.now() - this._heartbeat_timestamp;
-                    this._heartbeat_count += 1;
-                    break;
-                case 'EVL:':
-                    if (this._on_eval_cb)
-                        this._on_eval_cb(e.data);
-                    break;
-                case 'XML:':
-                    if (data.length) {
-                        let instance = Instance.fromXML(data);
-                        if (this._on_instance_cb)
-                            this._on_instance_cb(instance);
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-        _reset_heartbeat() {
-            clearTimeout(this._heartbeat_id);
-            this._heartbeat_id = window.setTimeout(this._ping.bind(this), this._heartbeat_interval);
-        }
-        _ping() {
-            if (this._ws) {
-                this._heartbeat_timestamp = performance.now();
-                this._ws.send('ping');
-            }
-        }
-    }
-
     class NavBar {
         constructor(selection) {
             this._navbar = selection;
@@ -7528,6 +7407,294 @@
         set_connection_status(connection) {
             if (this._connection)
                 this._connection.text('Status: ' + connection);
+        }
+    }
+
+    class AlloyConnection {
+        constructor() {
+            this._ws = null;
+            this._connected = false;
+            this._heartbeat_count = 0;
+            this._heartbeat_id = null;
+            this._heartbeat_interval = 15000;
+            this._heartbeat_latency = 0;
+            this._heartbeat_timestamp = 0;
+            this._on_connected_cb = null;
+            this._on_disconnected_cb = null;
+            this._on_error_cb = null;
+            this._on_instance_cb = null;
+        }
+        average_latency() {
+            if (this._heartbeat_count > 0) {
+                return this._heartbeat_latency / this._heartbeat_count;
+            }
+            return 0;
+        }
+        connect() {
+            if (this._ws) {
+                this._ws.onclose = null;
+                this._ws.close();
+            }
+            this._ws = new WebSocket('ws://' + location.hostname + ':' + location.port + '/alloy');
+            this._ws.onopen = this._on_open.bind(this);
+            this._ws.onclose = this._on_close.bind(this);
+            this._ws.onerror = this._on_error.bind(this);
+            this._ws.onmessage = this._on_message.bind(this);
+        }
+        connected() {
+            return this._connected;
+        }
+        on_connected(cb) {
+            this._on_connected_cb = cb;
+            return this;
+        }
+        on_disconnected(cb) {
+            this._on_disconnected_cb = cb;
+            return this;
+        }
+        on_error(cb) {
+            this._on_error_cb = cb;
+            return this;
+        }
+        on_eval(cb) {
+            this._on_eval_cb = cb;
+            return this;
+        }
+        on_instance(cb) {
+            this._on_instance_cb = cb;
+            return this;
+        }
+        request_current() {
+            if (this._ws)
+                this._ws.send('current');
+            return this;
+        }
+        request_eval(id, command) {
+            if (this._on_eval_cb) {
+                if (this._ws) {
+                    this._ws.send('EVL:' + id + ':' + command);
+                }
+                else {
+                    this._on_eval_cb(`EVL:${id}:No connection.`);
+                }
+            }
+            return this;
+        }
+        request_next() {
+            if (this._ws)
+                this._ws.send('next');
+            return this;
+        }
+        _on_open(e) {
+            this._connected = true;
+            this._reset_heartbeat();
+            if (this._on_connected_cb)
+                this._on_connected_cb();
+        }
+        _on_close(e) {
+            this._connected = false;
+            this._ws = null;
+            if (this._on_disconnected_cb)
+                this._on_disconnected_cb();
+        }
+        _on_error(e) {
+            if (this._on_error_cb)
+                this._on_error_cb(e);
+        }
+        _on_message(e) {
+            this._reset_heartbeat();
+            let header = e.data.slice(0, 4);
+            let data = e.data.slice(4);
+            switch (header) {
+                case 'pong':
+                    this._heartbeat_latency += performance.now() - this._heartbeat_timestamp;
+                    this._heartbeat_count += 1;
+                    break;
+                case 'EVL:':
+                    if (this._on_eval_cb)
+                        this._on_eval_cb(e.data);
+                    break;
+                case 'XML:':
+                    if (data.length) {
+                        let instance = Instance.fromXML(data);
+                        if (this._on_instance_cb)
+                            this._on_instance_cb(instance);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        _reset_heartbeat() {
+            clearTimeout(this._heartbeat_id);
+            this._heartbeat_id = window.setTimeout(this._ping.bind(this), this._heartbeat_interval);
+        }
+        _ping() {
+            if (this._ws) {
+                this._heartbeat_timestamp = performance.now();
+                this._ws.send('ping');
+            }
+        }
+    }
+
+    class View {
+        constructor(selection) {
+            this._view_selection = selection;
+        }
+        show() {
+            if (this._view_selection)
+                this._view_selection.style('display', null);
+            this._on_show();
+        }
+        hide() {
+            if (this._view_selection)
+                this._view_selection.style('display', 'none');
+            this._on_hide();
+        }
+    }
+
+    /**
+     * @author mrdoob / http://mrdoob.com/
+     */
+    class EventDispatcher {
+        constructor() {
+            this._listeners = {};
+        }
+        addEventListener(type, listener) {
+            let listeners = this._listeners;
+            if (listeners[type] === undefined) {
+                listeners[type] = [];
+            }
+            if (listeners[type].indexOf(listener) === -1) {
+                listeners[type].push(listener);
+            }
+        }
+        hasEventListener(type, listener) {
+            if (this._listeners === undefined)
+                return false;
+            let listeners = this._listeners;
+            return listeners[type] !== undefined && listeners[type].indexOf(listener) !== -1;
+        }
+        removeEventListener(type, listener) {
+            if (this._listeners === undefined)
+                return;
+            let listeners = this._listeners;
+            let listenerArray = listeners[type];
+            if (listenerArray !== undefined) {
+                let index = listenerArray.indexOf(listener);
+                if (index !== -1) {
+                    listenerArray.splice(index, 1);
+                }
+            }
+        }
+        dispatchEvent(event) {
+            if (this._listeners === undefined)
+                return;
+            let listeners = this._listeners;
+            let listenerArray = listeners[event.type];
+            if (listenerArray !== undefined) {
+                event.target = this;
+                let array = listenerArray.slice(0);
+                for (let i = 0, l = array.length; i < l; i++) {
+                    array[i].call(this, event);
+                }
+            }
+        }
+    }
+
+    class Evaluator extends EventDispatcher {
+        constructor(alloy) {
+            super();
+            this._alloy = null;
+            this._nextid = 0;
+            this._expressions = [];
+            this._pending = 0;
+            this._alloy = alloy;
+            this._alloy.on_eval(this._parse.bind(this));
+        }
+        clear() {
+            this._pending = 0;
+            this._updatePending(0);
+            this._expressions = [];
+            this.dispatchEvent({
+                type: 'update',
+                expressions: this._expressions,
+                update: null
+            });
+        }
+        evaluate(expression) {
+            const e = {
+                id: this._nextid++,
+                expression: expression,
+                result: this._alloy.connected() ? null : 'No Connection',
+                error: !this._alloy.connected()
+            };
+            this._updatePending(1);
+            this._addExpression(e);
+            this._alloy.request_eval(e.id, e.expression);
+        }
+        _addError(error, message) {
+            this._addExpression({
+                id: -1,
+                expression: 'Error',
+                result: message,
+                error: true
+            });
+        }
+        _addExpression(expression) {
+            this._expressions.push(expression);
+            this.dispatchEvent({
+                type: 'add',
+                add: expression,
+                expressions: this._expressions
+            });
+        }
+        _parse(response) {
+            const tokens = response.match(/EVL:(-?\d+):(.*)/);
+            if (tokens === null) {
+                this._addError('Invalid response', response);
+                return;
+            }
+            const id = parseInt(tokens[1]);
+            const result = tokens[2].trim();
+            if (id === -1) {
+                this._addError('Error', result);
+                return;
+            }
+            const expr = this._expressions.find(expr => expr.id === id);
+            if (!expr) {
+                this._addError('Error', `Unable to find expression ID: ${id}`);
+                return;
+            }
+            if (result.slice(0, 4) === 'ERR:') {
+                expr.result = result.slice(4);
+                expr.error = true;
+            }
+            else if (result === 'true' || result === 'false') {
+                expr.result = result === 'true';
+                expr.error = false;
+            }
+            else if (/^-?\d+$/.test(result)) {
+                expr.result = parseInt(result);
+                expr.error = false;
+            }
+            else {
+                expr.result = result;
+                expr.error = false;
+            }
+            this._updatePending(-1);
+            this.dispatchEvent({
+                type: 'update',
+                expressions: this._expressions,
+                update: expr
+            });
+        }
+        _updatePending(add) {
+            this._pending += add;
+            this.dispatchEvent({
+                type: 'ready',
+                ready: this._pending === 0
+            });
         }
     }
 
@@ -8302,19 +8469,61 @@
         }
     };
 
-    class View {
+    class EvaluatorInput extends EventDispatcher {
         constructor(selection) {
-            this._view_selection = selection;
+            super();
+            this._input = selection;
+            selection.on('keydown', this._onKeyDown.bind(this));
         }
-        show() {
-            if (this._view_selection)
-                this._view_selection.style('display', null);
-            this._on_show();
+        enable(enable) {
+            this._input.attr('disabled', enable ? null : '');
         }
-        hide() {
-            if (this._view_selection)
-                this._view_selection.style('display', 'none');
-            this._on_hide();
+        _onEnter() {
+            const value = this._input.property('value');
+            this._input.property('value', '');
+            this.dispatchEvent({
+                type: 'evaluate',
+                text: value
+            });
+        }
+        _onKeyDown() {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this._onEnter();
+            }
+        }
+    }
+
+    class EvaluatorOutput {
+        constructor(selection) {
+            this._output = selection;
+        }
+        expressions(expressions) {
+            const selection = this._output
+                .selectAll('div.output')
+                .data(expressions, d => d.id)
+                .join(enter => {
+                const div = enter.append('div').attr('class', 'output');
+                div.append('div').attr('class', 'expression');
+                div.append('div').attr('class', 'result');
+                return div;
+            });
+            selection
+                .selectAll('div.expression')
+                .each(renderExpression);
+            selection
+                .selectAll('div.result')
+                .each(renderResult);
+            function renderExpression(expression) {
+                select(this)
+                    .text(expression.expression);
+            }
+            function renderResult(expression) {
+                select(this)
+                    .classed('error', expression.error)
+                    .classed('expanded', true)
+                    .text(expression.result);
+            }
         }
     }
 
@@ -8361,11 +8570,6 @@
                 .on('click', this._onClick.bind(this))
                 .on('dblclick', this._onDblClick.bind(this));
         }
-        addTuple(tuple) {
-            this._addTuple(tuple);
-            arrange_rows(this._disconnected, this._width, this._height, this._radius);
-            this._repaint();
-        }
         addTuples(tuples) {
             tuples.forEach(this._addTuple.bind(this));
             arrange_rows(this._disconnected, this._width, this._height, this._radius);
@@ -8377,6 +8581,8 @@
             this._nodes = nodes;
             this._tuples = [];
             this._connected = [];
+            this._fixed = [];
+            this._free = [];
             this._disconnected = nodes.slice().sort((a, b) => a.id < b.id);
             arrange_rows(this._disconnected, this._width, this._height, this._radius);
             this._forceLink.links([]);
@@ -8554,18 +8760,9 @@
         context.arc(node.x, node.y, radius, 0, TWOPI);
     }
 
-    class EvaluatorView extends View {
-        constructor(selection) {
+    class EvaluatorViewNew extends View {
+        constructor(selection, alloy) {
             super(selection);
-            this._alloy = null;
-            this._input = null;
-            this._output = null;
-            this._stage = null;
-            this._active = null;
-            this._nextid = 0;
-            this._expressions = [];
-            this._nodes = null;
-            this._tuples = null;
             Split(['#eval-editor', '#eval-display'], {
                 sizes: [30, 70],
                 minSize: [300, 100],
@@ -8576,16 +8773,13 @@
                 direction: 'vertical',
                 gutterSize: 4
             });
-            this._input = selection.select('#eval-input');
-            this._output = selection.select('#eval-output');
+            this._evaluator = new Evaluator(alloy);
+            this._input = new EvaluatorInput(selection.select('#eval-input'));
+            this._output = new EvaluatorOutput(selection.select('#eval-output'));
             this._stage = new EvaluatorStageNew(selection.select('#eval-display'));
-            this._initialize_input();
-        }
-        set_alloy(alloy) {
-            if (alloy) {
-                this._alloy = alloy;
-                this._alloy.on_eval(this._parse_response.bind(this));
-            }
+            this._input.addEventListener('evaluate', event => this._evaluator.evaluate(event.text));
+            this._evaluator.addEventListener('ready', event => this._input.enable(event.ready));
+            this._evaluator.addEventListener('update', event => this._output.expressions(event.expressions));
         }
         set_instance(instance) {
             const nodes = instance.atoms().map(atom => ({
@@ -8601,162 +8795,10 @@
                 };
             });
             this._stage.addTuples(tuples);
-            // // Get the complete set of nodes
-            // this._nodes = instance.atoms().map(atom => ({
-            //     id: atom.id()
-            // }));
-            //
-            // // Get all relations
-            // this._tuples = new Map();
-            // instance.tuples().forEach(tuple => {
-            //     const parent = tuple.parent().id();
-            //     const atoms = tuple.atoms();
-            //     const arity = atoms.length;
-            //     if (arity > 1) {
-            //         const source = atoms[0];
-            //         const target = atoms[atoms.length-1];
-            //         const id = source + '->' + target;
-            //         if (!this._tuples.has(id))
-            //             this._tuples.set(id, new Set());
-            //         this._tuples.get(id).add(parent);
-            //     }
-            // });
-            //
-            // this._stage.reset(this._nodes, this._tuples);
-            // this._clear();
-        }
-        _add_error(message) {
-            this._expressions.push({
-                id: -1,
-                expression: 'ERROR',
-                result: message,
-                active: false,
-                error: true
-            });
-            this._update();
-        }
-        _clear() {
-            this._expressions = [];
-            this._active = null;
-            this._update();
-        }
-        _disable() {
-            this._input.attr('disabled', '');
-        }
-        _enable() {
-            this._input.attr('disabled', null);
-        }
-        _expand_only(expression) {
-            this._expressions.forEach(expr => {
-                expr.expanded = expr === expression;
-            });
-        }
-        _evaluate() {
-            const input = this._input.property('value');
-            this._input.property('value', '');
-            const tmpres = this._alloy
-                ? 'Evaluating...'
-                : 'ERROR: No connection';
-            if (input.length) {
-                const expression = {
-                    id: this._nextid++,
-                    expression: input,
-                    result: tmpres,
-                    active: false,
-                    error: !this._alloy,
-                    expanded: true
-                };
-                this._expressions.push(expression);
-                this._update();
-                if (this._alloy) {
-                    this._alloy.request_eval(expression.id, expression.expression);
-                }
-            }
-            else {
-                this._enable();
-            }
-        }
-        _initialize_input() {
-            this._input.on('keydown', () => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    this._disable();
-                    this._evaluate();
-                }
-            });
         }
         _on_hide() {
         }
         _on_show() {
-        }
-        _parse_response(result) {
-            const tokens = result.match(/EVL:(-?\d+):(.*)/);
-            if (tokens === null) {
-                this._add_error(`Invalid response:\n${result}`);
-            }
-            else {
-                const id = parseInt(tokens[1]);
-                const result = tokens[2];
-                if (id === -1) {
-                    this._add_error(result);
-                }
-                else {
-                    const expr = this._expressions.find(expr => expr.id === id);
-                    if (expr) {
-                        expr.result = result;
-                        this._parse_result(expr);
-                        this._expand_only(expr);
-                        this._set_active(expr);
-                    }
-                    else {
-                        this._add_error(`Unable to find expression ID: ${id}`);
-                    }
-                }
-            }
-            this._update();
-            this._enable();
-        }
-        _parse_result(expression) {
-            const result = expression.result;
-            if (result.slice(0, 4) === 'ERR:') {
-                expression.result = result.slice(4);
-                expression.error = true;
-            }
-        }
-        _scroll_down() {
-            this._output
-                .property('scrollTop', this._output.property('scrollHeight'));
-        }
-        _set_active(expression) {
-            this._active = expression;
-            this._expressions.forEach(expr => {
-                expr.active = expr === expression;
-            });
-        }
-        _update() {
-            const selection = this._output.selectAll('div.output')
-                .data(this._expressions, d => d.id)
-                .join('div')
-                .attr('class', 'output')
-                .classed('active', d => d.active);
-            selection.selectAll('div')
-                .data(d => [d, d])
-                .join('div')
-                .attr('class', (d, i) => {
-                return i === 0
-                    ? 'expression'
-                    : 'result';
-            })
-                .classed('error', (d, i) => {
-                return i === 1 && d.error;
-            })
-                .classed('expanded', d => d.expanded)
-                .text((d, i) => {
-                return i === 0
-                    ? d.expression
-                    : d.result;
-            });
-            this._scroll_down();
         }
     }
 
@@ -11161,6 +11203,143 @@
         }
     }
 
+    class SourceView extends View {
+        constructor(selection) {
+            super(selection);
+            this._tree = selection.select('.filetree');
+            this._view = selection.select('.fileview');
+            this._gutter = this._view.select('.gutter');
+            this._editor = this._view.select('.editor');
+            this._message = this._editor
+                .append('div')
+                .attr('class', 'message');
+            this._code = this._editor
+                .append('pre')
+                .append('code')
+                .attr('class', 'alloy');
+            this._show_message('No files loaded.');
+        }
+        make_active(file) {
+            if (file) {
+                // Set the tree item to active
+                this._tree
+                    .selectAll('.file')
+                    .classed('active', d => d === file);
+                // Set the editor text
+                this._code
+                    .text(file.text);
+                // Highlight the code
+                hljs.highlightBlock(this._code.node());
+                // Update line numbers
+                this._update_line_numbers(file);
+            }
+            else {
+                this._code.text('Open a file.');
+            }
+        }
+        set_files(files) {
+            this._set_tree_data(files);
+            this._show_code();
+        }
+        _on_show() {
+        }
+        _on_hide() {
+        }
+        _set_tree_data(files) {
+            let fs = this._tree
+                .selectAll('.file')
+                .data(files, d => d.filename);
+            // Remove old files
+            fs.exit().remove();
+            // Add new files
+            let enter = fs.enter()
+                .append('div')
+                .attr('class', 'file')
+                .on('click', d => this.make_active(d));
+            // Add icon to new file
+            enter.append('div')
+                .attr('class', 'icon')
+                .append('i')
+                .attr('class', 'fas fa-file');
+            // Add filename to new file
+            enter.append('div')
+                .attr('class', 'filename')
+                .attr('id', d => d.filename)
+                .text(d => d.filename);
+            // Set the active file
+            let active = this._tree
+                .select('.active')
+                .data();
+            if (active.length) {
+                this.make_active(active[0]);
+            }
+            else if (files.length) {
+                this.make_active(files[0]);
+            }
+            else {
+                this.make_active(null);
+            }
+        }
+        _show_code() {
+            this._message
+                .style('display', 'none');
+            this._code
+                .style('display', null);
+        }
+        _show_message(message) {
+            this._message
+                .style('display', null)
+                .text(message);
+            this._code
+                .style('display', 'none');
+        }
+        _update_line_numbers(file) {
+            let lines = file.text.match(/\r?\n/g);
+            let numlines = lines ? lines.length + 1 : 2;
+            let selection = this._gutter
+                .selectAll('pre')
+                .data(sequence(numlines));
+            selection
+                .exit()
+                .remove();
+            selection
+                .enter()
+                .append('pre')
+                .attr('class', 'line-number')
+                .append('code')
+                .append('span')
+                .attr('class', 'hljs-comment')
+                .html(d => d + 1);
+        }
+    }
+    hljs.registerLanguage('alloy', function () {
+        let NUMBER_RE = '\\b\\d+';
+        return {
+            // case_insensitive
+            case_insensitive: false,
+            // keywords
+            keywords: 'abstract all and as assert but check disj ' +
+                'else exactly extends fact for fun iden iff implies ' +
+                'in Int let lone module no none not one open or pred ' +
+                'run set sig some sum univ',
+            // contains
+            contains: [
+                // hljs.COMMENT
+                hljs.COMMENT('//', '$'),
+                hljs.COMMENT('--', '$'),
+                hljs.COMMENT('/\\*', '\\*/'),
+                {
+                    // className
+                    className: 'number',
+                    // begin
+                    begin: NUMBER_RE,
+                    // relevance
+                    relevance: 0
+                }
+            ]
+        };
+    });
+
     class TableLayoutPreferences {
         constructor() {
             this.border_color = '#ababab';
@@ -11901,143 +12080,6 @@
         }
     }
 
-    class SourceView extends View {
-        constructor(selection) {
-            super(selection);
-            this._tree = selection.select('.filetree');
-            this._view = selection.select('.fileview');
-            this._gutter = this._view.select('.gutter');
-            this._editor = this._view.select('.editor');
-            this._message = this._editor
-                .append('div')
-                .attr('class', 'message');
-            this._code = this._editor
-                .append('pre')
-                .append('code')
-                .attr('class', 'alloy');
-            this._show_message('No files loaded.');
-        }
-        make_active(file) {
-            if (file) {
-                // Set the tree item to active
-                this._tree
-                    .selectAll('.file')
-                    .classed('active', d => d === file);
-                // Set the editor text
-                this._code
-                    .text(file.text);
-                // Highlight the code
-                hljs.highlightBlock(this._code.node());
-                // Update line numbers
-                this._update_line_numbers(file);
-            }
-            else {
-                this._code.text('Open a file.');
-            }
-        }
-        set_files(files) {
-            this._set_tree_data(files);
-            this._show_code();
-        }
-        _on_show() {
-        }
-        _on_hide() {
-        }
-        _set_tree_data(files) {
-            let fs = this._tree
-                .selectAll('.file')
-                .data(files, d => d.filename);
-            // Remove old files
-            fs.exit().remove();
-            // Add new files
-            let enter = fs.enter()
-                .append('div')
-                .attr('class', 'file')
-                .on('click', d => this.make_active(d));
-            // Add icon to new file
-            enter.append('div')
-                .attr('class', 'icon')
-                .append('i')
-                .attr('class', 'fas fa-file');
-            // Add filename to new file
-            enter.append('div')
-                .attr('class', 'filename')
-                .attr('id', d => d.filename)
-                .text(d => d.filename);
-            // Set the active file
-            let active = this._tree
-                .select('.active')
-                .data();
-            if (active.length) {
-                this.make_active(active[0]);
-            }
-            else if (files.length) {
-                this.make_active(files[0]);
-            }
-            else {
-                this.make_active(null);
-            }
-        }
-        _show_code() {
-            this._message
-                .style('display', 'none');
-            this._code
-                .style('display', null);
-        }
-        _show_message(message) {
-            this._message
-                .style('display', null)
-                .text(message);
-            this._code
-                .style('display', 'none');
-        }
-        _update_line_numbers(file) {
-            let lines = file.text.match(/\r?\n/g);
-            let numlines = lines ? lines.length + 1 : 2;
-            let selection = this._gutter
-                .selectAll('pre')
-                .data(sequence(numlines));
-            selection
-                .exit()
-                .remove();
-            selection
-                .enter()
-                .append('pre')
-                .attr('class', 'line-number')
-                .append('code')
-                .append('span')
-                .attr('class', 'hljs-comment')
-                .html(d => d + 1);
-        }
-    }
-    hljs.registerLanguage('alloy', function () {
-        let NUMBER_RE = '\\b\\d+';
-        return {
-            // case_insensitive
-            case_insensitive: false,
-            // keywords
-            keywords: 'abstract all and as assert but check disj ' +
-                'else exactly extends fact for fun iden iff implies ' +
-                'in Int let lone module no none not one open or pred ' +
-                'run set sig some sum univ',
-            // contains
-            contains: [
-                // hljs.COMMENT
-                hljs.COMMENT('//', '$'),
-                hljs.COMMENT('--', '$'),
-                hljs.COMMENT('/\\*', '\\*/'),
-                {
-                    // className
-                    className: 'number',
-                    // begin
-                    begin: NUMBER_RE,
-                    // relevance
-                    relevance: 0
-                }
-            ]
-        };
-    });
-
     class UI {
         constructor() {
             this._initialize_alloy_connection();
@@ -12055,8 +12097,7 @@
             return this;
         }
         eval_view(selector) {
-            this._eval_view = new EvaluatorView(select(selector));
-            this._eval_view.set_alloy(this._alloy);
+            this._eval_view = new EvaluatorViewNew(select(selector), this._alloy);
             return this;
         }
         graph_view(selector) {

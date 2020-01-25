@@ -2,6 +2,7 @@ import { Instance } from '../..';
 export class AlloyConnection {
     constructor() {
         this._ws = null;
+        this._connected = false;
         this._heartbeat_count = 0;
         this._heartbeat_id = null;
         this._heartbeat_interval = 15000;
@@ -28,6 +29,9 @@ export class AlloyConnection {
         this._ws.onclose = this._on_close.bind(this);
         this._ws.onerror = this._on_error.bind(this);
         this._ws.onmessage = this._on_message.bind(this);
+    }
+    connected() {
+        return this._connected;
     }
     on_connected(cb) {
         this._on_connected_cb = cb;
@@ -71,11 +75,13 @@ export class AlloyConnection {
         return this;
     }
     _on_open(e) {
+        this._connected = true;
         this._reset_heartbeat();
         if (this._on_connected_cb)
             this._on_connected_cb();
     }
     _on_close(e) {
+        this._connected = false;
         this._ws = null;
         if (this._on_disconnected_cb)
             this._on_disconnected_cb();

@@ -49,29 +49,6 @@ export class EvaluatorView extends View {
             };
         });
         this._stage.addTuples(tuples);
-        // // Get the complete set of nodes
-        // this._nodes = instance.atoms().map(atom => ({
-        //     id: atom.id()
-        // }));
-        //
-        // // Get all relations
-        // this._tuples = new Map();
-        // instance.tuples().forEach(tuple => {
-        //     const parent = tuple.parent().id();
-        //     const atoms = tuple.atoms();
-        //     const arity = atoms.length;
-        //     if (arity > 1) {
-        //         const source = atoms[0];
-        //         const target = atoms[atoms.length-1];
-        //         const id = source + '->' + target;
-        //         if (!this._tuples.has(id))
-        //             this._tuples.set(id, new Set());
-        //         this._tuples.get(id).add(parent);
-        //     }
-        // });
-        //
-        // this._stage.reset(this._nodes, this._tuples);
-        // this._clear();
     }
     _add_error(message) {
         this._expressions.push({

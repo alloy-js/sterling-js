@@ -70,14 +70,6 @@ export class EvaluatorStageNew {
 
     }
 
-    public addTuple (tuple: Tuple) {
-
-        this._addTuple(tuple);
-        arrange_rows(this._disconnected, this._width, this._height, this._radius);
-        this._repaint();
-
-    }
-
     public addTuples (tuples: Tuple[]) {
 
         tuples.forEach(this._addTuple.bind(this));
@@ -94,6 +86,8 @@ export class EvaluatorStageNew {
         this._tuples = [];
 
         this._connected = [];
+        this._fixed = [];
+        this._free = [];
         this._disconnected = nodes.slice().sort((a, b) => a.id < b.id);
         arrange_rows(this._disconnected, this._width, this._height, this._radius);
 
