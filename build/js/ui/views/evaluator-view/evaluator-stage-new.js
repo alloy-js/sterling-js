@@ -11,7 +11,13 @@ export class EvaluatorStageNew {
         this._forceCenter = d3.forceCenter();
         this._forceCharge = d3.forceManyBody();
         this._radius = 30;
-        this._tuples = [];
+        this._nodeFontSize = 12;
+        this._edgeFontSize = 12;
+        this._combineEdges = true;
+        this._showMiddles = false;
+        this._showEdgeLabels = true;
+        this._expressions = [];
+        this._links = [];
         this._nodes = []; // all nodes
         this._disconnected = []; // nodes not part of simulation
         this._connected = []; // nodes part of simulation
@@ -42,65 +48,107 @@ export class EvaluatorStageNew {
             .on('click', this._onClick.bind(this))
             .on('dblclick', this._onDblClick.bind(this));
     }
-    addTuples(tuples) {
-        tuples.forEach(this._addTuple.bind(this));
-        arrange_rows(this._disconnected, this._width, this._height, this._radius);
-        this._simulation.nodes(this._connected);
-        this._forceLink.links(this._tuples);
+    lockAllNodes() {
+        this._free.slice().forEach(this._toggleFixed.bind(this));
         this._repaint();
     }
-    nodes(nodes) {
+    toggleCombineEdges() {
+        this._combineEdges = !this._combineEdges;
+        this.setExpressions(this._expressions);
+    }
+    toggleShowMiddles() {
+        this._showMiddles = !this._showMiddles;
+        this.setExpressions(this._expressions);
+    }
+    setEdgeFontSize(size) {
+        this._edgeFontSize = size;
+        this._repaint();
+    }
+    setExpressions(expressions) {
+        this._resetTuples();
+        this._expressions = expressions;
+        this._calculateLinks(expressions);
+        arrange_rows(this._disconnected, this._width, this._height, this._radius);
+        this._simulation.nodes(this._connected);
+        this._forceLink.links(this._links);
+        this._simulation.alpha(0.3).restart();
+    }
+    setNodeFontSize(size) {
+        this._nodeFontSize = size;
+        this._repaint();
+    }
+    setNodes(nodes) {
         this._nodes = nodes;
-        this._tuples = [];
-        this._connected = [];
-        this._fixed = [];
-        this._free = [];
-        this._disconnected = nodes.slice().sort((a, b) => a.id < b.id);
+        this._resetTuples();
         arrange_rows(this._disconnected, this._width, this._height, this._radius);
         this._forceLink.links([]);
         this._simulation.nodes(this._connected);
     }
-    _addTuple(tuple) {
-        const source = tuple.source;
-        const target = tuple.target;
-        // Check that source and target are valid nodes
-        if (!this._nodes.find(node => node.id === source))
-            throw Error(`Tuple source node is not valid: ${source}`);
-        if (!this._nodes.find(node => node.id === target))
-            throw Error(`Tuple target node is not valid: ${target}`);
-        // If the link for this tuple exists already, add to its relation,
-        // otherwise create a new link.
-        const existing = this._tuples.find(tuple => tuple.source === source && tuple.target === target);
-        if (existing) {
-            if (!existing.relations.includes(tuple.relation))
-                existing.relations.push(tuple.relation);
-        }
-        else {
-            this._tuples.push({
-                source: source,
-                target: target,
-                relations: [tuple.relation]
+    setRadius(radius) {
+        this._radius = radius;
+        this._repaint();
+    }
+    unlockAllNodes() {
+        this._fixed.slice().forEach(this._toggleFixed.bind(this));
+        this._repaint();
+    }
+    _calculateLinks(expressions) {
+        const links = [];
+        expressions.forEach(expression => {
+            expression.tuples.forEach(tuple => {
+                const source = tuple.source;
+                const target = tuple.target;
+                const label = this._tupleLabel(tuple);
+                // Check that source and target are valid nodes
+                if (!this._nodes.find(node => node.id === source))
+                    throw Error(`Tuple source node is not valid: ${source}`);
+                if (!this._nodes.find(node => node.id === target))
+                    throw Error(`Tuple target node is not valid: ${target}`);
+                if (this._combineEdges) {
+                    // If the link for this tuple exists already, add to its label,
+                    // otherwise create a new link.
+                    const existing = links.find(link => link.source === source && link.target === target);
+                    if (existing) {
+                        if (!existing.labels.includes(label))
+                            existing.labels.push(label);
+                    }
+                    else {
+                        links.push({
+                            source: source,
+                            target: target,
+                            labels: [label]
+                        });
+                    }
+                }
+                else {
+                    links.push({
+                        source: source,
+                        target: target,
+                        labels: [label]
+                    });
+                }
+                // If the source or target is a disconnected node, un-disconnect it
+                const srcindex = this._disconnected.findIndex(node => node.id === source);
+                if (srcindex !== -1) {
+                    const srcnode = this._disconnected[srcindex];
+                    srcnode.fx = null;
+                    srcnode.fy = null;
+                    this._connected.push(srcnode);
+                    this._free.push(srcnode);
+                    this._disconnected.splice(srcindex, 1);
+                }
+                const trgindex = this._disconnected.findIndex(node => node.id === target);
+                if (trgindex !== -1) {
+                    const trgnode = this._disconnected[trgindex];
+                    trgnode.fx = null;
+                    trgnode.fy = null;
+                    this._connected.push(trgnode);
+                    this._free.push(trgnode);
+                    this._disconnected.splice(trgindex, 1);
+                }
             });
-        }
-        // If the source or target is a disconnected node, un-disconnect it
-        const srcindex = this._disconnected.findIndex(node => node.id === source);
-        if (srcindex !== -1) {
-            const srcnode = this._disconnected[srcindex];
-            delete srcnode.fx;
-            delete srcnode.fy;
-            this._connected.push(srcnode);
-            this._free.push(srcnode);
-            this._disconnected.splice(srcindex, 1);
-        }
-        const trgindex = this._disconnected.findIndex(node => node.id === target);
-        if (trgindex !== -1) {
-            const trgnode = this._disconnected[trgindex];
-            delete trgnode.fx;
-            delete trgnode.fy;
-            this._connected.push(trgnode);
-            this._free.push(trgnode);
-            this._disconnected.splice(trgindex, 1);
-        }
+        });
+        this._links = links;
     }
     _dragSubject() {
         return this._simulation.find(d3.event.x, d3.event.y, this._radius);
@@ -137,6 +185,13 @@ export class EvaluatorStageNew {
         if (node)
             this._toggleFixed(node);
     }
+    _resetTuples() {
+        this._links = [];
+        this._connected = [];
+        this._fixed = [];
+        this._free = [];
+        this._disconnected = this._nodes.slice().sort((a, b) => alphaSort(a.id, b.id));
+    }
     _repaint() {
         const context = this._context;
         const radius = this._radius;
@@ -144,12 +199,18 @@ export class EvaluatorStageNew {
         context.clearRect(0, 0, this._width, this._height);
         // Draw links
         context.beginPath();
-        this._tuples.forEach(tuple => drawLink(context, tuple));
+        this._links.forEach(tuple => drawLink(context, tuple));
         context.strokeStyle = '#111';
         context.stroke();
+        // Draw link labels
+        context.fillStyle = '#111';
+        context.font = `${this._edgeFontSize}px monospace`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        this._links.forEach(tuple => drawLinkLabel(context, tuple));
         // Draw arrowheads
         context.beginPath();
-        this._tuples.forEach(tuple => drawArrow(context, tuple, radius));
+        this._links.forEach(tuple => drawArrow(context, tuple, radius));
         context.fillStyle = '#111';
         context.fill();
         // Draw fixed nodes
@@ -169,10 +230,10 @@ export class EvaluatorStageNew {
         context.stroke();
         // Draw node labels
         context.fillStyle = '#111';
-        context.font = '12px monospace';
+        context.font = `${this._nodeFontSize}px monospace`;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        this._nodes.forEach(node => drawLabel(context, node));
+        this._nodes.forEach(node => drawNodeLabel(context, node));
     }
     _toggleFixed(node) {
         const freeindex = this._free.indexOf(node);
@@ -194,6 +255,22 @@ export class EvaluatorStageNew {
             }
         }
     }
+    _tupleLabel(tuple) {
+        return this._showMiddles
+            ? tuple.relation + (tuple.middle.length ? `[${tuple.middle.join(',')}]` : '')
+            : tuple.relation;
+    }
+}
+function alphaSort(a, b) {
+    let nameA = a.toUpperCase();
+    let nameB = b.toUpperCase();
+    if (nameA < nameB) {
+        return -1;
+    }
+    if (nameA > nameB) {
+        return 1;
+    }
+    return 0;
 }
 function arrange_rows(nodes, width, height, radius) {
     const padding = radius / 2;
@@ -219,7 +296,13 @@ function drawArrow(context, link, radius) {
     context.lineTo(x - 10 * Math.cos(ng + PI6), y - 10 * Math.sin(ng + PI6));
     context.closePath();
 }
-function drawLabel(context, node) {
+function drawLinkLabel(context, link) {
+    const x = (link.source.x + link.target.x) / 2;
+    const y = (link.source.y + link.target.y) / 2;
+    context.moveTo(x, y);
+    context.fillText(link.labels.join(', '), x, y);
+}
+function drawNodeLabel(context, node) {
     context.moveTo(node.x, node.y);
     context.fillText(node.id, node.x, node.y);
 }

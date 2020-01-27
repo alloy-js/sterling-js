@@ -9,18 +9,19 @@ export class EvaluatorInput extends EventDispatcher {
     enable(enable) {
         this._input.attr('disabled', enable ? null : '');
     }
-    _onEnter() {
+    _onEnter(ctrlKey) {
         const value = this._input.property('value');
         this._input.property('value', '');
         this.dispatchEvent({
             type: 'evaluate',
-            text: value
+            text: value,
+            ctrlKey: ctrlKey
         });
     }
     _onKeyDown() {
         if (d3.event.key === 'Enter') {
             d3.event.preventDefault();
-            this._onEnter();
+            this._onEnter(d3.event.ctrlKey);
         }
     }
 }

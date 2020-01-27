@@ -1,15 +1,23 @@
 import * as d3 from 'd3';
+import { Expression, Tuple } from './evaluator';
 
-interface Tuple {
-    source: string,
-    target: string,
-    relation: string
+export interface Node {
+    id: string
 }
 
-interface TupleSet {
+export interface TupleSet {
     source: string,
     target: string,
-    relations: string[]
+    relations: {
+        relation: string,
+        middle: string[]
+    }[]
+}
+
+interface Link {
+    source: string,
+    target: string,
+    labels: string[]
 }
 
 export class EvaluatorStageNew {
@@ -27,10 +35,17 @@ export class EvaluatorStageNew {
     _forceCharge = d3.forceManyBody();
 
     _radius = 30;
+    _nodeFontSize: number = 12;
+    _edgeFontSize: number = 12;
 
-    _tuples: TupleSet[] = [];
+    _combineEdges: boolean = true;
+    _showMiddles: boolean = false;
+    _showEdgeLabels: boolean = true;
 
-    _nodes = [];            // all nodes
+    _expressions: Expression[] = [];
+    _links: Link[] = [];
+
+    _nodes: Node[] = [];    // all nodes
     _disconnected = [];     // nodes not part of simulation
     _connected = [];        // nodes part of simulation
     _fixed = [];            // nodes in simulation with a fixed position
@@ -70,25 +85,60 @@ export class EvaluatorStageNew {
 
     }
 
-    public addTuples (tuples: Tuple[]) {
+    public lockAllNodes () {
 
-        tuples.forEach(this._addTuple.bind(this));
-        arrange_rows(this._disconnected, this._width, this._height, this._radius);
-        this._simulation.nodes(this._connected);
-        this._forceLink.links(this._tuples);
+        this._free.slice().forEach(this._toggleFixed.bind(this));
         this._repaint();
 
     }
 
-    public nodes (nodes) {
+    public toggleCombineEdges () {
+
+        this._combineEdges = !this._combineEdges;
+        this.setExpressions(this._expressions);
+
+    }
+
+    public toggleShowMiddles () {
+
+        this._showMiddles = !this._showMiddles;
+        this.setExpressions(this._expressions);
+
+    }
+
+    public setEdgeFontSize (size: number) {
+
+        this._edgeFontSize = size;
+        this._repaint();
+
+    }
+
+    public setExpressions (expressions: Expression[]) {
+
+        this._resetTuples();
+
+        this._expressions = expressions;
+        this._calculateLinks(expressions);
+
+        arrange_rows(this._disconnected, this._width, this._height, this._radius);
+        this._simulation.nodes(this._connected);
+        this._forceLink.links(this._links);
+        this._simulation.alpha(0.3).restart();
+
+    }
+
+    public setNodeFontSize (size: number) {
+
+        this._nodeFontSize = size;
+        this._repaint();
+
+    }
+
+    public setNodes (nodes) {
 
         this._nodes = nodes;
-        this._tuples = [];
+        this._resetTuples();
 
-        this._connected = [];
-        this._fixed = [];
-        this._free = [];
-        this._disconnected = nodes.slice().sort((a, b) => a.id < b.id);
         arrange_rows(this._disconnected, this._width, this._height, this._radius);
 
         this._forceLink.links([]);
@@ -96,57 +146,97 @@ export class EvaluatorStageNew {
 
     }
 
-    private _addTuple (tuple: Tuple) {
+    public setRadius (radius: number) {
 
-        const source = tuple.source;
-        const target = tuple.target;
+        this._radius = radius;
+        this._repaint();
 
-        // Check that source and target are valid nodes
-        if (!this._nodes.find(node => node.id === source))
-            throw Error(`Tuple source node is not valid: ${source}`);
-        if (!this._nodes.find(node => node.id === target))
-            throw Error(`Tuple target node is not valid: ${target}`);
+    }
 
-        // If the link for this tuple exists already, add to its relation,
-        // otherwise create a new link.
-        const existing = this._tuples.find(tuple =>
-            tuple.source === source && tuple.target === target
-        );
+    public unlockAllNodes () {
 
-        if (existing) {
+        this._fixed.slice().forEach(this._toggleFixed.bind(this));
+        this._repaint();
 
-            if (!existing.relations.includes(tuple.relation))
-                existing.relations.push(tuple.relation);
+    }
 
-        } else {
+    private _calculateLinks (expressions: Expression[]) {
 
-            this._tuples.push({
-                source: source,
-                target: target,
-                relations: [tuple.relation]
+        const links: Link[] = [];
+
+        expressions.forEach(expression => {
+
+            expression.tuples.forEach(tuple => {
+
+                const source = tuple.source;
+                const target = tuple.target;
+                const label = this._tupleLabel(tuple);
+
+                // Check that source and target are valid nodes
+                if (!this._nodes.find(node => node.id === source))
+                    throw Error(`Tuple source node is not valid: ${source}`);
+                if (!this._nodes.find(node => node.id === target))
+                    throw Error(`Tuple target node is not valid: ${target}`);
+
+                if (this._combineEdges) {
+
+                    // If the link for this tuple exists already, add to its label,
+                    // otherwise create a new link.
+                    const existing = links.find(link =>
+                        link.source === source && link.target === target
+                    );
+
+                    if (existing) {
+
+                        if (!existing.labels.includes(label))
+                            existing.labels.push(label);
+
+
+                    } else {
+
+                        links.push({
+                            source: source,
+                            target: target,
+                            labels: [label]
+                        });
+
+                    }
+
+                } else {
+
+                    links.push({
+                        source: source,
+                        target: target,
+                        labels: [label]
+                    });
+
+                }
+
+
+                // If the source or target is a disconnected node, un-disconnect it
+                const srcindex = this._disconnected.findIndex(node => node.id === source);
+                if (srcindex !== -1) {
+                    const srcnode = this._disconnected[srcindex];
+                    srcnode.fx = null;
+                    srcnode.fy = null;
+                    this._connected.push(srcnode);
+                    this._free.push(srcnode);
+                    this._disconnected.splice(srcindex, 1);
+                }
+                const trgindex = this._disconnected.findIndex(node => node.id === target);
+                if (trgindex !== -1) {
+                    const trgnode = this._disconnected[trgindex];
+                    trgnode.fx = null;
+                    trgnode.fy = null;
+                    this._connected.push(trgnode);
+                    this._free.push(trgnode);
+                    this._disconnected.splice(trgindex, 1);
+                }
+
             });
+        });
 
-        }
-
-        // If the source or target is a disconnected node, un-disconnect it
-        const srcindex = this._disconnected.findIndex(node => node.id === source);
-        if (srcindex !== -1) {
-            const srcnode = this._disconnected[srcindex];
-            delete srcnode.fx;
-            delete srcnode.fy;
-            this._connected.push(srcnode);
-            this._free.push(srcnode);
-            this._disconnected.splice(srcindex, 1);
-        }
-        const trgindex = this._disconnected.findIndex(node => node.id === target);
-        if (trgindex !== -1) {
-            const trgnode = this._disconnected[trgindex];
-            delete trgnode.fx;
-            delete trgnode.fy;
-            this._connected.push(trgnode);
-            this._free.push(trgnode);
-            this._disconnected.splice(trgindex, 1);
-        }
+        this._links = links;
 
     }
 
@@ -195,7 +285,15 @@ export class EvaluatorStageNew {
 
     }
 
+    private _resetTuples () {
 
+        this._links = [];
+        this._connected = [];
+        this._fixed = [];
+        this._free = [];
+        this._disconnected = this._nodes.slice().sort((a, b) => alphaSort(a.id, b.id));
+
+    }
 
     private _repaint () {
 
@@ -207,13 +305,20 @@ export class EvaluatorStageNew {
 
         // Draw links
         context.beginPath();
-        this._tuples.forEach(tuple => drawLink(context, tuple));
+        this._links.forEach(tuple => drawLink(context, tuple));
         context.strokeStyle = '#111';
         context.stroke();
 
+        // Draw link labels
+        context.fillStyle = '#111';
+        context.font = `${this._edgeFontSize}px monospace`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        this._links.forEach(tuple => drawLinkLabel(context, tuple));
+
         // Draw arrowheads
         context.beginPath();
-        this._tuples.forEach(tuple => drawArrow(context, tuple, radius));
+        this._links.forEach(tuple => drawArrow(context, tuple, radius));
         context.fillStyle = '#111';
         context.fill();
 
@@ -236,10 +341,10 @@ export class EvaluatorStageNew {
 
         // Draw node labels
         context.fillStyle = '#111';
-        context.font = '12px monospace';
+        context.font = `${this._nodeFontSize}px monospace`;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        this._nodes.forEach(node => drawLabel(context, node));
+        this._nodes.forEach(node => drawNodeLabel(context, node));
 
     }
 
@@ -269,6 +374,28 @@ export class EvaluatorStageNew {
 
     }
 
+    private _tupleLabel (tuple: Tuple): string {
+
+        return this._showMiddles
+            ? tuple.relation + (tuple.middle.length ? `[${tuple.middle.join(',')}]` : '')
+            : tuple.relation
+
+    }
+
+}
+
+function alphaSort (a: string, b: string) {
+
+    let nameA = a.toUpperCase();
+    let nameB = b.toUpperCase();
+    if (nameA < nameB) {
+        return -1;
+    }
+    if (nameA > nameB) {
+        return 1;
+    }
+    return 0;
+
 }
 
 function arrange_rows (nodes, width, height, radius) {
@@ -289,6 +416,7 @@ function arrange_rows (nodes, width, height, radius) {
 
 }
 
+
 const TWOPI = 2 * Math.PI;
 const PI6 = Math.PI / 6;
 
@@ -302,7 +430,14 @@ function drawArrow (context, link, radius) {
     context.closePath();
 }
 
-function drawLabel (context, node) {
+function drawLinkLabel (context, link) {
+    const x = (link.source.x + link.target.x) / 2;
+    const y = (link.source.y + link.target.y) / 2;
+    context.moveTo(x, y);
+    context.fillText(link.labels.join(', '), x, y);
+}
+
+function drawNodeLabel (context, node) {
     context.moveTo(node.x, node.y);
     context.fillText(node.id, node.x, node.y);
 }

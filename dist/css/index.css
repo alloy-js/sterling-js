@@ -6388,6 +6388,59 @@ code {
 .eval .eval-display svg, .eval .eval-display canvas {
   flex: 1 1 auto;
 }
+.eval .eval-settings {
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+}
+.eval .eval-settings .eval-tabs {
+  display: flex;
+  border-bottom: 1px solid #708690;
+}
+.eval .eval-settings .eval-tabs div {
+  padding: 5px;
+  cursor: pointer;
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+}
+.eval .eval-settings .eval-tabs .active {
+  background-color: #708690;
+  color: #ffffff;
+}
+.eval .eval-settings .eval-expressions {
+  flex: 1 0 auto;
+}
+.eval .eval-settings .eval-expressions .expression {
+  font-family: "Fira Code", monospace;
+  font-size: 0.9em;
+  padding: 4px;
+  cursor: pointer;
+}
+.eval .eval-settings .eval-expressions .expression.graphed {
+  color: #ffffff;
+  background-color: #708690;
+}
+.eval .eval-settings .eval-expressions .expression:hover {
+  background-color: #455a64;
+  color: #ffffff;
+}
+.eval .eval-settings .eval-styles {
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+}
+.eval .eval-settings .eval-styles div {
+  padding: 5px;
+  display: flex;
+  align-items: center;
+}
+.eval .eval-settings .eval-styles div input[type=number] {
+  width: 50px;
+}
+.eval .eval-settings .eval-styles div label {
+  padding-left: 0.5em;
+}
 
 .gutter {
   background-color: #708690;

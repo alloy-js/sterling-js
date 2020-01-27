@@ -19,6 +19,7 @@ export class EvaluatorOutput {
         selection
             .selectAll('div.result')
             .each(renderResult);
+        this._scroll_down();
         function renderExpression(expression) {
             d3.select(this)
                 .text(expression.expression);
@@ -29,5 +30,9 @@ export class EvaluatorOutput {
                 .classed('expanded', true)
                 .text(expression.result);
         }
+    }
+    _scroll_down() {
+        this._output
+            .property('scrollTop', this._output.property('scrollHeight'));
     }
 }

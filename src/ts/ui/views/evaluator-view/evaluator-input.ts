@@ -20,14 +20,15 @@ export class EvaluatorInput extends EventDispatcher {
 
     }
 
-    _onEnter () {
+    _onEnter (ctrlKey: boolean) {
 
         const value = this._input.property('value');
         this._input.property('value', '');
 
         this.dispatchEvent({
             type: 'evaluate',
-            text: value
+            text: value,
+            ctrlKey: ctrlKey
         });
 
     }
@@ -36,7 +37,7 @@ export class EvaluatorInput extends EventDispatcher {
 
         if (d3.event.key === 'Enter') {
             d3.event.preventDefault();
-            this._onEnter();
+            this._onEnter(d3.event.ctrlKey);
         }
 
     }

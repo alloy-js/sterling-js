@@ -7537,167 +7537,6 @@
         }
     }
 
-    class View {
-        constructor(selection) {
-            this._view_selection = selection;
-        }
-        show() {
-            if (this._view_selection)
-                this._view_selection.style('display', null);
-            this._on_show();
-        }
-        hide() {
-            if (this._view_selection)
-                this._view_selection.style('display', 'none');
-            this._on_hide();
-        }
-    }
-
-    /**
-     * @author mrdoob / http://mrdoob.com/
-     */
-    class EventDispatcher {
-        constructor() {
-            this._listeners = {};
-        }
-        addEventListener(type, listener) {
-            let listeners = this._listeners;
-            if (listeners[type] === undefined) {
-                listeners[type] = [];
-            }
-            if (listeners[type].indexOf(listener) === -1) {
-                listeners[type].push(listener);
-            }
-        }
-        hasEventListener(type, listener) {
-            if (this._listeners === undefined)
-                return false;
-            let listeners = this._listeners;
-            return listeners[type] !== undefined && listeners[type].indexOf(listener) !== -1;
-        }
-        removeEventListener(type, listener) {
-            if (this._listeners === undefined)
-                return;
-            let listeners = this._listeners;
-            let listenerArray = listeners[type];
-            if (listenerArray !== undefined) {
-                let index = listenerArray.indexOf(listener);
-                if (index !== -1) {
-                    listenerArray.splice(index, 1);
-                }
-            }
-        }
-        dispatchEvent(event) {
-            if (this._listeners === undefined)
-                return;
-            let listeners = this._listeners;
-            let listenerArray = listeners[event.type];
-            if (listenerArray !== undefined) {
-                event.target = this;
-                let array = listenerArray.slice(0);
-                for (let i = 0, l = array.length; i < l; i++) {
-                    array[i].call(this, event);
-                }
-            }
-        }
-    }
-
-    class Evaluator extends EventDispatcher {
-        constructor(alloy) {
-            super();
-            this._alloy = null;
-            this._nextid = 0;
-            this._expressions = [];
-            this._pending = 0;
-            this._alloy = alloy;
-            this._alloy.on_eval(this._parse.bind(this));
-        }
-        clear() {
-            this._pending = 0;
-            this._updatePending(0);
-            this._expressions = [];
-            this.dispatchEvent({
-                type: 'update',
-                expressions: this._expressions,
-                update: null
-            });
-        }
-        evaluate(expression) {
-            const e = {
-                id: this._nextid++,
-                expression: expression,
-                result: this._alloy.connected() ? null : 'No Connection',
-                error: !this._alloy.connected()
-            };
-            this._updatePending(1);
-            this._addExpression(e);
-            this._alloy.request_eval(e.id, e.expression);
-        }
-        _addError(error, message) {
-            this._addExpression({
-                id: -1,
-                expression: 'Error',
-                result: message,
-                error: true
-            });
-        }
-        _addExpression(expression) {
-            this._expressions.push(expression);
-            this.dispatchEvent({
-                type: 'add',
-                add: expression,
-                expressions: this._expressions
-            });
-        }
-        _parse(response) {
-            const tokens = response.match(/EVL:(-?\d+):(.*)/);
-            if (tokens === null) {
-                this._addError('Invalid response', response);
-                return;
-            }
-            const id = parseInt(tokens[1]);
-            const result = tokens[2].trim();
-            if (id === -1) {
-                this._addError('Error', result);
-                return;
-            }
-            const expr = this._expressions.find(expr => expr.id === id);
-            if (!expr) {
-                this._addError('Error', `Unable to find expression ID: ${id}`);
-                return;
-            }
-            if (result.slice(0, 4) === 'ERR:') {
-                expr.result = result.slice(4);
-                expr.error = true;
-            }
-            else if (result === 'true' || result === 'false') {
-                expr.result = result === 'true';
-                expr.error = false;
-            }
-            else if (/^-?\d+$/.test(result)) {
-                expr.result = parseInt(result);
-                expr.error = false;
-            }
-            else {
-                expr.result = result;
-                expr.error = false;
-            }
-            this._updatePending(-1);
-            this.dispatchEvent({
-                type: 'update',
-                expressions: this._expressions,
-                update: expr
-            });
-        }
-        _updatePending(add) {
-            this._pending += add;
-            this.dispatchEvent({
-                type: 'ready',
-                ready: this._pending === 0
-            });
-        }
-    }
-
     // The programming goals of Split.js are to deliver readable, understandable and
     // maintainable code, while at the same time manually optimizing for tiny minified file size,
     // browser compatibility without additional requirements, graceful fallback (IE8 is supported)
@@ -8469,6 +8308,187 @@
         }
     };
 
+    class View {
+        constructor(selection) {
+            this._view_selection = selection;
+        }
+        show() {
+            if (this._view_selection)
+                this._view_selection.style('display', null);
+            this._on_show();
+        }
+        hide() {
+            if (this._view_selection)
+                this._view_selection.style('display', 'none');
+            this._on_hide();
+        }
+    }
+
+    /**
+     * @author mrdoob / http://mrdoob.com/
+     */
+    class EventDispatcher {
+        constructor() {
+            this._listeners = {};
+        }
+        addEventListener(type, listener) {
+            let listeners = this._listeners;
+            if (listeners[type] === undefined) {
+                listeners[type] = [];
+            }
+            if (listeners[type].indexOf(listener) === -1) {
+                listeners[type].push(listener);
+            }
+        }
+        hasEventListener(type, listener) {
+            if (this._listeners === undefined)
+                return false;
+            let listeners = this._listeners;
+            return listeners[type] !== undefined && listeners[type].indexOf(listener) !== -1;
+        }
+        removeEventListener(type, listener) {
+            if (this._listeners === undefined)
+                return;
+            let listeners = this._listeners;
+            let listenerArray = listeners[type];
+            if (listenerArray !== undefined) {
+                let index = listenerArray.indexOf(listener);
+                if (index !== -1) {
+                    listenerArray.splice(index, 1);
+                }
+            }
+        }
+        dispatchEvent(event) {
+            if (this._listeners === undefined)
+                return;
+            let listeners = this._listeners;
+            let listenerArray = listeners[event.type];
+            if (listenerArray !== undefined) {
+                event.target = this;
+                let array = listenerArray.slice(0);
+                for (let i = 0, l = array.length; i < l; i++) {
+                    array[i].call(this, event);
+                }
+            }
+        }
+    }
+
+    class Evaluator extends EventDispatcher {
+        constructor(alloy) {
+            super();
+            this._alloy = null;
+            this._nextid = 0;
+            this._pending = null;
+            this._alloy = alloy;
+            this._alloy.on_eval(this._parse.bind(this));
+        }
+        evaluate(expression) {
+            if (this._pending)
+                throw Error('Pending expression result');
+            const e = {
+                id: this._nextid++,
+                expression: expression,
+                result: this._alloy.connected() ? null : 'No Connection',
+                error: !this._alloy.connected(),
+                tuples: []
+            };
+            this._pending = e;
+            this._alloy.request_eval(e.id, e.expression);
+        }
+        setInstance(instance) {
+            instance
+                .fields()
+                .map(field => toExpression(this._nextid++, field))
+                .filter(expression => expression.tuples.length > 0)
+                .forEach(expression => this.dispatchEvent({
+                type: 'expression',
+                expression: expression
+            }));
+        }
+        _parse(response) {
+            const pending = this._pending;
+            this._pending = null;
+            const tokens = response.match(/EVL:(-?\d+):(.*)/);
+            if (tokens === null) {
+                pending.error = true;
+                pending.result = 'Invalid response';
+                return;
+            }
+            const id = parseInt(tokens[1]);
+            const result = tokens[2].trim();
+            if (id === -1) {
+                pending.error = true;
+                pending.result = result;
+                return;
+            }
+            if (id !== pending.id) {
+                pending.error = true;
+                pending.result = 'Response ID mismatch';
+            }
+            if (result.slice(0, 4) === 'ERR:') {
+                pending.result = result.slice(4);
+                pending.error = true;
+            }
+            else if (result === 'true' || result === 'false') {
+                pending.result = result === 'true';
+                pending.error = false;
+            }
+            else if (/^-?\d+$/.test(result)) {
+                pending.result = parseInt(result);
+                pending.error = false;
+            }
+            else {
+                pending.result = result;
+                pending.error = false;
+                pending.tuples = toTuples(pending.expression, result);
+            }
+            this.dispatchEvent({
+                type: 'expression',
+                expression: pending
+            });
+        }
+    }
+    function toExpression(id, field) {
+        return {
+            id: id,
+            expression: field.id(),
+            result: null,
+            error: false,
+            tuples: field.tuples().map(tuple => {
+                const atoms = tuple.atoms();
+                return {
+                    source: atoms[0].id(),
+                    target: atoms[atoms.length - 1].id(),
+                    middle: atoms.slice(1, atoms.length - 1).map(atom => atom.id()),
+                    relation: field.id()
+                };
+            })
+        };
+    }
+    function toTuples(relation, result) {
+        const re = /\{(.*)\}/g;
+        if (re.test(result)) {
+            if (result === '{}')
+                return [];
+            if (!result.includes('->'))
+                return [];
+            const raw_tuples = result.slice(1, -1).split(',');
+            return raw_tuples
+                .map(tuple => tuple.split('->')
+                .map(atom => atom.trim()))
+                .map(atoms => {
+                const middle = atoms.slice(1, atoms.length - 1);
+                return {
+                    source: atoms[0],
+                    target: atoms[atoms.length - 1],
+                    middle: middle,
+                    relation: relation
+                };
+            });
+        }
+        return [];
+    }
+
     class EvaluatorInput extends EventDispatcher {
         constructor(selection) {
             super();
@@ -8478,18 +8498,19 @@
         enable(enable) {
             this._input.attr('disabled', enable ? null : '');
         }
-        _onEnter() {
+        _onEnter(ctrlKey) {
             const value = this._input.property('value');
             this._input.property('value', '');
             this.dispatchEvent({
                 type: 'evaluate',
-                text: value
+                text: value,
+                ctrlKey: ctrlKey
             });
         }
         _onKeyDown() {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                this._onEnter();
+                this._onEnter(event.ctrlKey);
             }
         }
     }
@@ -8514,6 +8535,7 @@
             selection
                 .selectAll('div.result')
                 .each(renderResult);
+            this._scroll_down();
             function renderExpression(expression) {
                 select(this)
                     .text(expression.expression);
@@ -8524,6 +8546,182 @@
                     .classed('expanded', true)
                     .text(expression.result);
             }
+        }
+        _scroll_down() {
+            this._output
+                .property('scrollTop', this._output.property('scrollHeight'));
+        }
+    }
+
+    class EvaluatorStyling {
+        constructor(selection) {
+            this._styling = selection;
+            // LOCKING
+            this._styling.append('button')
+                .text('Lock all nodes')
+                .on('click', () => {
+                if (this._stage)
+                    this._stage.lockAllNodes();
+            });
+            this._styling.append('button')
+                .text('Unlock all nodes')
+                .on('click', () => {
+                if (this._stage)
+                    this._stage.unlockAllNodes();
+            });
+            // COMBINED EDGES
+            const combineEdges = this._styling.append('div');
+            this._combineEdges = combineEdges.append('input')
+                .attr('type', 'checkbox')
+                .attr('id', 'combineEdges')
+                .on('change', () => {
+                if (this._stage)
+                    this._stage.toggleCombineEdges();
+                this._update();
+            });
+            combineEdges.append('label')
+                .attr('for', 'combineEdges')
+                .text('Combine Edges');
+            // SHOW MIDDLES
+            const showMiddles = this._styling.append('div');
+            this._showMiddles = showMiddles.append('input')
+                .attr('type', 'checkbox')
+                .attr('id', 'showMiddles')
+                .on('change', () => {
+                if (this._stage)
+                    this._stage.toggleShowMiddles();
+                this._update();
+            });
+            showMiddles.append('label')
+                .attr('for', 'showMiddles')
+                .text('Show skipped atoms in labels');
+            // CIRCLE RADIUS
+            const radius = this._styling.append('div');
+            this._radius = radius.append('input')
+                .attr('type', 'number')
+                .attr('id', 'radius')
+                .attr('min', 1)
+                .attr('max', 150)
+                .on('change', () => {
+                const radius = parseInt(this._radius.property('value'));
+                if (this._stage)
+                    this._stage.setRadius(radius);
+                this._update();
+            });
+            radius.append('label')
+                .attr('for', 'radius')
+                .text('Circle radius');
+            // NODE FONT SIZE
+            const nodefont = this._styling.append('div');
+            this._nodeFontSize = nodefont.append('input')
+                .attr('type', 'number')
+                .attr('id', 'node-font')
+                .attr('min', 1)
+                .attr('max', 72)
+                .on('change', () => {
+                const size = parseInt(this._nodeFontSize.property('value'));
+                if (this._stage)
+                    this._stage.setNodeFontSize(size);
+                this._update();
+            });
+            nodefont.append('label')
+                .attr('for', 'node-font')
+                .text('Node font size');
+            // EDGE FONT SIZE
+            const edgefont = this._styling.append('div');
+            this._edgeFontSize = edgefont.append('input')
+                .attr('type', 'number')
+                .attr('id', 'node-font')
+                .attr('min', 1)
+                .attr('max', 72)
+                .on('change', () => {
+                const size = parseInt(this._edgeFontSize.property('value'));
+                if (this._stage)
+                    this._stage.setEdgeFontSize(size);
+                this._update();
+            });
+            edgefont.append('label')
+                .attr('for', 'node-font')
+                .text('Edge font size');
+        }
+        setStage(stage) {
+            this._stage = stage;
+            this._update();
+        }
+        setVisible(visible) {
+            this._styling.style('display', visible ? null : 'none');
+        }
+        _update() {
+            this._combineEdges.property('checked', this._stage._combineEdges);
+            this._showMiddles.property('checked', this._stage._showMiddles);
+            this._radius.property('value', this._stage._radius);
+            this._nodeFontSize.property('value', this._stage._nodeFontSize);
+            this._edgeFontSize.property('value', this._stage._edgeFontSize);
+        }
+    }
+
+    class ExpressionsList extends EventDispatcher {
+        constructor(selection) {
+            super();
+            this._expressionsList = selection;
+            this._expressionsSet = new Set();
+        }
+        setExpressions(expressions) {
+            this._expressionsList
+                .selectAll('div')
+                .data(expressions)
+                .join('div')
+                .attr('class', 'expression')
+                .text(expr => expr)
+                .on('click', d => {
+                this.dispatchEvent({
+                    type: 'toggle',
+                    expression: d
+                });
+            });
+        }
+        setGraphedExpressions(expressions) {
+            this._expressionsList
+                .selectAll('div')
+                .classed('graphed', expr => expressions.includes(expr));
+        }
+        setVisible(visible) {
+            this._expressionsList.style('display', visible ? null : 'none');
+        }
+    }
+
+    class EvaluatorSettings extends EventDispatcher {
+        constructor(selection) {
+            super();
+            this._expressions = new ExpressionsList(selection.select('#eval-expressions'));
+            this._expressionsTab = selection.select('#expressions-button');
+            this._styling = new EvaluatorStyling(selection.select('#eval-styles'));
+            this._stylingTab = selection.select('#styling-button');
+            this._expressions.addEventListener('toggle', event => this.dispatchEvent(event));
+            this._expressionsTab.on('click', this.showExpressions.bind(this));
+            this._stylingTab.on('click', this.showStyles.bind(this));
+            this.showExpressions();
+        }
+        setExpressions(expressions) {
+            this._expressions.setExpressions(expressions);
+        }
+        setGraphedExpressions(expressions) {
+            this._expressions.setGraphedExpressions(expressions);
+        }
+        setStage(stage) {
+            this._styling.setStage(stage);
+        }
+        showExpressions() {
+            this._stylingTab.classed('active', false);
+            this._expressionsTab.classed('active', true);
+            this._styling.setVisible(false);
+            this._expressions.setVisible(true);
+        }
+        showStyles() {
+            this._stylingTab.classed('active', true);
+            this._expressionsTab.classed('active', false);
+            this._styling.setVisible(true);
+            this._expressions.setVisible(false);
         }
     }
 
@@ -8539,7 +8737,13 @@
             this._forceCenter = center();
             this._forceCharge = manyBody();
             this._radius = 30;
-            this._tuples = [];
+            this._nodeFontSize = 12;
+            this._edgeFontSize = 12;
+            this._combineEdges = true;
+            this._showMiddles = false;
+            this._showEdgeLabels = true;
+            this._expressions = [];
+            this._links = [];
             this._nodes = []; // all nodes
             this._disconnected = []; // nodes not part of simulation
             this._connected = []; // nodes part of simulation
@@ -8570,65 +8774,107 @@
                 .on('click', this._onClick.bind(this))
                 .on('dblclick', this._onDblClick.bind(this));
         }
-        addTuples(tuples) {
-            tuples.forEach(this._addTuple.bind(this));
-            arrange_rows(this._disconnected, this._width, this._height, this._radius);
-            this._simulation.nodes(this._connected);
-            this._forceLink.links(this._tuples);
+        lockAllNodes() {
+            this._free.slice().forEach(this._toggleFixed.bind(this));
             this._repaint();
         }
-        nodes(nodes) {
+        toggleCombineEdges() {
+            this._combineEdges = !this._combineEdges;
+            this.setExpressions(this._expressions);
+        }
+        toggleShowMiddles() {
+            this._showMiddles = !this._showMiddles;
+            this.setExpressions(this._expressions);
+        }
+        setEdgeFontSize(size) {
+            this._edgeFontSize = size;
+            this._repaint();
+        }
+        setExpressions(expressions) {
+            this._resetTuples();
+            this._expressions = expressions;
+            this._calculateLinks(expressions);
+            arrange_rows(this._disconnected, this._width, this._height, this._radius);
+            this._simulation.nodes(this._connected);
+            this._forceLink.links(this._links);
+            this._simulation.alpha(0.3).restart();
+        }
+        setNodeFontSize(size) {
+            this._nodeFontSize = size;
+            this._repaint();
+        }
+        setNodes(nodes) {
             this._nodes = nodes;
-            this._tuples = [];
-            this._connected = [];
-            this._fixed = [];
-            this._free = [];
-            this._disconnected = nodes.slice().sort((a, b) => a.id < b.id);
+            this._resetTuples();
             arrange_rows(this._disconnected, this._width, this._height, this._radius);
             this._forceLink.links([]);
             this._simulation.nodes(this._connected);
         }
-        _addTuple(tuple) {
-            const source = tuple.source;
-            const target = tuple.target;
-            // Check that source and target are valid nodes
-            if (!this._nodes.find(node => node.id === source))
-                throw Error(`Tuple source node is not valid: ${source}`);
-            if (!this._nodes.find(node => node.id === target))
-                throw Error(`Tuple target node is not valid: ${target}`);
-            // If the link for this tuple exists already, add to its relation,
-            // otherwise create a new link.
-            const existing = this._tuples.find(tuple => tuple.source === source && tuple.target === target);
-            if (existing) {
-                if (!existing.relations.includes(tuple.relation))
-                    existing.relations.push(tuple.relation);
-            }
-            else {
-                this._tuples.push({
-                    source: source,
-                    target: target,
-                    relations: [tuple.relation]
+        setRadius(radius) {
+            this._radius = radius;
+            this._repaint();
+        }
+        unlockAllNodes() {
+            this._fixed.slice().forEach(this._toggleFixed.bind(this));
+            this._repaint();
+        }
+        _calculateLinks(expressions) {
+            const links = [];
+            expressions.forEach(expression => {
+                expression.tuples.forEach(tuple => {
+                    const source = tuple.source;
+                    const target = tuple.target;
+                    const label = this._tupleLabel(tuple);
+                    // Check that source and target are valid nodes
+                    if (!this._nodes.find(node => node.id === source))
+                        throw Error(`Tuple source node is not valid: ${source}`);
+                    if (!this._nodes.find(node => node.id === target))
+                        throw Error(`Tuple target node is not valid: ${target}`);
+                    if (this._combineEdges) {
+                        // If the link for this tuple exists already, add to its label,
+                        // otherwise create a new link.
+                        const existing = links.find(link => link.source === source && link.target === target);
+                        if (existing) {
+                            if (!existing.labels.includes(label))
+                                existing.labels.push(label);
+                        }
+                        else {
+                            links.push({
+                                source: source,
+                                target: target,
+                                labels: [label]
+                            });
+                        }
+                    }
+                    else {
+                        links.push({
+                            source: source,
+                            target: target,
+                            labels: [label]
+                        });
+                    }
+                    // If the source or target is a disconnected node, un-disconnect it
+                    const srcindex = this._disconnected.findIndex(node => node.id === source);
+                    if (srcindex !== -1) {
+                        const srcnode = this._disconnected[srcindex];
+                        srcnode.fx = null;
+                        srcnode.fy = null;
+                        this._connected.push(srcnode);
+                        this._free.push(srcnode);
+                        this._disconnected.splice(srcindex, 1);
+                    }
+                    const trgindex = this._disconnected.findIndex(node => node.id === target);
+                    if (trgindex !== -1) {
+                        const trgnode = this._disconnected[trgindex];
+                        trgnode.fx = null;
+                        trgnode.fy = null;
+                        this._connected.push(trgnode);
+                        this._free.push(trgnode);
+                        this._disconnected.splice(trgindex, 1);
+                    }
                 });
-            }
-            // If the source or target is a disconnected node, un-disconnect it
-            const srcindex = this._disconnected.findIndex(node => node.id === source);
-            if (srcindex !== -1) {
-                const srcnode = this._disconnected[srcindex];
-                delete srcnode.fx;
-                delete srcnode.fy;
-                this._connected.push(srcnode);
-                this._free.push(srcnode);
-                this._disconnected.splice(srcindex, 1);
-            }
-            const trgindex = this._disconnected.findIndex(node => node.id === target);
-            if (trgindex !== -1) {
-                const trgnode = this._disconnected[trgindex];
-                delete trgnode.fx;
-                delete trgnode.fy;
-                this._connected.push(trgnode);
-                this._free.push(trgnode);
-                this._disconnected.splice(trgindex, 1);
-            }
+            });
+            this._links = links;
         }
         _dragSubject() {
             return this._simulation.find(event.x, event.y, this._radius);
@@ -8665,6 +8911,13 @@
             if (node)
                 this._toggleFixed(node);
         }
+        _resetTuples() {
+            this._links = [];
+            this._connected = [];
+            this._fixed = [];
+            this._free = [];
+            this._disconnected = this._nodes.slice().sort((a, b) => alphaSort(a.id, b.id));
+        }
         _repaint() {
             const context = this._context;
             const radius = this._radius;
@@ -8672,12 +8925,18 @@
             context.clearRect(0, 0, this._width, this._height);
             // Draw links
             context.beginPath();
-            this._tuples.forEach(tuple => drawLink(context, tuple));
+            this._links.forEach(tuple => drawLink(context, tuple));
             context.strokeStyle = '#111';
             context.stroke();
+            // Draw link labels
+            context.fillStyle = '#111';
+            context.font = `${this._edgeFontSize}px monospace`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            this._links.forEach(tuple => drawLinkLabel(context, tuple));
             // Draw arrowheads
             context.beginPath();
-            this._tuples.forEach(tuple => drawArrow(context, tuple, radius));
+            this._links.forEach(tuple => drawArrow(context, tuple, radius));
             context.fillStyle = '#111';
             context.fill();
             // Draw fixed nodes
@@ -8697,10 +8956,10 @@
             context.stroke();
             // Draw node labels
             context.fillStyle = '#111';
-            context.font = '12px monospace';
+            context.font = `${this._nodeFontSize}px monospace`;
             context.textAlign = 'center';
             context.textBaseline = 'middle';
-            this._nodes.forEach(node => drawLabel(context, node));
+            this._nodes.forEach(node => drawNodeLabel(context, node));
         }
         _toggleFixed(node) {
             const freeindex = this._free.indexOf(node);
@@ -8722,6 +8981,22 @@
                 }
             }
         }
+        _tupleLabel(tuple) {
+            return this._showMiddles
+                ? tuple.relation + (tuple.middle.length ? `[${tuple.middle.join(',')}]` : '')
+                : tuple.relation;
+        }
+    }
+    function alphaSort(a, b) {
+        let nameA = a.toUpperCase();
+        let nameB = b.toUpperCase();
+        if (nameA < nameB) {
+            return -1;
+        }
+        if (nameA > nameB) {
+            return 1;
+        }
+        return 0;
     }
     function arrange_rows(nodes, width, height, radius) {
         const padding = radius / 2;
@@ -8747,7 +9022,13 @@
         context.lineTo(x - 10 * Math.cos(ng + PI6), y - 10 * Math.sin(ng + PI6));
         context.closePath();
     }
-    function drawLabel(context, node) {
+    function drawLinkLabel(context, link) {
+        const x = (link.source.x + link.target.x) / 2;
+        const y = (link.source.y + link.target.y) / 2;
+        context.moveTo(x, y);
+        context.fillText(link.labels.join(', '), x, y);
+    }
+    function drawNodeLabel(context, node) {
         context.moveTo(node.x, node.y);
         context.fillText(node.id, node.x, node.y);
     }
@@ -8763,9 +9044,13 @@
     class EvaluatorViewNew extends View {
         constructor(selection, alloy) {
             super(selection);
-            Split(['#eval-editor', '#eval-display'], {
-                sizes: [30, 70],
-                minSize: [300, 100],
+            this._expressions = new Map();
+            this._expressionList = [];
+            this._graphedExpressions = new Map();
+            this._graphNextExpression = false;
+            Split(['#eval-editor', '#eval-display', '#eval-settings'], {
+                sizes: [20, 60, 20],
+                minSize: [200, 100, 200],
                 gutterSize: 4
             });
             Split(['#eval-output', '#eval-console'], {
@@ -8777,28 +9062,59 @@
             this._input = new EvaluatorInput(selection.select('#eval-input'));
             this._output = new EvaluatorOutput(selection.select('#eval-output'));
             this._stage = new EvaluatorStageNew(selection.select('#eval-display'));
-            this._input.addEventListener('evaluate', event => this._evaluator.evaluate(event.text));
-            this._evaluator.addEventListener('ready', event => this._input.enable(event.ready));
-            this._evaluator.addEventListener('update', event => this._output.expressions(event.expressions));
+            this._settings = new EvaluatorSettings(selection.select('#eval-settings'));
+            this._settings.setStage(this._stage);
+            this._input.addEventListener('evaluate', event => {
+                this._evaluator.evaluate(event.text);
+                this._graphNextExpression = event.ctrlKey;
+            });
+            this._evaluator.addEventListener('expression', event => {
+                this._addExpression(event.expression);
+            });
+            this._settings.addEventListener('toggle', event => {
+                const expression = event.expression;
+                if (this._graphedExpressions.has(expression)) {
+                    this._graphedExpressions.delete(expression);
+                }
+                else {
+                    const expr = this._expressions.get(expression);
+                    this._graphedExpressions.set(expression, expr);
+                }
+                this._updateGraphedExpressions();
+            });
         }
         set_instance(instance) {
             const nodes = instance.atoms().map(atom => ({
                 id: atom.id()
             }));
-            this._stage.nodes(nodes);
-            const tuples = instance.tuples().map(tuple => {
-                const atoms = tuple.atoms();
-                return {
-                    source: atoms[0].id(),
-                    target: atoms[atoms.length - 1].id(),
-                    relation: tuple.parent().id()
-                };
-            });
-            this._stage.addTuples(tuples);
+            this._setNodes(nodes);
+            this._evaluator.setInstance(instance);
         }
         _on_hide() {
         }
         _on_show() {
+        }
+        _addExpression(expression) {
+            this._expressions.set(expression.expression, expression);
+            this._expressionList.push(expression);
+            this._output.expressions(this._expressionList.filter(expr => expr.result !== null));
+            // Get expressions that have tuples
+            const withTuples = Array.from(this._expressions.values())
+                .filter(expr => expr.tuples.length)
+                .map(expr => expr.expression);
+            if (this._graphNextExpression) {
+                this._graphedExpressions.set(expression.expression, expression);
+                this._graphNextExpression = false;
+            }
+            this._settings.setExpressions(withTuples);
+            this._updateGraphedExpressions();
+        }
+        _setNodes(nodes) {
+            this._stage.setNodes(nodes);
+        }
+        _updateGraphedExpressions() {
+            this._stage.setExpressions(Array.from(this._graphedExpressions.values()));
+            this._settings.setGraphedExpressions(Array.from(this._graphedExpressions.keys()));
         }
     }
 

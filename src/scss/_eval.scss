@@ -109,6 +109,79 @@
 
   }
 
+  .eval-settings {
+
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+
+    .eval-tabs {
+
+      display: flex;
+      border-bottom: 1px solid $color-primary-light;
+
+      div {
+        padding: 5px;
+        cursor: pointer;
+        flex: 1 1 auto;
+        display: flex;
+        justify-content: center;
+      }
+      .active {
+        background-color: $color-primary-light;
+        color: $color-primary-text;
+      }
+
+    }
+
+    .eval-expressions {
+
+      flex: 1 0 auto;
+
+      .expression {
+
+        font-family: "Fira Code", monospace;
+        font-size: 0.9em;
+        padding: 4px;
+
+        cursor: pointer;
+
+        &.graphed {
+          color: $color-primary-text;
+          background-color: $color-primary-light;
+        }
+
+        &:hover {
+          background-color: $color-primary;
+          color: $color-primary-text;
+        }
+
+      }
+
+    }
+
+    .eval-styles {
+
+      display: flex;
+      flex-direction: column;
+      padding: 5px;
+
+      div {
+        padding: 5px;
+        display: flex;
+        align-items: center;
+        input[type=number] {
+          width: 50px;
+        }
+        label {
+          padding-left: 0.5em;
+        }
+      }
+
+    }
+
+  }
+
 }
 
 .gutter {
