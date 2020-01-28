@@ -11,6 +11,14 @@ export class EvaluatorOutput {
 
     }
 
+    deactivateAll () {
+
+        this._output
+            .selectAll('div.output')
+            .classed('active', false);
+
+    }
+
     expressions (expressions: Expression[]) {
 
         const selection = this._output
@@ -18,7 +26,9 @@ export class EvaluatorOutput {
             .data(expressions, d => d.id)
             .join(
                 enter => {
-                    const div = enter.append('div').attr('class', 'output');
+                    const div = enter
+                        .append('div')
+                        .attr('class', 'output active');
                     div.append('div').attr('class', 'expression');
                     div.append('div').attr('class', 'result');
                     return div;

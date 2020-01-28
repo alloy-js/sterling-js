@@ -114,6 +114,7 @@
     display: flex;
     flex-direction: column;
     background-color: white;
+    overflow-y: auto;
 
     .eval-tabs {
 
@@ -175,6 +176,24 @@
         }
         label {
           padding-left: 0.5em;
+        }
+      }
+
+      .sigColors {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        .sigColor {
+          flex: 1 0 auto;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          .title {
+            border-bottom: 1px solid $color-primary-light;
+          }
+          .picker {
+            display: flex;
+          }
         }
       }
 

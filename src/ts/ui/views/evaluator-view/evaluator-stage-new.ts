@@ -1,8 +1,13 @@
 import * as d3 from 'd3';
+import { EventDispatcher } from '../../../util/event-dispatcher';
 import { Expression, Tuple } from './evaluator';
 
 export interface Node {
-    id: string
+    id: string,
+    sigs: string[],
+    stroke?: string,
+    fill?: string,
+    fixed?: boolean
 }
 
 export interface TupleSet {
@@ -15,12 +20,12 @@ export interface TupleSet {
 }
 
 interface Link {
-    source: string,
-    target: string,
+    source: Node,
+    target: Node,
     labels: string[]
 }
 
-export class EvaluatorStageNew {
+export class EvaluatorStageNew extends EventDispatcher {
 
     _stage = null;
     _canvas = null;
@@ -37,10 +42,13 @@ export class EvaluatorStageNew {
     _radius = 30;
     _nodeFontSize: number = 12;
     _edgeFontSize: number = 12;
+    _defaultFill: string = '#ffffff';
+    _defaultStroke: string = '#111111';
 
-    _combineEdges: boolean = true;
-    _showMiddles: boolean = false;
+    _combineEdges: boolean = false;
+    _showMiddles: boolean = true;
     _showEdgeLabels: boolean = true;
+    _showDisconnected: boolean = true;
 
     _expressions: Expression[] = [];
     _links: Link[] = [];
@@ -48,23 +56,17 @@ export class EvaluatorStageNew {
     _nodes: Node[] = [];    // all nodes
     _disconnected = [];     // nodes not part of simulation
     _connected = [];        // nodes part of simulation
-    _fixed = [];            // nodes in simulation with a fixed position
-    _free = [];             // nodes in simulation with a non-fixed position
+
+    _sigFills: Map<string, string> = new Map();
+    _sigStrokes: Map<string, string> = new Map();
 
     constructor (selection) {
+
+        super();
 
         this._stage = selection;
         this._canvas = selection.append('canvas');
         this._context = this._canvas.node().getContext('2d');
-
-        this._width = parseInt(this._canvas.style('width'));
-        this._height = parseInt(this._canvas.style('height'));
-        this._canvas.attr('width', this._width);
-        this._canvas.attr('height', this._height);
-
-        this._forceLink.distance(6 * this._radius);
-        this._forceCenter.x(this._width / 2).y(this._height / 2);
-        this._forceCharge.strength(-100);
 
         this._simulation
             .force('link', this._forceLink)
@@ -83,11 +85,31 @@ export class EvaluatorStageNew {
             .on('click', this._onClick.bind(this))
             .on('dblclick', this._onDblClick.bind(this));
 
+        this.resize();
+
+        this._forceLink.distance(6 * this._radius);
+        this._forceCenter.x(this._width / 2).y(this._height / 2);
+        this._forceCharge.strength(-100);
+
+    }
+
+    public resize () {
+
+        const styles = getComputedStyle(this._stage.node());
+        this._width = parseInt(styles.getPropertyValue('width'));
+        this._height = parseInt(styles.getPropertyValue('height'));
+        this._canvas.attr('width', this._width);
+        this._canvas.attr('height', this._height);
+
+        this._forceCenter.x(this._width / 2).y(this._height / 2);
+
+        this.setExpressions(this._expressions);
+
     }
 
     public lockAllNodes () {
 
-        this._free.slice().forEach(this._toggleFixed.bind(this));
+        this._connected.filter(node => !node.fixed).forEach(toggleFixed);
         this._repaint();
 
     }
@@ -96,6 +118,20 @@ export class EvaluatorStageNew {
 
         this._combineEdges = !this._combineEdges;
         this.setExpressions(this._expressions);
+
+    }
+
+    public toggleDisconnected () {
+
+        this._showDisconnected = !this._showDisconnected;
+        this._repaint();
+
+    }
+
+    public toggleEdgeLabels () {
+
+        this._showEdgeLabels = !this._showEdgeLabels;
+        this._repaint();
 
     }
 
@@ -115,15 +151,24 @@ export class EvaluatorStageNew {
 
     public setExpressions (expressions: Expression[]) {
 
-        this._resetTuples();
+        // const previouslyConnected = this._resetTuples();
 
         this._expressions = expressions;
-        this._calculateLinks(expressions);
+        // this._calculateLinks(expressions, previouslyConnected);
+        this._calculateLinks();
 
         arrange_rows(this._disconnected, this._width, this._height, this._radius);
         this._simulation.nodes(this._connected);
         this._forceLink.links(this._links);
         this._simulation.alpha(0.3).restart();
+
+    }
+
+    public setFillColor (sig: string, color: string) {
+
+        this._sigFills.set(sig, color);
+        this._calculateNodeColors();
+        this._repaint();
 
     }
 
@@ -134,13 +179,24 @@ export class EvaluatorStageNew {
 
     }
 
-    public setNodes (nodes) {
+    public setNodes (nodes: Node[]) {
 
+        // Assign a color to each signature
+        const sigset = new Set<string>();
+        nodes.forEach(node => node.sigs.forEach(sig => sigset.add(sig)));
+        this._setSignatures(Array.from(sigset));
+
+        // Save nodes
         this._nodes = nodes;
         this._resetTuples();
 
+        // Arrange static nodes
         arrange_rows(this._disconnected, this._width, this._height, this._radius);
 
+        // Assign colors to nodes
+        this._calculateNodeColors();
+
+        // Restart simulation
         this._forceLink.links([]);
         this._simulation.nodes(this._connected);
 
@@ -153,31 +209,50 @@ export class EvaluatorStageNew {
 
     }
 
-    public unlockAllNodes () {
+    public setStrokeColor (sig: string, color: string) {
 
-        this._fixed.slice().forEach(this._toggleFixed.bind(this));
+        this._sigStrokes.set(sig, color);
+        this._calculateNodeColors();
         this._repaint();
 
     }
 
-    private _calculateLinks (expressions: Expression[]) {
+    public setTargetEdgeLength (length: number) {
 
+        this._forceLink.distance(length);
+        this._simulation.alpha(0.3).restart();
+
+    }
+
+    public unlockAllNodes () {
+
+        this._connected.filter(node => node.fixed).forEach(toggleFixed);
+        this._simulation.alpha(0.3).restart();
+        this._repaint();
+
+    }
+
+    private _calculateLinks () {
+
+        const expressions = this._expressions;
         const links: Link[] = [];
+        const connectedSet = new Set();
 
         expressions.forEach(expression => {
 
             expression.tuples.forEach(tuple => {
 
-                const source = tuple.source;
-                const target = tuple.target;
+                const source = this._nodes.find(node => node.id === tuple.source);
+                const target = this._nodes.find(node => node.id === tuple.target);
                 const label = this._tupleLabel(tuple);
 
                 // Check that source and target are valid nodes
-                if (!this._nodes.find(node => node.id === source))
-                    throw Error(`Tuple source node is not valid: ${source}`);
-                if (!this._nodes.find(node => node.id === target))
-                    throw Error(`Tuple target node is not valid: ${target}`);
+                if (!source)
+                    throw Error(`Tuple source node is not valid: ${tuple.source}`);
+                if (!target)
+                    throw Error(`Tuple target node is not valid: ${tuple.target}`);
 
+                // Make the link
                 if (this._combineEdges) {
 
                     // If the link for this tuple exists already, add to its label,
@@ -212,31 +287,53 @@ export class EvaluatorStageNew {
 
                 }
 
-
-                // If the source or target is a disconnected node, un-disconnect it
-                const srcindex = this._disconnected.findIndex(node => node.id === source);
-                if (srcindex !== -1) {
-                    const srcnode = this._disconnected[srcindex];
-                    srcnode.fx = null;
-                    srcnode.fy = null;
-                    this._connected.push(srcnode);
-                    this._free.push(srcnode);
-                    this._disconnected.splice(srcindex, 1);
-                }
-                const trgindex = this._disconnected.findIndex(node => node.id === target);
-                if (trgindex !== -1) {
-                    const trgnode = this._disconnected[trgindex];
-                    trgnode.fx = null;
-                    trgnode.fy = null;
-                    this._connected.push(trgnode);
-                    this._free.push(trgnode);
-                    this._disconnected.splice(trgindex, 1);
-                }
+                // Add nodes to set of connected nodes
+                connectedSet.add(source);
+                connectedSet.add(target);
 
             });
+
         });
 
         this._links = links;
+        this._connected = [];
+        this._disconnected = [];
+
+        this._nodes.forEach(node => {
+            if (connectedSet.has(node))
+                this._connected.push(node);
+            else
+                this._disconnected.push(node);
+        });
+
+        this._disconnected.forEach(node => {
+            node.fixed = false;
+            node.fx = null;
+            node.fy = null;
+        });
+
+    }
+
+    private _calculateNodeColors () {
+
+        this._nodes.forEach(node => {
+
+            const nsigs = node.sigs.length;
+
+            if (nsigs < 1) {
+                node.stroke = this._defaultStroke;
+                node.fill = this._defaultFill;
+            } else {
+                const lowest = node.sigs[nsigs-1];
+                node.stroke = this._sigStrokes.get(lowest);
+                node.fill = this._sigFills.get(lowest);
+            }
+
+        });
+
+        this.dispatchEvent({
+            type: 'colors'
+        });
 
     }
 
@@ -271,7 +368,7 @@ export class EvaluatorStageNew {
 
             const [x, y] = d3.mouse(this._canvas.node());
             const node = this._simulation.find(x, y, this._radius);
-            if (node) this._toggleFixed(node);
+            if (node) toggleFixed(node);
 
         }
 
@@ -281,17 +378,17 @@ export class EvaluatorStageNew {
 
         const [x, y] = d3.mouse(this._canvas.node());
         const node = this._simulation.find(x, y, this._radius);
-        if (node) this._toggleFixed(node);
+        if (node) toggleFixed(node);
 
     }
 
-    private _resetTuples () {
+    private _resetTuples (): string[] {
 
+        const previouslyConnected = this._connected.map(node => node.id);
         this._links = [];
         this._connected = [];
-        this._fixed = [];
-        this._free = [];
         this._disconnected = this._nodes.slice().sort((a, b) => alphaSort(a.id, b.id));
+        return previouslyConnected;
 
     }
 
@@ -306,71 +403,70 @@ export class EvaluatorStageNew {
         // Draw links
         context.beginPath();
         this._links.forEach(tuple => drawLink(context, tuple));
+        context.lineWidth = 1;
         context.strokeStyle = '#111';
         context.stroke();
 
         // Draw link labels
-        context.fillStyle = '#111';
-        context.font = `${this._edgeFontSize}px monospace`;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        this._links.forEach(tuple => drawLinkLabel(context, tuple));
+        if (this._showEdgeLabels) {
+            context.fillStyle = '#111';
+            context.font = `${this._edgeFontSize}px monospace`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            this._links.forEach(tuple => drawLinkLabel(context, tuple));
+        }
 
         // Draw arrowheads
         context.beginPath();
         this._links.forEach(tuple => drawArrow(context, tuple, radius));
+        context.lineWidth = 1;
         context.fillStyle = '#111';
         context.fill();
 
-        // Draw fixed nodes
-        context.beginPath();
-        this._fixed.forEach(node => drawNode(context, node, radius));
-        this._disconnected.forEach(node => drawNode(context, node, radius));
-        context.fillStyle = 'white';
-        context.fill();
-        context.lineWidth = 2;
-        context.strokeStyle = '#111';
-        context.stroke();
-
-        // Draw non-fixed nodes
-        context.beginPath();
-        this._free.forEach(node => drawNode(context, node, radius));
-        context.fill();
-        context.lineWidth = 1;
-        context.stroke();
+        // Draw nodes
+        if (this._showDisconnected) {
+            this._nodes.forEach(node => drawNode(context, node, radius));
+        } else {
+            this._connected.forEach(node => drawNode(context, node, radius));
+        }
 
         // Draw node labels
         context.fillStyle = '#111';
         context.font = `${this._nodeFontSize}px monospace`;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        this._nodes.forEach(node => drawNodeLabel(context, node));
+        context.lineWidth = 1;
+        if (this._showDisconnected) {
+            this._nodes.forEach(node => drawNodeLabel(context, node));
+        } else {
+            this._connected.forEach(node => drawNodeLabel(context, node));
+        }
 
     }
 
-    private _toggleFixed (node) {
+    private _setSignatures (signatures: string[]) {
 
-        const freeindex = this._free.indexOf(node);
-        if (freeindex !== -1) {
+        const oldFills = this._sigFills;
+        const oldStrokes = this._sigStrokes;
+        this._sigFills = new Map();
+        this._sigStrokes = new Map();
 
-            const [free] = this._free.splice(freeindex, 1);
-            this._fixed.push(free);
-            free.fixed = true;
-            free.fx = free.x;
-            free.fy = free.y;
+        oldFills.forEach((color, sig) => {
+            this._sigFills.set(sig, color);
+        });
 
-        } else {
+        oldStrokes.forEach((color, sig) => {
+            this._sigStrokes.set(sig, color);
+        });
 
-            const fixedindex = this._fixed.indexOf(node);
-            if (fixedindex !== -1) {
-                const [fixed] = this._fixed.splice(fixedindex, 1);
-                this._free.push(fixed);
-                fixed.fixed = false;
-                fixed.fx = null;
-                fixed.fy = null;
+        signatures.forEach(sig => {
+            if (!this._sigFills.has(sig)) {
+                this._sigFills.set(sig, this._defaultFill);
             }
-
-        }
+            if (!this._sigStrokes.has(sig)) {
+                this._sigStrokes.set(sig, this._defaultStroke);
+            }
+        });
 
     }
 
@@ -405,8 +501,8 @@ function arrange_rows (nodes, width, height, radius) {
         y = radius + padding;
 
     nodes.forEach(node => {
-        node.fx = node.x = x;
-        node.fy = node.y = y;
+        node.x = x;
+        node.y = y;
         x += 2 * radius + padding;
         if (x > width - padding - radius) {
             x = radius + padding;
@@ -449,7 +545,29 @@ function drawLink (context, link) {
 
 function drawNode (context, node, radius) {
 
+    context.beginPath();
+    context.lineWidth = node.fixed ? 3 : 1;
+    context.strokeStyle = node.stroke;
+    context.fillStyle = node.fill;
     context.moveTo(node.x + radius, node.y);
     context.arc(node.x, node.y, radius, 0, TWOPI);
+    context.fill();
+    context.stroke();
+
+}
+
+
+
+function toggleFixed (node) {
+
+    if (node.fixed) {
+        node.fixed = false;
+        node.fx = null;
+        node.fy = null;
+    } else {
+        node.fixed = true;
+        node.fx = node.x;
+        node.fy = node.y;
+    }
 
 }

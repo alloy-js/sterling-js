@@ -6392,6 +6392,7 @@ code {
   display: flex;
   flex-direction: column;
   background-color: white;
+  overflow-y: auto;
 }
 .eval .eval-settings .eval-tabs {
   display: flex;
@@ -6440,6 +6441,23 @@ code {
 }
 .eval .eval-settings .eval-styles div label {
   padding-left: 0.5em;
+}
+.eval .eval-settings .eval-styles .sigColors {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.eval .eval-settings .eval-styles .sigColors .sigColor {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.eval .eval-settings .eval-styles .sigColors .sigColor .title {
+  border-bottom: 1px solid #708690;
+}
+.eval .eval-settings .eval-styles .sigColors .sigColor .picker {
+  display: flex;
 }
 
 .gutter {

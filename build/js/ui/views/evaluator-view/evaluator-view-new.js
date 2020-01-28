@@ -15,7 +15,8 @@ export class EvaluatorViewNew extends View {
         Split(['#eval-editor', '#eval-display', '#eval-settings'], {
             sizes: [20, 60, 20],
             minSize: [200, 100, 200],
-            gutterSize: 4
+            gutterSize: 4,
+            onDragEnd: () => { this._stage.resize(); }
         });
         Split(['#eval-output', '#eval-console'], {
             sizes: [75, 25],
@@ -49,10 +50,18 @@ export class EvaluatorViewNew extends View {
     }
     set_instance(instance) {
         const nodes = instance.atoms().map(atom => ({
-            id: atom.id()
+            id: atom.id(),
+            sigs: atom.signature().types().map(type => type.id())
         }));
-        this._setNodes(nodes);
+        // Clear graphable expressions
+        this._expressions = new Map();
+        this._graphedExpressions = new Map();
+        this._updateGraphedExpressions();
+        // Set nodes and have evaluator extract relations from instance
+        this._stage.setNodes(nodes);
         this._evaluator.setInstance(instance);
+        // Make all previous expressions inactive
+        this._output.deactivateAll();
     }
     _on_hide() {
     }
@@ -72,9 +81,6 @@ export class EvaluatorViewNew extends View {
         }
         this._settings.setExpressions(withTuples);
         this._updateGraphedExpressions();
-    }
-    _setNodes(nodes) {
-        this._stage.setNodes(nodes);
     }
     _updateGraphedExpressions() {
         this._stage.setExpressions(Array.from(this._graphedExpressions.values()));

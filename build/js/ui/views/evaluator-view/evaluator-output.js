@@ -3,12 +3,19 @@ export class EvaluatorOutput {
     constructor(selection) {
         this._output = selection;
     }
+    deactivateAll() {
+        this._output
+            .selectAll('div.output')
+            .classed('active', false);
+    }
     expressions(expressions) {
         const selection = this._output
             .selectAll('div.output')
             .data(expressions, d => d.id)
             .join(enter => {
-            const div = enter.append('div').attr('class', 'output');
+            const div = enter
+                .append('div')
+                .attr('class', 'output active');
             div.append('div').attr('class', 'expression');
             div.append('div').attr('class', 'result');
             return div;
