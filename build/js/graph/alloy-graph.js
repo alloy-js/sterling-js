@@ -49,8 +49,8 @@ export class AlloyGraph {
             });
             return {
                 data: tuple,
-                source: atoms.length ? atoms[0] : null,
-                target: atoms.length ? atoms[atoms.length - 1] : null,
+                source: atoms.length >= 2 ? atoms[0] : null,
+                target: atoms.length >= 2 ? atoms[atoms.length - 1] : null,
                 middle: atoms.length > 2 ? atoms.slice(1, atoms.length - 1) : []
             };
         })
@@ -82,15 +82,15 @@ export class AlloyGraph {
                     });
                 }
                 // (Optionally) Remove atoms that are not part of a relation
-                if (this._disconnected && node.children) {
-                    node.children = node.children.filter(child => {
-                        // If a child node is a signature, we always want to
-                        // include it.  If not, it is an atom and we only want
-                        // to include it if it is visible as part of an edge
-                        return child.data.expressionType() === 'signature'
-                            || visibleset.has(child.data.id());
-                    });
-                }
+                // if (this._disconnected && node.children) {
+                //     node.children = node.children.filter(child => {
+                //         // If a child node is a signature, we always want to
+                //         // include it.  If not, it is an atom and we only want
+                //         // to include it if it is visible as part of an edge
+                //         return child.data.expressionType() === 'signature'
+                //             || visibleset.has(child.data.id());
+                //     });
+                // }
                 // Remove atoms that are part of a projected signature
                 if (node.children) {
                     let sigs = Array.from(this._projections.keys());

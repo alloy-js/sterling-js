@@ -15,6 +15,13 @@ export class UI {
         this._table_view = null;
         this._tree_view = null;
         this._source_view = null;
+        document.onkeydown = (e) => {
+            if (this._nav_bar._active != 'nav-eval') {
+                if ([32, 39, 78].indexOf(e.keyCode) > -1) { // [space, right, n]
+                    this._alloy.request_next();
+                }
+            }
+        };
     }
     // Initializers
     connect() {

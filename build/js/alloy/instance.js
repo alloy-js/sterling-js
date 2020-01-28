@@ -118,7 +118,7 @@ export class Instance {
         // Save model source
         doc.selectAll('source')
             .each(function () {
-            let s = d3.select(this), f = s.attr('filename'), c = s.attr('content');
+            let s = d3.select(this), f = s.attr('filename'), c = s.text();
             instance._sources.set(f, c);
         });
         return instance;

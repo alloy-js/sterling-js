@@ -17,7 +17,7 @@ export class StatusBar {
 
     set_command (command) {
 
-        if (this._command) this._command.text('Command: ' + command);
+        if (this._command) this._command.html('Command: ' + command);
 
     }
 

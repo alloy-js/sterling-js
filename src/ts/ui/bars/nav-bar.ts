@@ -3,6 +3,7 @@ import * as d3 from 'd3';
 export class NavBar {
 
     _navbar;
+    _active;
     _on_click_graph: Function;
     _on_click_next: Function;
     _on_click_source: Function;
@@ -82,7 +83,7 @@ export class NavBar {
     }
 
     _make_active (selector) {
-
+        this._active = selector;
         this._navbar
             .selectAll('.nav-icon-button')
             .classed('active', function () {

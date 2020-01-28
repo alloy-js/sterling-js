@@ -61,6 +61,7 @@ export class NavBar {
         this._make_active('nav-tree');
     }
     _make_active(selector) {
+        this._active = selector;
         this._navbar
             .selectAll('.nav-icon-button')
             .classed('active', function () {

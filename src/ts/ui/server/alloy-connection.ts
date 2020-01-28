@@ -47,7 +47,7 @@ export class AlloyConnection {
             this._ws.close();
         }
 
-        this._ws = new WebSocket('ws://' + location.hostname + ':' + location.port + '/alloy');
+        this._ws = new WebSocket('ws://localhost:' + window.location.search.slice(1));
         this._ws.onopen = this._on_open.bind(this);
         this._ws.onclose = this._on_close.bind(this);
         this._ws.onerror = this._on_error.bind(this);
@@ -129,6 +129,7 @@ export class AlloyConnection {
                 break;
 
             case 'XML:':
+                console.log(data);
                 if (data.length) {
                     let instance = Instance.fromXML(data);
                     if (this._on_instance_cb) this._on_instance_cb(instance);

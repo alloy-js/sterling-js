@@ -163,7 +163,7 @@ export class Instance {
             .each(function () {
                 let s = d3.select(this),
                     f = s.attr('filename'),
-                    c = s.attr('content');
+                    c = s.text();
                 instance._sources.set(f, c);
             });
 
