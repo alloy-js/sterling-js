@@ -24,7 +24,10 @@ export class AlloyConnection {
             this._ws.onclose = null;
             this._ws.close();
         }
+        // For Forge:
         this._ws = new WebSocket('ws://localhost:' + window.location.search.slice(1));
+        // For Alloy:
+        // this._ws = new WebSocket('ws://' + location.hostname + ':' + location.port + '/alloy');
         this._ws.onopen = this._on_open.bind(this);
         this._ws.onclose = this._on_close.bind(this);
         this._ws.onerror = this._on_error.bind(this);
