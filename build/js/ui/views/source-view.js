@@ -24,7 +24,7 @@ export class SourceView extends View {
                 .classed('active', d => d === file);
             // Set the editor text
             this._code
-                .text(file.text);
+                .html(file.text);
             // Highlight the code
             hljs.highlightBlock(this._code.node());
             // Update line numbers

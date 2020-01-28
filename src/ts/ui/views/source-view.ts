@@ -41,7 +41,7 @@ export class SourceView extends View {
 
             // Set the editor text
             this._code
-                .text(file.text);
+                .html(file.text);
 
             // Highlight the code
             hljs.highlightBlock(this._code.node());
