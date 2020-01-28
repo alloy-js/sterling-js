@@ -4,12 +4,14 @@ export class AlloyConnection {
 
     _ws: WebSocket;
 
+    _connected: boolean;
     _heartbeat_count: number;
     _heartbeat_id: number;
     _heartbeat_interval: number;
     _heartbeat_latency: DOMHighResTimeStamp;
     _heartbeat_timestamp: DOMHighResTimeStamp;
 
+    _on_eval_cb: Function;
     _on_connected_cb: Function;
     _on_disconnected_cb: Function;
     _on_error_cb: Function;
@@ -18,6 +20,8 @@ export class AlloyConnection {
     constructor () {
 
         this._ws = null;
+
+        this._connected = false;
         this._heartbeat_count = 0;
         this._heartbeat_id = null;
         this._heartbeat_interval = 15000;
@@ -55,6 +59,12 @@ export class AlloyConnection {
 
     }
 
+    connected () {
+
+        return this._connected;
+
+    }
+
     on_connected (cb: Function): AlloyConnection {
 
         this._on_connected_cb = cb;
@@ -74,6 +84,13 @@ export class AlloyConnection {
 
     }
 
+    on_eval (cb: Function): AlloyConnection {
+
+        this._on_eval_cb = cb;
+        return this;
+
+    }
+
     on_instance (cb: Function): AlloyConnection {
 
         this._on_instance_cb = cb;
@@ -88,6 +105,24 @@ export class AlloyConnection {
 
     }
 
+    request_eval (id: number, command: string): AlloyConnection {
+
+        if (this._on_eval_cb) {
+
+            if (this._ws) {
+
+                this._ws.send('EVL:' + id + ':' + command);
+
+            } else {
+
+                this._on_eval_cb(`EVL:${id}:No connection.`);
+
+            }
+        }
+
+        return this;
+    }
+
     request_next (): AlloyConnection {
 
         if (this._ws) this._ws.send('next');
@@ -97,6 +132,7 @@ export class AlloyConnection {
 
     _on_open (e: Event) {
 
+        this._connected = true;
         this._reset_heartbeat();
         if (this._on_connected_cb) this._on_connected_cb();
 
@@ -104,6 +140,7 @@ export class AlloyConnection {
 
     _on_close (e: Event) {
 
+        this._connected = false;
         this._ws = null;
         if (this._on_disconnected_cb) this._on_disconnected_cb();
 
@@ -126,6 +163,10 @@ export class AlloyConnection {
             case 'pong':
                 this._heartbeat_latency += performance.now() - this._heartbeat_timestamp;
                 this._heartbeat_count += 1;
+                break;
+
+            case 'EVL:':
+                if (this._on_eval_cb) this._on_eval_cb(e.data);
                 break;
 
             case 'XML:':

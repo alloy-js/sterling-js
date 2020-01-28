@@ -1242,6 +1242,10 @@
       return null;
     }
 
+    function nopropagation() {
+      event.stopImmediatePropagation();
+    }
+
     function noevent() {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -1271,6 +1275,191 @@
         root.style.MozUserSelect = root.__noselect;
         delete root.__noselect;
       }
+    }
+
+    function constant$1(x) {
+      return function() {
+        return x;
+      };
+    }
+
+    function DragEvent(target, type, subject, id, active, x, y, dx, dy, dispatch) {
+      this.target = target;
+      this.type = type;
+      this.subject = subject;
+      this.identifier = id;
+      this.active = active;
+      this.x = x;
+      this.y = y;
+      this.dx = dx;
+      this.dy = dy;
+      this._ = dispatch;
+    }
+
+    DragEvent.prototype.on = function() {
+      var value = this._.on.apply(this._, arguments);
+      return value === this._ ? this : value;
+    };
+
+    // Ignore right-click, since that should open the context menu.
+    function defaultFilter() {
+      return !event.ctrlKey && !event.button;
+    }
+
+    function defaultContainer() {
+      return this.parentNode;
+    }
+
+    function defaultSubject(d) {
+      return d == null ? {x: event.x, y: event.y} : d;
+    }
+
+    function defaultTouchable() {
+      return navigator.maxTouchPoints || ("ontouchstart" in this);
+    }
+
+    function drag() {
+      var filter = defaultFilter,
+          container = defaultContainer,
+          subject = defaultSubject,
+          touchable = defaultTouchable,
+          gestures = {},
+          listeners = dispatch("start", "drag", "end"),
+          active = 0,
+          mousedownx,
+          mousedowny,
+          mousemoving,
+          touchending,
+          clickDistance2 = 0;
+
+      function drag(selection) {
+        selection
+            .on("mousedown.drag", mousedowned)
+          .filter(touchable)
+            .on("touchstart.drag", touchstarted)
+            .on("touchmove.drag", touchmoved)
+            .on("touchend.drag touchcancel.drag", touchended)
+            .style("touch-action", "none")
+            .style("-webkit-tap-highlight-color", "rgba(0,0,0,0)");
+      }
+
+      function mousedowned() {
+        if (touchending || !filter.apply(this, arguments)) return;
+        var gesture = beforestart("mouse", container.apply(this, arguments), mouse, this, arguments);
+        if (!gesture) return;
+        select(event.view).on("mousemove.drag", mousemoved, true).on("mouseup.drag", mouseupped, true);
+        dragDisable(event.view);
+        nopropagation();
+        mousemoving = false;
+        mousedownx = event.clientX;
+        mousedowny = event.clientY;
+        gesture("start");
+      }
+
+      function mousemoved() {
+        noevent();
+        if (!mousemoving) {
+          var dx = event.clientX - mousedownx, dy = event.clientY - mousedowny;
+          mousemoving = dx * dx + dy * dy > clickDistance2;
+        }
+        gestures.mouse("drag");
+      }
+
+      function mouseupped() {
+        select(event.view).on("mousemove.drag mouseup.drag", null);
+        yesdrag(event.view, mousemoving);
+        noevent();
+        gestures.mouse("end");
+      }
+
+      function touchstarted() {
+        if (!filter.apply(this, arguments)) return;
+        var touches = event.changedTouches,
+            c = container.apply(this, arguments),
+            n = touches.length, i, gesture;
+
+        for (i = 0; i < n; ++i) {
+          if (gesture = beforestart(touches[i].identifier, c, touch, this, arguments)) {
+            nopropagation();
+            gesture("start");
+          }
+        }
+      }
+
+      function touchmoved() {
+        var touches = event.changedTouches,
+            n = touches.length, i, gesture;
+
+        for (i = 0; i < n; ++i) {
+          if (gesture = gestures[touches[i].identifier]) {
+            noevent();
+            gesture("drag");
+          }
+        }
+      }
+
+      function touchended() {
+        var touches = event.changedTouches,
+            n = touches.length, i, gesture;
+
+        if (touchending) clearTimeout(touchending);
+        touchending = setTimeout(function() { touchending = null; }, 500); // Ghost clicks are delayed!
+        for (i = 0; i < n; ++i) {
+          if (gesture = gestures[touches[i].identifier]) {
+            nopropagation();
+            gesture("end");
+          }
+        }
+      }
+
+      function beforestart(id, container, point, that, args) {
+        var p = point(container, id), s, dx, dy,
+            sublisteners = listeners.copy();
+
+        if (!customEvent(new DragEvent(drag, "beforestart", s, id, active, p[0], p[1], 0, 0, sublisteners), function() {
+          if ((event.subject = s = subject.apply(that, args)) == null) return false;
+          dx = s.x - p[0] || 0;
+          dy = s.y - p[1] || 0;
+          return true;
+        })) return;
+
+        return function gesture(type) {
+          var p0 = p, n;
+          switch (type) {
+            case "start": gestures[id] = gesture, n = active++; break;
+            case "end": delete gestures[id], --active; // nobreak
+            case "drag": p = point(container, id), n = active; break;
+          }
+          customEvent(new DragEvent(drag, type, s, id, n, p[0] + dx, p[1] + dy, p[0] - p0[0], p[1] - p0[1], sublisteners), sublisteners.apply, sublisteners, [type, that, args]);
+        };
+      }
+
+      drag.filter = function(_) {
+        return arguments.length ? (filter = typeof _ === "function" ? _ : constant$1(!!_), drag) : filter;
+      };
+
+      drag.container = function(_) {
+        return arguments.length ? (container = typeof _ === "function" ? _ : constant$1(_), drag) : container;
+      };
+
+      drag.subject = function(_) {
+        return arguments.length ? (subject = typeof _ === "function" ? _ : constant$1(_), drag) : subject;
+      };
+
+      drag.touchable = function(_) {
+        return arguments.length ? (touchable = typeof _ === "function" ? _ : constant$1(!!_), drag) : touchable;
+      };
+
+      drag.on = function() {
+        var value = listeners.on.apply(listeners, arguments);
+        return value === listeners ? drag : value;
+      };
+
+      drag.clickDistance = function(_) {
+        return arguments.length ? (clickDistance2 = (_ = +_) * _, drag) : Math.sqrt(clickDistance2);
+      };
+
+      return drag;
     }
 
     function define(constructor, factory, prototype) {
@@ -1825,7 +2014,7 @@
       }
     }));
 
-    function constant$1(x) {
+    function constant$2(x) {
       return function() {
         return x;
       };
@@ -1845,13 +2034,13 @@
 
     function gamma(y) {
       return (y = +y) === 1 ? nogamma : function(a, b) {
-        return b - a ? exponential(a, b, y) : constant$1(isNaN(a) ? b : a);
+        return b - a ? exponential(a, b, y) : constant$2(isNaN(a) ? b : a);
       };
     }
 
     function nogamma(a, b) {
       var d = b - a;
-      return d ? linear(a, d) : constant$1(isNaN(a) ? b : a);
+      return d ? linear(a, d) : constant$2(isNaN(a) ? b : a);
     }
 
     var interpolateRgb = (function rgbGamma(y) {
@@ -3474,6 +3663,53 @@
 
     var tsv = dsvFormat("\t");
 
+    function center(x, y) {
+      var nodes;
+
+      if (x == null) x = 0;
+      if (y == null) y = 0;
+
+      function force() {
+        var i,
+            n = nodes.length,
+            node,
+            sx = 0,
+            sy = 0;
+
+        for (i = 0; i < n; ++i) {
+          node = nodes[i], sx += node.x, sy += node.y;
+        }
+
+        for (sx = sx / n - x, sy = sy / n - y, i = 0; i < n; ++i) {
+          node = nodes[i], node.x -= sx, node.y -= sy;
+        }
+      }
+
+      force.initialize = function(_) {
+        nodes = _;
+      };
+
+      force.x = function(_) {
+        return arguments.length ? (x = +_, force) : x;
+      };
+
+      force.y = function(_) {
+        return arguments.length ? (y = +_, force) : y;
+      };
+
+      return force;
+    }
+
+    function constant$3(x) {
+      return function() {
+        return x;
+      };
+    }
+
+    function jiggle() {
+      return (Math.random() - 0.5) * 1e-6;
+    }
+
     function tree_add(d) {
       var x = +this._x.call(null, d),
           y = +this._y.call(null, d);
@@ -3880,6 +4116,377 @@
     treeProto.visitAfter = tree_visitAfter;
     treeProto.x = tree_x;
     treeProto.y = tree_y;
+
+    function index(d) {
+      return d.index;
+    }
+
+    function find(nodeById, nodeId) {
+      var node = nodeById.get(nodeId);
+      if (!node) throw new Error("missing: " + nodeId);
+      return node;
+    }
+
+    function link(links) {
+      var id = index,
+          strength = defaultStrength,
+          strengths,
+          distance = constant$3(30),
+          distances,
+          nodes,
+          count,
+          bias,
+          iterations = 1;
+
+      if (links == null) links = [];
+
+      function defaultStrength(link) {
+        return 1 / Math.min(count[link.source.index], count[link.target.index]);
+      }
+
+      function force(alpha) {
+        for (var k = 0, n = links.length; k < iterations; ++k) {
+          for (var i = 0, link, source, target, x, y, l, b; i < n; ++i) {
+            link = links[i], source = link.source, target = link.target;
+            x = target.x + target.vx - source.x - source.vx || jiggle();
+            y = target.y + target.vy - source.y - source.vy || jiggle();
+            l = Math.sqrt(x * x + y * y);
+            l = (l - distances[i]) / l * alpha * strengths[i];
+            x *= l, y *= l;
+            target.vx -= x * (b = bias[i]);
+            target.vy -= y * b;
+            source.vx += x * (b = 1 - b);
+            source.vy += y * b;
+          }
+        }
+      }
+
+      function initialize() {
+        if (!nodes) return;
+
+        var i,
+            n = nodes.length,
+            m = links.length,
+            nodeById = map(nodes, id),
+            link;
+
+        for (i = 0, count = new Array(n); i < m; ++i) {
+          link = links[i], link.index = i;
+          if (typeof link.source !== "object") link.source = find(nodeById, link.source);
+          if (typeof link.target !== "object") link.target = find(nodeById, link.target);
+          count[link.source.index] = (count[link.source.index] || 0) + 1;
+          count[link.target.index] = (count[link.target.index] || 0) + 1;
+        }
+
+        for (i = 0, bias = new Array(m); i < m; ++i) {
+          link = links[i], bias[i] = count[link.source.index] / (count[link.source.index] + count[link.target.index]);
+        }
+
+        strengths = new Array(m), initializeStrength();
+        distances = new Array(m), initializeDistance();
+      }
+
+      function initializeStrength() {
+        if (!nodes) return;
+
+        for (var i = 0, n = links.length; i < n; ++i) {
+          strengths[i] = +strength(links[i], i, links);
+        }
+      }
+
+      function initializeDistance() {
+        if (!nodes) return;
+
+        for (var i = 0, n = links.length; i < n; ++i) {
+          distances[i] = +distance(links[i], i, links);
+        }
+      }
+
+      force.initialize = function(_) {
+        nodes = _;
+        initialize();
+      };
+
+      force.links = function(_) {
+        return arguments.length ? (links = _, initialize(), force) : links;
+      };
+
+      force.id = function(_) {
+        return arguments.length ? (id = _, force) : id;
+      };
+
+      force.iterations = function(_) {
+        return arguments.length ? (iterations = +_, force) : iterations;
+      };
+
+      force.strength = function(_) {
+        return arguments.length ? (strength = typeof _ === "function" ? _ : constant$3(+_), initializeStrength(), force) : strength;
+      };
+
+      force.distance = function(_) {
+        return arguments.length ? (distance = typeof _ === "function" ? _ : constant$3(+_), initializeDistance(), force) : distance;
+      };
+
+      return force;
+    }
+
+    function x(d) {
+      return d.x;
+    }
+
+    function y(d) {
+      return d.y;
+    }
+
+    var initialRadius = 10,
+        initialAngle = Math.PI * (3 - Math.sqrt(5));
+
+    function simulation(nodes) {
+      var simulation,
+          alpha = 1,
+          alphaMin = 0.001,
+          alphaDecay = 1 - Math.pow(alphaMin, 1 / 300),
+          alphaTarget = 0,
+          velocityDecay = 0.6,
+          forces = map(),
+          stepper = timer(step),
+          event = dispatch("tick", "end");
+
+      if (nodes == null) nodes = [];
+
+      function step() {
+        tick();
+        event.call("tick", simulation);
+        if (alpha < alphaMin) {
+          stepper.stop();
+          event.call("end", simulation);
+        }
+      }
+
+      function tick(iterations) {
+        var i, n = nodes.length, node;
+
+        if (iterations === undefined) iterations = 1;
+
+        for (var k = 0; k < iterations; ++k) {
+          alpha += (alphaTarget - alpha) * alphaDecay;
+
+          forces.each(function (force) {
+            force(alpha);
+          });
+
+          for (i = 0; i < n; ++i) {
+            node = nodes[i];
+            if (node.fx == null) node.x += node.vx *= velocityDecay;
+            else node.x = node.fx, node.vx = 0;
+            if (node.fy == null) node.y += node.vy *= velocityDecay;
+            else node.y = node.fy, node.vy = 0;
+          }
+        }
+
+        return simulation;
+      }
+
+      function initializeNodes() {
+        for (var i = 0, n = nodes.length, node; i < n; ++i) {
+          node = nodes[i], node.index = i;
+          if (node.fx != null) node.x = node.fx;
+          if (node.fy != null) node.y = node.fy;
+          if (isNaN(node.x) || isNaN(node.y)) {
+            var radius = initialRadius * Math.sqrt(i), angle = i * initialAngle;
+            node.x = radius * Math.cos(angle);
+            node.y = radius * Math.sin(angle);
+          }
+          if (isNaN(node.vx) || isNaN(node.vy)) {
+            node.vx = node.vy = 0;
+          }
+        }
+      }
+
+      function initializeForce(force) {
+        if (force.initialize) force.initialize(nodes);
+        return force;
+      }
+
+      initializeNodes();
+
+      return simulation = {
+        tick: tick,
+
+        restart: function() {
+          return stepper.restart(step), simulation;
+        },
+
+        stop: function() {
+          return stepper.stop(), simulation;
+        },
+
+        nodes: function(_) {
+          return arguments.length ? (nodes = _, initializeNodes(), forces.each(initializeForce), simulation) : nodes;
+        },
+
+        alpha: function(_) {
+          return arguments.length ? (alpha = +_, simulation) : alpha;
+        },
+
+        alphaMin: function(_) {
+          return arguments.length ? (alphaMin = +_, simulation) : alphaMin;
+        },
+
+        alphaDecay: function(_) {
+          return arguments.length ? (alphaDecay = +_, simulation) : +alphaDecay;
+        },
+
+        alphaTarget: function(_) {
+          return arguments.length ? (alphaTarget = +_, simulation) : alphaTarget;
+        },
+
+        velocityDecay: function(_) {
+          return arguments.length ? (velocityDecay = 1 - _, simulation) : 1 - velocityDecay;
+        },
+
+        force: function(name, _) {
+          return arguments.length > 1 ? ((_ == null ? forces.remove(name) : forces.set(name, initializeForce(_))), simulation) : forces.get(name);
+        },
+
+        find: function(x, y, radius) {
+          var i = 0,
+              n = nodes.length,
+              dx,
+              dy,
+              d2,
+              node,
+              closest;
+
+          if (radius == null) radius = Infinity;
+          else radius *= radius;
+
+          for (i = 0; i < n; ++i) {
+            node = nodes[i];
+            dx = x - node.x;
+            dy = y - node.y;
+            d2 = dx * dx + dy * dy;
+            if (d2 < radius) closest = node, radius = d2;
+          }
+
+          return closest;
+        },
+
+        on: function(name, _) {
+          return arguments.length > 1 ? (event.on(name, _), simulation) : event.on(name);
+        }
+      };
+    }
+
+    function manyBody() {
+      var nodes,
+          node,
+          alpha,
+          strength = constant$3(-30),
+          strengths,
+          distanceMin2 = 1,
+          distanceMax2 = Infinity,
+          theta2 = 0.81;
+
+      function force(_) {
+        var i, n = nodes.length, tree = quadtree(nodes, x, y).visitAfter(accumulate);
+        for (alpha = _, i = 0; i < n; ++i) node = nodes[i], tree.visit(apply);
+      }
+
+      function initialize() {
+        if (!nodes) return;
+        var i, n = nodes.length, node;
+        strengths = new Array(n);
+        for (i = 0; i < n; ++i) node = nodes[i], strengths[node.index] = +strength(node, i, nodes);
+      }
+
+      function accumulate(quad) {
+        var strength = 0, q, c, weight = 0, x, y, i;
+
+        // For internal nodes, accumulate forces from child quadrants.
+        if (quad.length) {
+          for (x = y = i = 0; i < 4; ++i) {
+            if ((q = quad[i]) && (c = Math.abs(q.value))) {
+              strength += q.value, weight += c, x += c * q.x, y += c * q.y;
+            }
+          }
+          quad.x = x / weight;
+          quad.y = y / weight;
+        }
+
+        // For leaf nodes, accumulate forces from coincident quadrants.
+        else {
+          q = quad;
+          q.x = q.data.x;
+          q.y = q.data.y;
+          do strength += strengths[q.data.index];
+          while (q = q.next);
+        }
+
+        quad.value = strength;
+      }
+
+      function apply(quad, x1, _, x2) {
+        if (!quad.value) return true;
+
+        var x = quad.x - node.x,
+            y = quad.y - node.y,
+            w = x2 - x1,
+            l = x * x + y * y;
+
+        // Apply the Barnes-Hut approximation if possible.
+        // Limit forces for very close nodes; randomize direction if coincident.
+        if (w * w / theta2 < l) {
+          if (l < distanceMax2) {
+            if (x === 0) x = jiggle(), l += x * x;
+            if (y === 0) y = jiggle(), l += y * y;
+            if (l < distanceMin2) l = Math.sqrt(distanceMin2 * l);
+            node.vx += x * quad.value * alpha / l;
+            node.vy += y * quad.value * alpha / l;
+          }
+          return true;
+        }
+
+        // Otherwise, process points directly.
+        else if (quad.length || l >= distanceMax2) return;
+
+        // Limit forces for very close nodes; randomize direction if coincident.
+        if (quad.data !== node || quad.next) {
+          if (x === 0) x = jiggle(), l += x * x;
+          if (y === 0) y = jiggle(), l += y * y;
+          if (l < distanceMin2) l = Math.sqrt(distanceMin2 * l);
+        }
+
+        do if (quad.data !== node) {
+          w = strengths[quad.data.index] * alpha / l;
+          node.vx += x * w;
+          node.vy += y * w;
+        } while (quad = quad.next);
+      }
+
+      force.initialize = function(_) {
+        nodes = _;
+        initialize();
+      };
+
+      force.strength = function(_) {
+        return arguments.length ? (strength = typeof _ === "function" ? _ : constant$3(+_), initialize(), force) : strength;
+      };
+
+      force.distanceMin = function(_) {
+        return arguments.length ? (distanceMin2 = _ * _, force) : Math.sqrt(distanceMin2);
+      };
+
+      force.distanceMax = function(_) {
+        return arguments.length ? (distanceMax2 = _ * _, force) : Math.sqrt(distanceMax2);
+      };
+
+      force.theta = function(_) {
+        return arguments.length ? (theta2 = _ * _, force) : Math.sqrt(theta2);
+      };
+
+      return force;
+    }
 
     // Computes the decimal coefficient and exponent of the specified number x with
     // significant digits p, where x is positive and p is in [1, 21] or undefined.
@@ -5641,7 +6248,7 @@
 
     var Dark2 = colors("1b9e77d95f027570b3e7298a66a61ee6ab02a6761d666666");
 
-    function constant$2(x) {
+    function constant$4(x) {
       return function constant() {
         return x;
       };
@@ -5679,18 +6286,18 @@
       return new Linear(context);
     }
 
-    function x(p) {
+    function x$1(p) {
       return p[0];
     }
 
-    function y(p) {
+    function y$1(p) {
       return p[1];
     }
 
     function line() {
-      var x$1 = x,
-          y$1 = y,
-          defined = constant$2(true),
+      var x = x$1,
+          y = y$1,
+          defined = constant$4(true),
           context = null,
           curve = curveLinear,
           output = null;
@@ -5709,22 +6316,22 @@
             if (defined0 = !defined0) output.lineStart();
             else output.lineEnd();
           }
-          if (defined0) output.point(+x$1(d, i, data), +y$1(d, i, data));
+          if (defined0) output.point(+x(d, i, data), +y(d, i, data));
         }
 
         if (buffer) return output = null, buffer + "" || null;
       }
 
       line.x = function(_) {
-        return arguments.length ? (x$1 = typeof _ === "function" ? _ : constant$2(+_), line) : x$1;
+        return arguments.length ? (x = typeof _ === "function" ? _ : constant$4(+_), line) : x;
       };
 
       line.y = function(_) {
-        return arguments.length ? (y$1 = typeof _ === "function" ? _ : constant$2(+_), line) : y$1;
+        return arguments.length ? (y = typeof _ === "function" ? _ : constant$4(+_), line) : y;
       };
 
       line.defined = function(_) {
-        return arguments.length ? (defined = typeof _ === "function" ? _ : constant$2(!!_), line) : defined;
+        return arguments.length ? (defined = typeof _ === "function" ? _ : constant$4(!!_), line) : defined;
       };
 
       line.curve = function(_) {
@@ -5748,17 +6355,17 @@
       return d.target;
     }
 
-    function link(curve) {
+    function link$1(curve) {
       var source = linkSource,
           target = linkTarget,
-          x$1 = x,
-          y$1 = y,
+          x = x$1,
+          y = y$1,
           context = null;
 
       function link() {
         var buffer, argv = slice.call(arguments), s = source.apply(this, argv), t = target.apply(this, argv);
         if (!context) context = buffer = path();
-        curve(context, +x$1.apply(this, (argv[0] = s, argv)), +y$1.apply(this, argv), +x$1.apply(this, (argv[0] = t, argv)), +y$1.apply(this, argv));
+        curve(context, +x.apply(this, (argv[0] = s, argv)), +y.apply(this, argv), +x.apply(this, (argv[0] = t, argv)), +y.apply(this, argv));
         if (buffer) return context = null, buffer + "" || null;
       }
 
@@ -5771,11 +6378,11 @@
       };
 
       link.x = function(_) {
-        return arguments.length ? (x$1 = typeof _ === "function" ? _ : constant$2(+_), link) : x$1;
+        return arguments.length ? (x = typeof _ === "function" ? _ : constant$4(+_), link) : x;
       };
 
       link.y = function(_) {
-        return arguments.length ? (y$1 = typeof _ === "function" ? _ : constant$2(+_), link) : y$1;
+        return arguments.length ? (y = typeof _ === "function" ? _ : constant$4(+_), link) : y;
       };
 
       link.context = function(_) {
@@ -5791,7 +6398,7 @@
     }
 
     function linkHorizontal() {
-      return link(curveHorizontal);
+      return link$1(curveHorizontal);
     }
 
     function point$1(that, x, y) {
@@ -5943,7 +6550,7 @@
       bezierCurveTo: function(x1, y1, x2, y2, x, y) { this._context.bezierCurveTo(y1, x1, y2, x2, y, x); }
     };
 
-    function constant$3(x) {
+    function constant$5(x) {
       return function() {
         return x;
       };
@@ -6000,7 +6607,7 @@
 
     var identity$2 = new Transform(1, 0, 0);
 
-    function nopropagation() {
+    function nopropagation$1() {
       event.stopImmediatePropagation();
     }
 
@@ -6010,7 +6617,7 @@
     }
 
     // Ignore right-click, since that should open the context menu.
-    function defaultFilter() {
+    function defaultFilter$1() {
       return !event.ctrlKey && !event.button;
     }
 
@@ -6035,7 +6642,7 @@
       return -event.deltaY * (event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002);
     }
 
-    function defaultTouchable() {
+    function defaultTouchable$1() {
       return navigator.maxTouchPoints || ("ontouchstart" in this);
     }
 
@@ -6051,11 +6658,11 @@
     }
 
     function zoom() {
-      var filter = defaultFilter,
+      var filter = defaultFilter$1,
           extent = defaultExtent,
           constrain = defaultConstrain,
           wheelDelta = defaultWheelDelta,
-          touchable = defaultTouchable,
+          touchable = defaultTouchable$1,
           scaleExtent = [0, Infinity],
           translateExtent = [[-Infinity, -Infinity], [Infinity, Infinity]],
           duration = 250,
@@ -6257,7 +6864,7 @@
             y0 = event.clientY;
 
         dragDisable(event.view);
-        nopropagation();
+        nopropagation$1();
         g.mouse = [p, this.__zoom.invert(p)];
         interrupt(this);
         g.start();
@@ -6299,7 +6906,7 @@
             g = gesture(this, arguments, event.changedTouches.length === n),
             started, i, t, p;
 
-        nopropagation();
+        nopropagation$1();
         for (i = 0; i < n; ++i) {
           t = touches[i], p = touch(this, touches, t.identifier);
           p = [p, this.__zoom.invert(p), t.identifier];
@@ -6351,7 +6958,7 @@
             touches = event.changedTouches,
             n = touches.length, i, t;
 
-        nopropagation();
+        nopropagation$1();
         if (touchending) clearTimeout(touchending);
         touchending = setTimeout(function() { touchending = null; }, touchDelay);
         for (i = 0; i < n; ++i) {
@@ -6372,19 +6979,19 @@
       }
 
       zoom.wheelDelta = function(_) {
-        return arguments.length ? (wheelDelta = typeof _ === "function" ? _ : constant$3(+_), zoom) : wheelDelta;
+        return arguments.length ? (wheelDelta = typeof _ === "function" ? _ : constant$5(+_), zoom) : wheelDelta;
       };
 
       zoom.filter = function(_) {
-        return arguments.length ? (filter = typeof _ === "function" ? _ : constant$3(!!_), zoom) : filter;
+        return arguments.length ? (filter = typeof _ === "function" ? _ : constant$5(!!_), zoom) : filter;
       };
 
       zoom.touchable = function(_) {
-        return arguments.length ? (touchable = typeof _ === "function" ? _ : constant$3(!!_), zoom) : touchable;
+        return arguments.length ? (touchable = typeof _ === "function" ? _ : constant$5(!!_), zoom) : touchable;
       };
 
       zoom.extent = function(_) {
-        return arguments.length ? (extent = typeof _ === "function" ? _ : constant$3([[+_[0][0], +_[0][1]], [+_[1][0], +_[1][1]]]), zoom) : extent;
+        return arguments.length ? (extent = typeof _ === "function" ? _ : constant$5([[+_[0][0], +_[0][1]], [+_[1][0], +_[1][1]]]), zoom) : extent;
       };
 
       zoom.scaleExtent = function(_) {
@@ -6703,112 +7310,14 @@
         };
     }
 
-    class AlloyConnection {
-        constructor() {
-            this._ws = null;
-            this._heartbeat_count = 0;
-            this._heartbeat_id = null;
-            this._heartbeat_interval = 15000;
-            this._heartbeat_latency = 0;
-            this._heartbeat_timestamp = 0;
-            this._on_connected_cb = null;
-            this._on_disconnected_cb = null;
-            this._on_error_cb = null;
-            this._on_instance_cb = null;
-        }
-        average_latency() {
-            if (this._heartbeat_count > 0) {
-                return this._heartbeat_latency / this._heartbeat_count;
-            }
-            return 0;
-        }
-        connect() {
-            if (this._ws) {
-                this._ws.onclose = null;
-                this._ws.close();
-            }
-            this._ws = new WebSocket('ws://localhost:' + window.location.search.slice(1));
-            this._ws.onopen = this._on_open.bind(this);
-            this._ws.onclose = this._on_close.bind(this);
-            this._ws.onerror = this._on_error.bind(this);
-            this._ws.onmessage = this._on_message.bind(this);
-        }
-        on_connected(cb) {
-            this._on_connected_cb = cb;
-            return this;
-        }
-        on_disconnected(cb) {
-            this._on_disconnected_cb = cb;
-            return this;
-        }
-        on_error(cb) {
-            this._on_error_cb = cb;
-            return this;
-        }
-        on_instance(cb) {
-            this._on_instance_cb = cb;
-            return this;
-        }
-        request_current() {
-            if (this._ws)
-                this._ws.send('current');
-            return this;
-        }
-        request_next() {
-            if (this._ws)
-                this._ws.send('next');
-            return this;
-        }
-        _on_open(e) {
-            this._reset_heartbeat();
-            if (this._on_connected_cb)
-                this._on_connected_cb();
-        }
-        _on_close(e) {
-            this._ws = null;
-            if (this._on_disconnected_cb)
-                this._on_disconnected_cb();
-        }
-        _on_error(e) {
-            if (this._on_error_cb)
-                this._on_error_cb(e);
-        }
-        _on_message(e) {
-            this._reset_heartbeat();
-            let header = e.data.slice(0, 4);
-            let data = e.data.slice(4);
-            switch (header) {
-                case 'pong':
-                    this._heartbeat_latency += performance.now() - this._heartbeat_timestamp;
-                    this._heartbeat_count += 1;
-                    break;
-                case 'XML:':
-                    console.log(data);
-                    if (data.length) {
-                        let instance = Instance.fromXML(data);
-                        if (this._on_instance_cb)
-                            this._on_instance_cb(instance);
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-        _reset_heartbeat() {
-            clearTimeout(this._heartbeat_id);
-            this._heartbeat_id = window.setTimeout(this._ping.bind(this), this._heartbeat_interval);
-        }
-        _ping() {
-            if (this._ws) {
-                this._heartbeat_timestamp = performance.now();
-                this._ws.send('ping');
-            }
-        }
-    }
-
     class NavBar {
         constructor(selection) {
             this._navbar = selection;
+            selection.select('#nav-eval')
+                .on('click', () => {
+                if (this._on_click_eval)
+                    this._on_click_eval();
+            });
             selection.select('#nav-graph')
                 .on('click', () => {
                 if (this._on_click_graph)
@@ -6835,6 +7344,10 @@
                     this._on_click_tree();
             });
         }
+        on_eval(callback) {
+            this._on_click_eval = callback;
+            return this;
+        }
         on_graph(callback) {
             this._on_click_graph = callback;
             return this;
@@ -6854,6 +7367,9 @@
         on_tree(callback) {
             this._on_click_tree = callback;
             return this;
+        }
+        set_eval_active() {
+            this._make_active('nav-eval');
         }
         set_graph_active() {
             this._make_active('nav-graph');
@@ -6895,6 +7411,905 @@
         }
     }
 
+    class AlloyConnection {
+        constructor() {
+            this._ws = null;
+            this._connected = false;
+            this._heartbeat_count = 0;
+            this._heartbeat_id = null;
+            this._heartbeat_interval = 15000;
+            this._heartbeat_latency = 0;
+            this._heartbeat_timestamp = 0;
+            this._on_connected_cb = null;
+            this._on_disconnected_cb = null;
+            this._on_error_cb = null;
+            this._on_instance_cb = null;
+        }
+        average_latency() {
+            if (this._heartbeat_count > 0) {
+                return this._heartbeat_latency / this._heartbeat_count;
+            }
+            return 0;
+        }
+        connect() {
+            if (this._ws) {
+                this._ws.onclose = null;
+                this._ws.close();
+            }
+            this._ws = new WebSocket('ws://localhost:' + window.location.search.slice(1));
+            this._ws.onopen = this._on_open.bind(this);
+            this._ws.onclose = this._on_close.bind(this);
+            this._ws.onerror = this._on_error.bind(this);
+            this._ws.onmessage = this._on_message.bind(this);
+        }
+        connected() {
+            return this._connected;
+        }
+        on_connected(cb) {
+            this._on_connected_cb = cb;
+            return this;
+        }
+        on_disconnected(cb) {
+            this._on_disconnected_cb = cb;
+            return this;
+        }
+        on_error(cb) {
+            this._on_error_cb = cb;
+            return this;
+        }
+        on_eval(cb) {
+            this._on_eval_cb = cb;
+            return this;
+        }
+        on_instance(cb) {
+            this._on_instance_cb = cb;
+            return this;
+        }
+        request_current() {
+            if (this._ws)
+                this._ws.send('current');
+            return this;
+        }
+        request_eval(id, command) {
+            if (this._on_eval_cb) {
+                if (this._ws) {
+                    this._ws.send('EVL:' + id + ':' + command);
+                }
+                else {
+                    this._on_eval_cb(`EVL:${id}:No connection.`);
+                }
+            }
+            return this;
+        }
+        request_next() {
+            if (this._ws)
+                this._ws.send('next');
+            return this;
+        }
+        _on_open(e) {
+            this._connected = true;
+            this._reset_heartbeat();
+            if (this._on_connected_cb)
+                this._on_connected_cb();
+        }
+        _on_close(e) {
+            this._connected = false;
+            this._ws = null;
+            if (this._on_disconnected_cb)
+                this._on_disconnected_cb();
+        }
+        _on_error(e) {
+            if (this._on_error_cb)
+                this._on_error_cb(e);
+        }
+        _on_message(e) {
+            this._reset_heartbeat();
+            let header = e.data.slice(0, 4);
+            let data = e.data.slice(4);
+            switch (header) {
+                case 'pong':
+                    this._heartbeat_latency += performance.now() - this._heartbeat_timestamp;
+                    this._heartbeat_count += 1;
+                    break;
+                case 'EVL:':
+                    if (this._on_eval_cb)
+                        this._on_eval_cb(e.data);
+                    break;
+                case 'XML:':
+                    console.log(data);
+                    if (data.length) {
+                        let instance = Instance.fromXML(data);
+                        if (this._on_instance_cb)
+                            this._on_instance_cb(instance);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        _reset_heartbeat() {
+            clearTimeout(this._heartbeat_id);
+            this._heartbeat_id = window.setTimeout(this._ping.bind(this), this._heartbeat_interval);
+        }
+        _ping() {
+            if (this._ws) {
+                this._heartbeat_timestamp = performance.now();
+                this._ws.send('ping');
+            }
+        }
+    }
+
+    // The programming goals of Split.js are to deliver readable, understandable and
+    // maintainable code, while at the same time manually optimizing for tiny minified file size,
+    // browser compatibility without additional requirements, graceful fallback (IE8 is supported)
+    // and very few assumptions about the user's page layout.
+    var global = window;
+    var document$1 = global.document;
+
+    // Save a couple long function names that are used frequently.
+    // This optimization saves around 400 bytes.
+    var addEventListener = 'addEventListener';
+    var removeEventListener = 'removeEventListener';
+    var getBoundingClientRect = 'getBoundingClientRect';
+    var gutterStartDragging = '_a';
+    var aGutterSize = '_b';
+    var bGutterSize = '_c';
+    var HORIZONTAL = 'horizontal';
+    var NOOP = function () { return false; };
+
+    // Figure out if we're in IE8 or not. IE8 will still render correctly,
+    // but will be static instead of draggable.
+    var isIE8 = global.attachEvent && !global[addEventListener];
+
+    // Helper function determines which prefixes of CSS calc we need.
+    // We only need to do this once on startup, when this anonymous function is called.
+    //
+    // Tests -webkit, -moz and -o prefixes. Modified from StackOverflow:
+    // http://stackoverflow.com/questions/16625140/js-feature-detection-to-detect-the-usage-of-webkit-calc-over-calc/16625167#16625167
+    var calc = (['', '-webkit-', '-moz-', '-o-']
+        .filter(function (prefix) {
+            var el = document$1.createElement('div');
+            el.style.cssText = "width:" + prefix + "calc(9px)";
+
+            return !!el.style.length
+        })
+        .shift()) + "calc";
+
+    // Helper function checks if its argument is a string-like type
+    var isString = function (v) { return typeof v === 'string' || v instanceof String; };
+
+    // Helper function allows elements and string selectors to be used
+    // interchangeably. In either case an element is returned. This allows us to
+    // do `Split([elem1, elem2])` as well as `Split(['#id1', '#id2'])`.
+    var elementOrSelector = function (el) {
+        if (isString(el)) {
+            var ele = document$1.querySelector(el);
+            if (!ele) {
+                throw new Error(("Selector " + el + " did not match a DOM element"))
+            }
+            return ele
+        }
+
+        return el
+    };
+
+    // Helper function gets a property from the properties object, with a default fallback
+    var getOption = function (options, propName, def) {
+        var value = options[propName];
+        if (value !== undefined) {
+            return value
+        }
+        return def
+    };
+
+    var getGutterSize = function (gutterSize, isFirst, isLast, gutterAlign) {
+        if (isFirst) {
+            if (gutterAlign === 'end') {
+                return 0
+            }
+            if (gutterAlign === 'center') {
+                return gutterSize / 2
+            }
+        } else if (isLast) {
+            if (gutterAlign === 'start') {
+                return 0
+            }
+            if (gutterAlign === 'center') {
+                return gutterSize / 2
+            }
+        }
+
+        return gutterSize
+    };
+
+    // Default options
+    var defaultGutterFn = function (i, gutterDirection) {
+        var gut = document$1.createElement('div');
+        gut.className = "gutter gutter-" + gutterDirection;
+        return gut
+    };
+
+    var defaultElementStyleFn = function (dim, size, gutSize) {
+        var style = {};
+
+        if (!isString(size)) {
+            if (!isIE8) {
+                style[dim] = calc + "(" + size + "% - " + gutSize + "px)";
+            } else {
+                style[dim] = size + "%";
+            }
+        } else {
+            style[dim] = size;
+        }
+
+        return style
+    };
+
+    var defaultGutterStyleFn = function (dim, gutSize) {
+        var obj;
+
+        return (( obj = {}, obj[dim] = (gutSize + "px"), obj ));
+    };
+
+    // The main function to initialize a split. Split.js thinks about each pair
+    // of elements as an independant pair. Dragging the gutter between two elements
+    // only changes the dimensions of elements in that pair. This is key to understanding
+    // how the following functions operate, since each function is bound to a pair.
+    //
+    // A pair object is shaped like this:
+    //
+    // {
+    //     a: DOM element,
+    //     b: DOM element,
+    //     aMin: Number,
+    //     bMin: Number,
+    //     dragging: Boolean,
+    //     parent: DOM element,
+    //     direction: 'horizontal' | 'vertical'
+    // }
+    //
+    // The basic sequence:
+    //
+    // 1. Set defaults to something sane. `options` doesn't have to be passed at all.
+    // 2. Initialize a bunch of strings based on the direction we're splitting.
+    //    A lot of the behavior in the rest of the library is paramatized down to
+    //    rely on CSS strings and classes.
+    // 3. Define the dragging helper functions, and a few helpers to go with them.
+    // 4. Loop through the elements while pairing them off. Every pair gets an
+    //    `pair` object and a gutter.
+    // 5. Actually size the pair elements, insert gutters and attach event listeners.
+    var Split = function (idsOption, options) {
+        if ( options === void 0 ) options = {};
+
+        var ids = idsOption;
+        var dimension;
+        var clientAxis;
+        var position;
+        var positionEnd;
+        var clientSize;
+        var elements;
+
+        // Allow HTMLCollection to be used as an argument when supported
+        if (Array.from) {
+            ids = Array.from(ids);
+        }
+
+        // All DOM elements in the split should have a common parent. We can grab
+        // the first elements parent and hope users read the docs because the
+        // behavior will be whacky otherwise.
+        var firstElement = elementOrSelector(ids[0]);
+        var parent = firstElement.parentNode;
+        var parentStyle = getComputedStyle ? getComputedStyle(parent) : null;
+        var parentFlexDirection = parentStyle ? parentStyle.flexDirection : null;
+
+        // Set default options.sizes to equal percentages of the parent element.
+        var sizes = getOption(options, 'sizes') || ids.map(function () { return 100 / ids.length; });
+
+        // Standardize minSize to an array if it isn't already. This allows minSize
+        // to be passed as a number.
+        var minSize = getOption(options, 'minSize', 100);
+        var minSizes = Array.isArray(minSize) ? minSize : ids.map(function () { return minSize; });
+
+        // Get other options
+        var expandToMin = getOption(options, 'expandToMin', false);
+        var gutterSize = getOption(options, 'gutterSize', 10);
+        var gutterAlign = getOption(options, 'gutterAlign', 'center');
+        var snapOffset = getOption(options, 'snapOffset', 30);
+        var dragInterval = getOption(options, 'dragInterval', 1);
+        var direction = getOption(options, 'direction', HORIZONTAL);
+        var cursor = getOption(
+            options,
+            'cursor',
+            direction === HORIZONTAL ? 'col-resize' : 'row-resize'
+        );
+        var gutter = getOption(options, 'gutter', defaultGutterFn);
+        var elementStyle = getOption(
+            options,
+            'elementStyle',
+            defaultElementStyleFn
+        );
+        var gutterStyle = getOption(options, 'gutterStyle', defaultGutterStyleFn);
+
+        // 2. Initialize a bunch of strings based on the direction we're splitting.
+        // A lot of the behavior in the rest of the library is paramatized down to
+        // rely on CSS strings and classes.
+        if (direction === HORIZONTAL) {
+            dimension = 'width';
+            clientAxis = 'clientX';
+            position = 'left';
+            positionEnd = 'right';
+            clientSize = 'clientWidth';
+        } else if (direction === 'vertical') {
+            dimension = 'height';
+            clientAxis = 'clientY';
+            position = 'top';
+            positionEnd = 'bottom';
+            clientSize = 'clientHeight';
+        }
+
+        // 3. Define the dragging helper functions, and a few helpers to go with them.
+        // Each helper is bound to a pair object that contains its metadata. This
+        // also makes it easy to store references to listeners that that will be
+        // added and removed.
+        //
+        // Even though there are no other functions contained in them, aliasing
+        // this to self saves 50 bytes or so since it's used so frequently.
+        //
+        // The pair object saves metadata like dragging state, position and
+        // event listener references.
+
+        function setElementSize(el, size, gutSize, i) {
+            // Split.js allows setting sizes via numbers (ideally), or if you must,
+            // by string, like '300px'. This is less than ideal, because it breaks
+            // the fluid layout that `calc(% - px)` provides. You're on your own if you do that,
+            // make sure you calculate the gutter size by hand.
+            var style = elementStyle(dimension, size, gutSize, i);
+
+            Object.keys(style).forEach(function (prop) {
+                // eslint-disable-next-line no-param-reassign
+                el.style[prop] = style[prop];
+            });
+        }
+
+        function setGutterSize(gutterElement, gutSize, i) {
+            var style = gutterStyle(dimension, gutSize, i);
+
+            Object.keys(style).forEach(function (prop) {
+                // eslint-disable-next-line no-param-reassign
+                gutterElement.style[prop] = style[prop];
+            });
+        }
+
+        function getSizes() {
+            return elements.map(function (element) { return element.size; })
+        }
+
+        // Supports touch events, but not multitouch, so only the first
+        // finger `touches[0]` is counted.
+        function getMousePosition(e) {
+            if ('touches' in e) { return e.touches[0][clientAxis] }
+            return e[clientAxis]
+        }
+
+        // Actually adjust the size of elements `a` and `b` to `offset` while dragging.
+        // calc is used to allow calc(percentage + gutterpx) on the whole split instance,
+        // which allows the viewport to be resized without additional logic.
+        // Element a's size is the same as offset. b's size is total size - a size.
+        // Both sizes are calculated from the initial parent percentage,
+        // then the gutter size is subtracted.
+        function adjust(offset) {
+            var a = elements[this.a];
+            var b = elements[this.b];
+            var percentage = a.size + b.size;
+
+            a.size = (offset / this.size) * percentage;
+            b.size = percentage - (offset / this.size) * percentage;
+
+            setElementSize(a.element, a.size, this[aGutterSize], a.i);
+            setElementSize(b.element, b.size, this[bGutterSize], b.i);
+        }
+
+        // drag, where all the magic happens. The logic is really quite simple:
+        //
+        // 1. Ignore if the pair is not dragging.
+        // 2. Get the offset of the event.
+        // 3. Snap offset to min if within snappable range (within min + snapOffset).
+        // 4. Actually adjust each element in the pair to offset.
+        //
+        // ---------------------------------------------------------------------
+        // |    | <- a.minSize               ||              b.minSize -> |    |
+        // |    |  | <- this.snapOffset      ||     this.snapOffset -> |  |    |
+        // |    |  |                         ||                        |  |    |
+        // |    |  |                         ||                        |  |    |
+        // ---------------------------------------------------------------------
+        // | <- this.start                                        this.size -> |
+        function drag(e) {
+            var offset;
+            var a = elements[this.a];
+            var b = elements[this.b];
+
+            if (!this.dragging) { return }
+
+            // Get the offset of the event from the first side of the
+            // pair `this.start`. Then offset by the initial position of the
+            // mouse compared to the gutter size.
+            offset =
+                getMousePosition(e) -
+                this.start +
+                (this[aGutterSize] - this.dragOffset);
+
+            if (dragInterval > 1) {
+                offset = Math.round(offset / dragInterval) * dragInterval;
+            }
+
+            // If within snapOffset of min or max, set offset to min or max.
+            // snapOffset buffers a.minSize and b.minSize, so logic is opposite for both.
+            // Include the appropriate gutter sizes to prevent overflows.
+            if (offset <= a.minSize + snapOffset + this[aGutterSize]) {
+                offset = a.minSize + this[aGutterSize];
+            } else if (
+                offset >=
+                this.size - (b.minSize + snapOffset + this[bGutterSize])
+            ) {
+                offset = this.size - (b.minSize + this[bGutterSize]);
+            }
+
+            // Actually adjust the size.
+            adjust.call(this, offset);
+
+            // Call the drag callback continously. Don't do anything too intensive
+            // in this callback.
+            getOption(options, 'onDrag', NOOP)();
+        }
+
+        // Cache some important sizes when drag starts, so we don't have to do that
+        // continously:
+        //
+        // `size`: The total size of the pair. First + second + first gutter + second gutter.
+        // `start`: The leading side of the first element.
+        //
+        // ------------------------------------------------
+        // |      aGutterSize -> |||                      |
+        // |                     |||                      |
+        // |                     |||                      |
+        // |                     ||| <- bGutterSize       |
+        // ------------------------------------------------
+        // | <- start                             size -> |
+        function calculateSizes() {
+            // Figure out the parent size minus padding.
+            var a = elements[this.a].element;
+            var b = elements[this.b].element;
+
+            var aBounds = a[getBoundingClientRect]();
+            var bBounds = b[getBoundingClientRect]();
+
+            this.size =
+                aBounds[dimension] +
+                bBounds[dimension] +
+                this[aGutterSize] +
+                this[bGutterSize];
+            this.start = aBounds[position];
+            this.end = aBounds[positionEnd];
+        }
+
+        function innerSize(element) {
+            // Return nothing if getComputedStyle is not supported (< IE9)
+            // Or if parent element has no layout yet
+            if (!getComputedStyle) { return null }
+
+            var computedStyle = getComputedStyle(element);
+
+            if (!computedStyle) { return null }
+
+            var size = element[clientSize];
+
+            if (size === 0) { return null }
+
+            if (direction === HORIZONTAL) {
+                size -=
+                    parseFloat(computedStyle.paddingLeft) +
+                    parseFloat(computedStyle.paddingRight);
+            } else {
+                size -=
+                    parseFloat(computedStyle.paddingTop) +
+                    parseFloat(computedStyle.paddingBottom);
+            }
+
+            return size
+        }
+
+        // When specifying percentage sizes that are less than the computed
+        // size of the element minus the gutter, the lesser percentages must be increased
+        // (and decreased from the other elements) to make space for the pixels
+        // subtracted by the gutters.
+        function trimToMin(sizesToTrim) {
+            // Try to get inner size of parent element.
+            // If it's no supported, return original sizes.
+            var parentSize = innerSize(parent);
+            if (parentSize === null) {
+                return sizesToTrim
+            }
+
+            if (minSizes.reduce(function (a, b) { return a + b; }, 0) > parentSize) {
+                return sizesToTrim
+            }
+
+            // Keep track of the excess pixels, the amount of pixels over the desired percentage
+            // Also keep track of the elements with pixels to spare, to decrease after if needed
+            var excessPixels = 0;
+            var toSpare = [];
+
+            var pixelSizes = sizesToTrim.map(function (size, i) {
+                // Convert requested percentages to pixel sizes
+                var pixelSize = (parentSize * size) / 100;
+                var elementGutterSize = getGutterSize(
+                    gutterSize,
+                    i === 0,
+                    i === sizesToTrim.length - 1,
+                    gutterAlign
+                );
+                var elementMinSize = minSizes[i] + elementGutterSize;
+
+                // If element is too smal, increase excess pixels by the difference
+                // and mark that it has no pixels to spare
+                if (pixelSize < elementMinSize) {
+                    excessPixels += elementMinSize - pixelSize;
+                    toSpare.push(0);
+                    return elementMinSize
+                }
+
+                // Otherwise, mark the pixels it has to spare and return it's original size
+                toSpare.push(pixelSize - elementMinSize);
+                return pixelSize
+            });
+
+            // If nothing was adjusted, return the original sizes
+            if (excessPixels === 0) {
+                return sizesToTrim
+            }
+
+            return pixelSizes.map(function (pixelSize, i) {
+                var newPixelSize = pixelSize;
+
+                // While there's still pixels to take, and there's enough pixels to spare,
+                // take as many as possible up to the total excess pixels
+                if (excessPixels > 0 && toSpare[i] - excessPixels > 0) {
+                    var takenPixels = Math.min(
+                        excessPixels,
+                        toSpare[i] - excessPixels
+                    );
+
+                    // Subtract the amount taken for the next iteration
+                    excessPixels -= takenPixels;
+                    newPixelSize = pixelSize - takenPixels;
+                }
+
+                // Return the pixel size adjusted as a percentage
+                return (newPixelSize / parentSize) * 100
+            })
+        }
+
+        // stopDragging is very similar to startDragging in reverse.
+        function stopDragging() {
+            var self = this;
+            var a = elements[self.a].element;
+            var b = elements[self.b].element;
+
+            if (self.dragging) {
+                getOption(options, 'onDragEnd', NOOP)(getSizes());
+            }
+
+            self.dragging = false;
+
+            // Remove the stored event listeners. This is why we store them.
+            global[removeEventListener]('mouseup', self.stop);
+            global[removeEventListener]('touchend', self.stop);
+            global[removeEventListener]('touchcancel', self.stop);
+            global[removeEventListener]('mousemove', self.move);
+            global[removeEventListener]('touchmove', self.move);
+
+            // Clear bound function references
+            self.stop = null;
+            self.move = null;
+
+            a[removeEventListener]('selectstart', NOOP);
+            a[removeEventListener]('dragstart', NOOP);
+            b[removeEventListener]('selectstart', NOOP);
+            b[removeEventListener]('dragstart', NOOP);
+
+            a.style.userSelect = '';
+            a.style.webkitUserSelect = '';
+            a.style.MozUserSelect = '';
+            a.style.pointerEvents = '';
+
+            b.style.userSelect = '';
+            b.style.webkitUserSelect = '';
+            b.style.MozUserSelect = '';
+            b.style.pointerEvents = '';
+
+            self.gutter.style.cursor = '';
+            self.parent.style.cursor = '';
+            document$1.body.style.cursor = '';
+        }
+
+        // startDragging calls `calculateSizes` to store the inital size in the pair object.
+        // It also adds event listeners for mouse/touch events,
+        // and prevents selection while dragging so avoid the selecting text.
+        function startDragging(e) {
+            // Right-clicking can't start dragging.
+            if ('button' in e && e.button !== 0) {
+                return
+            }
+
+            // Alias frequently used variables to save space. 200 bytes.
+            var self = this;
+            var a = elements[self.a].element;
+            var b = elements[self.b].element;
+
+            // Call the onDragStart callback.
+            if (!self.dragging) {
+                getOption(options, 'onDragStart', NOOP)(getSizes());
+            }
+
+            // Don't actually drag the element. We emulate that in the drag function.
+            e.preventDefault();
+
+            // Set the dragging property of the pair object.
+            self.dragging = true;
+
+            // Create two event listeners bound to the same pair object and store
+            // them in the pair object.
+            self.move = drag.bind(self);
+            self.stop = stopDragging.bind(self);
+
+            // All the binding. `window` gets the stop events in case we drag out of the elements.
+            global[addEventListener]('mouseup', self.stop);
+            global[addEventListener]('touchend', self.stop);
+            global[addEventListener]('touchcancel', self.stop);
+            global[addEventListener]('mousemove', self.move);
+            global[addEventListener]('touchmove', self.move);
+
+            // Disable selection. Disable!
+            a[addEventListener]('selectstart', NOOP);
+            a[addEventListener]('dragstart', NOOP);
+            b[addEventListener]('selectstart', NOOP);
+            b[addEventListener]('dragstart', NOOP);
+
+            a.style.userSelect = 'none';
+            a.style.webkitUserSelect = 'none';
+            a.style.MozUserSelect = 'none';
+            a.style.pointerEvents = 'none';
+
+            b.style.userSelect = 'none';
+            b.style.webkitUserSelect = 'none';
+            b.style.MozUserSelect = 'none';
+            b.style.pointerEvents = 'none';
+
+            // Set the cursor at multiple levels
+            self.gutter.style.cursor = cursor;
+            self.parent.style.cursor = cursor;
+            document$1.body.style.cursor = cursor;
+
+            // Cache the initial sizes of the pair.
+            calculateSizes.call(self);
+
+            // Determine the position of the mouse compared to the gutter
+            self.dragOffset = getMousePosition(e) - self.end;
+        }
+
+        // adjust sizes to ensure percentage is within min size and gutter.
+        sizes = trimToMin(sizes);
+
+        // 5. Create pair and element objects. Each pair has an index reference to
+        // elements `a` and `b` of the pair (first and second elements).
+        // Loop through the elements while pairing them off. Every pair gets a
+        // `pair` object and a gutter.
+        //
+        // Basic logic:
+        //
+        // - Starting with the second element `i > 0`, create `pair` objects with
+        //   `a = i - 1` and `b = i`
+        // - Set gutter sizes based on the _pair_ being first/last. The first and last
+        //   pair have gutterSize / 2, since they only have one half gutter, and not two.
+        // - Create gutter elements and add event listeners.
+        // - Set the size of the elements, minus the gutter sizes.
+        //
+        // -----------------------------------------------------------------------
+        // |     i=0     |         i=1         |        i=2       |      i=3     |
+        // |             |                     |                  |              |
+        // |           pair 0                pair 1             pair 2           |
+        // |             |                     |                  |              |
+        // -----------------------------------------------------------------------
+        var pairs = [];
+        elements = ids.map(function (id, i) {
+            // Create the element object.
+            var element = {
+                element: elementOrSelector(id),
+                size: sizes[i],
+                minSize: minSizes[i],
+                i: i,
+            };
+
+            var pair;
+
+            if (i > 0) {
+                // Create the pair object with its metadata.
+                pair = {
+                    a: i - 1,
+                    b: i,
+                    dragging: false,
+                    direction: direction,
+                    parent: parent,
+                };
+
+                pair[aGutterSize] = getGutterSize(
+                    gutterSize,
+                    i - 1 === 0,
+                    false,
+                    gutterAlign
+                );
+                pair[bGutterSize] = getGutterSize(
+                    gutterSize,
+                    false,
+                    i === ids.length - 1,
+                    gutterAlign
+                );
+
+                // if the parent has a reverse flex-direction, switch the pair elements.
+                if (
+                    parentFlexDirection === 'row-reverse' ||
+                    parentFlexDirection === 'column-reverse'
+                ) {
+                    var temp = pair.a;
+                    pair.a = pair.b;
+                    pair.b = temp;
+                }
+            }
+
+            // Determine the size of the current element. IE8 is supported by
+            // staticly assigning sizes without draggable gutters. Assigns a string
+            // to `size`.
+            //
+            // IE9 and above
+            if (!isIE8) {
+                // Create gutter elements for each pair.
+                if (i > 0) {
+                    var gutterElement = gutter(i, direction, element.element);
+                    setGutterSize(gutterElement, gutterSize, i);
+
+                    // Save bound event listener for removal later
+                    pair[gutterStartDragging] = startDragging.bind(pair);
+
+                    // Attach bound event listener
+                    gutterElement[addEventListener](
+                        'mousedown',
+                        pair[gutterStartDragging]
+                    );
+                    gutterElement[addEventListener](
+                        'touchstart',
+                        pair[gutterStartDragging]
+                    );
+
+                    parent.insertBefore(gutterElement, element.element);
+
+                    pair.gutter = gutterElement;
+                }
+            }
+
+            setElementSize(
+                element.element,
+                element.size,
+                getGutterSize(
+                    gutterSize,
+                    i === 0,
+                    i === ids.length - 1,
+                    gutterAlign
+                ),
+                i
+            );
+
+            // After the first iteration, and we have a pair object, append it to the
+            // list of pairs.
+            if (i > 0) {
+                pairs.push(pair);
+            }
+
+            return element
+        });
+
+        function adjustToMin(element) {
+            var isLast = element.i === pairs.length;
+            var pair = isLast ? pairs[element.i - 1] : pairs[element.i];
+
+            calculateSizes.call(pair);
+
+            var size = isLast
+                ? pair.size - element.minSize - pair[bGutterSize]
+                : element.minSize + pair[aGutterSize];
+
+            adjust.call(pair, size);
+        }
+
+        elements.forEach(function (element) {
+            var computedSize = element.element[getBoundingClientRect]()[dimension];
+
+            if (computedSize < element.minSize) {
+                if (expandToMin) {
+                    adjustToMin(element);
+                } else {
+                    // eslint-disable-next-line no-param-reassign
+                    element.minSize = computedSize;
+                }
+            }
+        });
+
+        function setSizes(newSizes) {
+            var trimmed = trimToMin(newSizes);
+            trimmed.forEach(function (newSize, i) {
+                if (i > 0) {
+                    var pair = pairs[i - 1];
+
+                    var a = elements[pair.a];
+                    var b = elements[pair.b];
+
+                    a.size = trimmed[i - 1];
+                    b.size = newSize;
+
+                    setElementSize(a.element, a.size, pair[aGutterSize], a.i);
+                    setElementSize(b.element, b.size, pair[bGutterSize], b.i);
+                }
+            });
+        }
+
+        function destroy(preserveStyles, preserveGutter) {
+            pairs.forEach(function (pair) {
+                if (preserveGutter !== true) {
+                    pair.parent.removeChild(pair.gutter);
+                } else {
+                    pair.gutter[removeEventListener](
+                        'mousedown',
+                        pair[gutterStartDragging]
+                    );
+                    pair.gutter[removeEventListener](
+                        'touchstart',
+                        pair[gutterStartDragging]
+                    );
+                }
+
+                if (preserveStyles !== true) {
+                    var style = elementStyle(
+                        dimension,
+                        pair.a.size,
+                        pair[aGutterSize]
+                    );
+
+                    Object.keys(style).forEach(function (prop) {
+                        elements[pair.a].element.style[prop] = '';
+                        elements[pair.b].element.style[prop] = '';
+                    });
+                }
+            });
+        }
+
+        if (isIE8) {
+            return {
+                setSizes: setSizes,
+                destroy: destroy,
+            }
+        }
+
+        return {
+            setSizes: setSizes,
+            getSizes: getSizes,
+            collapse: function collapse(i) {
+                adjustToMin(elements[i]);
+            },
+            destroy: destroy,
+            parent: parent,
+            pairs: pairs,
+        }
+    };
+
     class View {
         constructor(selection) {
             this._view_selection = selection;
@@ -6908,6 +8323,800 @@
             if (this._view_selection)
                 this._view_selection.style('display', 'none');
             this._on_hide();
+        }
+    }
+
+    /**
+     * @author mrdoob / http://mrdoob.com/
+     */
+    class EventDispatcher {
+        constructor() {
+            this._listeners = {};
+        }
+        addEventListener(type, listener) {
+            let listeners = this._listeners;
+            if (listeners[type] === undefined) {
+                listeners[type] = [];
+            }
+            if (listeners[type].indexOf(listener) === -1) {
+                listeners[type].push(listener);
+            }
+        }
+        hasEventListener(type, listener) {
+            if (this._listeners === undefined)
+                return false;
+            let listeners = this._listeners;
+            return listeners[type] !== undefined && listeners[type].indexOf(listener) !== -1;
+        }
+        removeEventListener(type, listener) {
+            if (this._listeners === undefined)
+                return;
+            let listeners = this._listeners;
+            let listenerArray = listeners[type];
+            if (listenerArray !== undefined) {
+                let index = listenerArray.indexOf(listener);
+                if (index !== -1) {
+                    listenerArray.splice(index, 1);
+                }
+            }
+        }
+        dispatchEvent(event) {
+            if (this._listeners === undefined)
+                return;
+            let listeners = this._listeners;
+            let listenerArray = listeners[event.type];
+            if (listenerArray !== undefined) {
+                event.target = this;
+                let array = listenerArray.slice(0);
+                for (let i = 0, l = array.length; i < l; i++) {
+                    array[i].call(this, event);
+                }
+            }
+        }
+    }
+
+    class Evaluator extends EventDispatcher {
+        constructor(alloy) {
+            super();
+            this._alloy = null;
+            this._nextid = 0;
+            this._pending = null;
+            this._alloy = alloy;
+            this._alloy.on_eval(this._parse.bind(this));
+        }
+        evaluate(expression) {
+            if (this._pending)
+                throw Error('Pending expression result');
+            const e = {
+                id: this._nextid++,
+                expression: expression,
+                result: this._alloy.connected() ? null : 'No Connection',
+                error: !this._alloy.connected(),
+                tuples: []
+            };
+            this._pending = e;
+            this._alloy.request_eval(e.id, e.expression);
+        }
+        setInstance(instance) {
+            instance
+                .fields()
+                .map(field => toExpression(this._nextid++, field))
+                .filter(expression => expression.tuples.length > 0)
+                .forEach(expression => this.dispatchEvent({
+                type: 'expression',
+                expression: expression
+            }));
+        }
+        _parse(response) {
+            const pending = this._pending;
+            this._pending = null;
+            const tokens = response.match(/EVL:(-?\d+):(.*)/);
+            if (tokens === null) {
+                pending.error = true;
+                pending.result = 'Invalid response';
+                return;
+            }
+            const id = parseInt(tokens[1]);
+            const result = tokens[2].trim();
+            if (id === -1) {
+                pending.error = true;
+                pending.result = result;
+                return;
+            }
+            if (id !== pending.id) {
+                pending.error = true;
+                pending.result = 'Response ID mismatch';
+            }
+            if (result.slice(0, 4) === 'ERR:') {
+                pending.result = result.slice(4);
+                pending.error = true;
+            }
+            else if (result === 'true' || result === 'false') {
+                pending.result = result === 'true';
+                pending.error = false;
+            }
+            else if (/^-?\d+$/.test(result)) {
+                pending.result = parseInt(result);
+                pending.error = false;
+            }
+            else {
+                pending.result = result;
+                pending.error = false;
+                pending.tuples = toTuples(pending.expression, result);
+            }
+            this.dispatchEvent({
+                type: 'expression',
+                expression: pending
+            });
+        }
+    }
+    function toExpression(id, field) {
+        return {
+            id: id,
+            expression: field.id(),
+            result: null,
+            error: false,
+            tuples: field.tuples().map(tuple => {
+                const atoms = tuple.atoms();
+                return {
+                    source: atoms[0].id(),
+                    target: atoms[atoms.length - 1].id(),
+                    middle: atoms.slice(1, atoms.length - 1).map(atom => atom.id()),
+                    relation: field.id()
+                };
+            })
+        };
+    }
+    function toTuples(relation, result) {
+        const re = /\{(.*)\}/g;
+        if (re.test(result)) {
+            if (result === '{}')
+                return [];
+            if (!result.includes('->'))
+                return [];
+            const raw_tuples = result.slice(1, -1).split(',');
+            return raw_tuples
+                .map(tuple => tuple.split('->')
+                .map(atom => atom.trim()))
+                .map(atoms => {
+                const middle = atoms.slice(1, atoms.length - 1);
+                return {
+                    source: atoms[0],
+                    target: atoms[atoms.length - 1],
+                    middle: middle,
+                    relation: relation
+                };
+            });
+        }
+        return [];
+    }
+
+    class EvaluatorInput extends EventDispatcher {
+        constructor(selection) {
+            super();
+            this._input = selection;
+            selection.on('keydown', this._onKeyDown.bind(this));
+        }
+        enable(enable) {
+            this._input.attr('disabled', enable ? null : '');
+        }
+        _onEnter(ctrlKey) {
+            const value = this._input.property('value');
+            this._input.property('value', '');
+            this.dispatchEvent({
+                type: 'evaluate',
+                text: value,
+                ctrlKey: ctrlKey
+            });
+        }
+        _onKeyDown() {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this._onEnter(event.ctrlKey);
+            }
+        }
+    }
+
+    class EvaluatorOutput {
+        constructor(selection) {
+            this._output = selection;
+        }
+        expressions(expressions) {
+            const selection = this._output
+                .selectAll('div.output')
+                .data(expressions, d => d.id)
+                .join(enter => {
+                const div = enter.append('div').attr('class', 'output');
+                div.append('div').attr('class', 'expression');
+                div.append('div').attr('class', 'result');
+                return div;
+            });
+            selection
+                .selectAll('div.expression')
+                .each(renderExpression);
+            selection
+                .selectAll('div.result')
+                .each(renderResult);
+            this._scroll_down();
+            function renderExpression(expression) {
+                select(this)
+                    .text(expression.expression);
+            }
+            function renderResult(expression) {
+                select(this)
+                    .classed('error', expression.error)
+                    .classed('expanded', true)
+                    .text(expression.result);
+            }
+        }
+        _scroll_down() {
+            this._output
+                .property('scrollTop', this._output.property('scrollHeight'));
+        }
+    }
+
+    class EvaluatorStyling {
+        constructor(selection) {
+            this._styling = selection;
+            // LOCKING
+            this._styling.append('button')
+                .text('Lock all nodes')
+                .on('click', () => {
+                if (this._stage)
+                    this._stage.lockAllNodes();
+            });
+            this._styling.append('button')
+                .text('Unlock all nodes')
+                .on('click', () => {
+                if (this._stage)
+                    this._stage.unlockAllNodes();
+            });
+            // COMBINED EDGES
+            const combineEdges = this._styling.append('div');
+            this._combineEdges = combineEdges.append('input')
+                .attr('type', 'checkbox')
+                .attr('id', 'combineEdges')
+                .on('change', () => {
+                if (this._stage)
+                    this._stage.toggleCombineEdges();
+                this._update();
+            });
+            combineEdges.append('label')
+                .attr('for', 'combineEdges')
+                .text('Combine Edges');
+            // SHOW MIDDLES
+            const showMiddles = this._styling.append('div');
+            this._showMiddles = showMiddles.append('input')
+                .attr('type', 'checkbox')
+                .attr('id', 'showMiddles')
+                .on('change', () => {
+                if (this._stage)
+                    this._stage.toggleShowMiddles();
+                this._update();
+            });
+            showMiddles.append('label')
+                .attr('for', 'showMiddles')
+                .text('Show skipped atoms in labels');
+            // CIRCLE RADIUS
+            const radius = this._styling.append('div');
+            this._radius = radius.append('input')
+                .attr('type', 'number')
+                .attr('id', 'radius')
+                .attr('min', 1)
+                .attr('max', 150)
+                .on('change', () => {
+                const radius = parseInt(this._radius.property('value'));
+                if (this._stage)
+                    this._stage.setRadius(radius);
+                this._update();
+            });
+            radius.append('label')
+                .attr('for', 'radius')
+                .text('Circle radius');
+            // NODE FONT SIZE
+            const nodefont = this._styling.append('div');
+            this._nodeFontSize = nodefont.append('input')
+                .attr('type', 'number')
+                .attr('id', 'node-font')
+                .attr('min', 1)
+                .attr('max', 72)
+                .on('change', () => {
+                const size = parseInt(this._nodeFontSize.property('value'));
+                if (this._stage)
+                    this._stage.setNodeFontSize(size);
+                this._update();
+            });
+            nodefont.append('label')
+                .attr('for', 'node-font')
+                .text('Node font size');
+            // EDGE FONT SIZE
+            const edgefont = this._styling.append('div');
+            this._edgeFontSize = edgefont.append('input')
+                .attr('type', 'number')
+                .attr('id', 'node-font')
+                .attr('min', 1)
+                .attr('max', 72)
+                .on('change', () => {
+                const size = parseInt(this._edgeFontSize.property('value'));
+                if (this._stage)
+                    this._stage.setEdgeFontSize(size);
+                this._update();
+            });
+            edgefont.append('label')
+                .attr('for', 'node-font')
+                .text('Edge font size');
+        }
+        setStage(stage) {
+            this._stage = stage;
+            this._update();
+        }
+        setVisible(visible) {
+            this._styling.style('display', visible ? null : 'none');
+        }
+        _update() {
+            this._combineEdges.property('checked', this._stage._combineEdges);
+            this._showMiddles.property('checked', this._stage._showMiddles);
+            this._radius.property('value', this._stage._radius);
+            this._nodeFontSize.property('value', this._stage._nodeFontSize);
+            this._edgeFontSize.property('value', this._stage._edgeFontSize);
+        }
+    }
+
+    class ExpressionsList extends EventDispatcher {
+        constructor(selection) {
+            super();
+            this._expressionsList = selection;
+            this._expressionsSet = new Set();
+        }
+        setExpressions(expressions) {
+            this._expressionsList
+                .selectAll('div')
+                .data(expressions)
+                .join('div')
+                .attr('class', 'expression')
+                .text(expr => expr)
+                .on('click', d => {
+                this.dispatchEvent({
+                    type: 'toggle',
+                    expression: d
+                });
+            });
+        }
+        setGraphedExpressions(expressions) {
+            this._expressionsList
+                .selectAll('div')
+                .classed('graphed', expr => expressions.includes(expr));
+        }
+        setVisible(visible) {
+            this._expressionsList.style('display', visible ? null : 'none');
+        }
+    }
+
+    class EvaluatorSettings extends EventDispatcher {
+        constructor(selection) {
+            super();
+            this._expressions = new ExpressionsList(selection.select('#eval-expressions'));
+            this._expressionsTab = selection.select('#expressions-button');
+            this._styling = new EvaluatorStyling(selection.select('#eval-styles'));
+            this._stylingTab = selection.select('#styling-button');
+            this._expressions.addEventListener('toggle', event => this.dispatchEvent(event));
+            this._expressionsTab.on('click', this.showExpressions.bind(this));
+            this._stylingTab.on('click', this.showStyles.bind(this));
+            this.showExpressions();
+        }
+        setExpressions(expressions) {
+            this._expressions.setExpressions(expressions);
+        }
+        setGraphedExpressions(expressions) {
+            this._expressions.setGraphedExpressions(expressions);
+        }
+        setStage(stage) {
+            this._styling.setStage(stage);
+        }
+        showExpressions() {
+            this._stylingTab.classed('active', false);
+            this._expressionsTab.classed('active', true);
+            this._styling.setVisible(false);
+            this._expressions.setVisible(true);
+        }
+        showStyles() {
+            this._stylingTab.classed('active', true);
+            this._expressionsTab.classed('active', false);
+            this._styling.setVisible(true);
+            this._expressions.setVisible(false);
+        }
+    }
+
+    class EvaluatorStageNew {
+        constructor(selection) {
+            this._stage = null;
+            this._canvas = null;
+            this._context = null;
+            this._width = 0;
+            this._height = 0;
+            this._simulation = simulation();
+            this._forceLink = link().id(d => d.id);
+            this._forceCenter = center();
+            this._forceCharge = manyBody();
+            this._radius = 30;
+            this._nodeFontSize = 12;
+            this._edgeFontSize = 12;
+            this._combineEdges = true;
+            this._showMiddles = false;
+            this._showEdgeLabels = true;
+            this._expressions = [];
+            this._links = [];
+            this._nodes = []; // all nodes
+            this._disconnected = []; // nodes not part of simulation
+            this._connected = []; // nodes part of simulation
+            this._fixed = []; // nodes in simulation with a fixed position
+            this._free = []; // nodes in simulation with a non-fixed position
+            this._stage = selection;
+            this._canvas = selection.append('canvas');
+            this._context = this._canvas.node().getContext('2d');
+            this._width = parseInt(this._canvas.style('width'));
+            this._height = parseInt(this._canvas.style('height'));
+            this._canvas.attr('width', this._width);
+            this._canvas.attr('height', this._height);
+            this._forceLink.distance(6 * this._radius);
+            this._forceCenter.x(this._width / 2).y(this._height / 2);
+            this._forceCharge.strength(-100);
+            this._simulation
+                .force('link', this._forceLink)
+                .force('center', this._forceCenter)
+                .force('charge', this._forceCharge)
+                .on('tick', this._repaint.bind(this));
+            this._canvas.call(drag()
+                .container(this._canvas.node())
+                .subject(this._dragSubject.bind(this))
+                .on('start', this._dragStarted.bind(this))
+                .on('drag', this._dragged.bind(this))
+                .on('end', this._dragEnded.bind(this)));
+            this._canvas
+                .on('click', this._onClick.bind(this))
+                .on('dblclick', this._onDblClick.bind(this));
+        }
+        lockAllNodes() {
+            this._free.slice().forEach(this._toggleFixed.bind(this));
+            this._repaint();
+        }
+        toggleCombineEdges() {
+            this._combineEdges = !this._combineEdges;
+            this.setExpressions(this._expressions);
+        }
+        toggleShowMiddles() {
+            this._showMiddles = !this._showMiddles;
+            this.setExpressions(this._expressions);
+        }
+        setEdgeFontSize(size) {
+            this._edgeFontSize = size;
+            this._repaint();
+        }
+        setExpressions(expressions) {
+            this._resetTuples();
+            this._expressions = expressions;
+            this._calculateLinks(expressions);
+            arrange_rows(this._disconnected, this._width, this._height, this._radius);
+            this._simulation.nodes(this._connected);
+            this._forceLink.links(this._links);
+            this._simulation.alpha(0.3).restart();
+        }
+        setNodeFontSize(size) {
+            this._nodeFontSize = size;
+            this._repaint();
+        }
+        setNodes(nodes) {
+            this._nodes = nodes;
+            this._resetTuples();
+            arrange_rows(this._disconnected, this._width, this._height, this._radius);
+            this._forceLink.links([]);
+            this._simulation.nodes(this._connected);
+        }
+        setRadius(radius) {
+            this._radius = radius;
+            this._repaint();
+        }
+        unlockAllNodes() {
+            this._fixed.slice().forEach(this._toggleFixed.bind(this));
+            this._repaint();
+        }
+        _calculateLinks(expressions) {
+            const links = [];
+            expressions.forEach(expression => {
+                expression.tuples.forEach(tuple => {
+                    const source = tuple.source;
+                    const target = tuple.target;
+                    const label = this._tupleLabel(tuple);
+                    // Check that source and target are valid nodes
+                    if (!this._nodes.find(node => node.id === source))
+                        throw Error(`Tuple source node is not valid: ${source}`);
+                    if (!this._nodes.find(node => node.id === target))
+                        throw Error(`Tuple target node is not valid: ${target}`);
+                    if (this._combineEdges) {
+                        // If the link for this tuple exists already, add to its label,
+                        // otherwise create a new link.
+                        const existing = links.find(link => link.source === source && link.target === target);
+                        if (existing) {
+                            if (!existing.labels.includes(label))
+                                existing.labels.push(label);
+                        }
+                        else {
+                            links.push({
+                                source: source,
+                                target: target,
+                                labels: [label]
+                            });
+                        }
+                    }
+                    else {
+                        links.push({
+                            source: source,
+                            target: target,
+                            labels: [label]
+                        });
+                    }
+                    // If the source or target is a disconnected node, un-disconnect it
+                    const srcindex = this._disconnected.findIndex(node => node.id === source);
+                    if (srcindex !== -1) {
+                        const srcnode = this._disconnected[srcindex];
+                        srcnode.fx = null;
+                        srcnode.fy = null;
+                        this._connected.push(srcnode);
+                        this._free.push(srcnode);
+                        this._disconnected.splice(srcindex, 1);
+                    }
+                    const trgindex = this._disconnected.findIndex(node => node.id === target);
+                    if (trgindex !== -1) {
+                        const trgnode = this._disconnected[trgindex];
+                        trgnode.fx = null;
+                        trgnode.fy = null;
+                        this._connected.push(trgnode);
+                        this._free.push(trgnode);
+                        this._disconnected.splice(trgindex, 1);
+                    }
+                });
+            });
+            this._links = links;
+        }
+        _dragSubject() {
+            return this._simulation.find(event.x, event.y, this._radius);
+        }
+        _dragStarted() {
+            if (!event.active)
+                this._simulation.alphaTarget(0.3).restart();
+            event.subject.fx = event.subject.x;
+            event.subject.fy = event.subject.y;
+        }
+        _dragged() {
+            event.subject.fx = event.x;
+            event.subject.fy = event.y;
+        }
+        _dragEnded() {
+            if (!event.active)
+                this._simulation.alphaTarget(0);
+            if (!event.subject.fixed)
+                event.subject.fx = null;
+            if (!event.subject.fixed)
+                event.subject.fy = null;
+        }
+        _onClick() {
+            if (event.ctrlKey) {
+                const [x, y] = mouse(this._canvas.node());
+                const node = this._simulation.find(x, y, this._radius);
+                if (node)
+                    this._toggleFixed(node);
+            }
+        }
+        _onDblClick() {
+            const [x, y] = mouse(this._canvas.node());
+            const node = this._simulation.find(x, y, this._radius);
+            if (node)
+                this._toggleFixed(node);
+        }
+        _resetTuples() {
+            this._links = [];
+            this._connected = [];
+            this._fixed = [];
+            this._free = [];
+            this._disconnected = this._nodes.slice().sort((a, b) => alphaSort(a.id, b.id));
+        }
+        _repaint() {
+            const context = this._context;
+            const radius = this._radius;
+            // Clear the context
+            context.clearRect(0, 0, this._width, this._height);
+            // Draw links
+            context.beginPath();
+            this._links.forEach(tuple => drawLink(context, tuple));
+            context.strokeStyle = '#111';
+            context.stroke();
+            // Draw link labels
+            context.fillStyle = '#111';
+            context.font = `${this._edgeFontSize}px monospace`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            this._links.forEach(tuple => drawLinkLabel(context, tuple));
+            // Draw arrowheads
+            context.beginPath();
+            this._links.forEach(tuple => drawArrow(context, tuple, radius));
+            context.fillStyle = '#111';
+            context.fill();
+            // Draw fixed nodes
+            context.beginPath();
+            this._fixed.forEach(node => drawNode(context, node, radius));
+            this._disconnected.forEach(node => drawNode(context, node, radius));
+            context.fillStyle = 'white';
+            context.fill();
+            context.lineWidth = 2;
+            context.strokeStyle = '#111';
+            context.stroke();
+            // Draw non-fixed nodes
+            context.beginPath();
+            this._free.forEach(node => drawNode(context, node, radius));
+            context.fill();
+            context.lineWidth = 1;
+            context.stroke();
+            // Draw node labels
+            context.fillStyle = '#111';
+            context.font = `${this._nodeFontSize}px monospace`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            this._nodes.forEach(node => drawNodeLabel(context, node));
+        }
+        _toggleFixed(node) {
+            const freeindex = this._free.indexOf(node);
+            if (freeindex !== -1) {
+                const [free] = this._free.splice(freeindex, 1);
+                this._fixed.push(free);
+                free.fixed = true;
+                free.fx = free.x;
+                free.fy = free.y;
+            }
+            else {
+                const fixedindex = this._fixed.indexOf(node);
+                if (fixedindex !== -1) {
+                    const [fixed] = this._fixed.splice(fixedindex, 1);
+                    this._free.push(fixed);
+                    fixed.fixed = false;
+                    fixed.fx = null;
+                    fixed.fy = null;
+                }
+            }
+        }
+        _tupleLabel(tuple) {
+            return this._showMiddles
+                ? tuple.relation + (tuple.middle.length ? `[${tuple.middle.join(',')}]` : '')
+                : tuple.relation;
+        }
+    }
+    function alphaSort(a, b) {
+        let nameA = a.toUpperCase();
+        let nameB = b.toUpperCase();
+        if (nameA < nameB) {
+            return -1;
+        }
+        if (nameA > nameB) {
+            return 1;
+        }
+        return 0;
+    }
+    function arrange_rows(nodes, width, height, radius) {
+        const padding = radius / 2;
+        let x = radius + padding, y = radius + padding;
+        nodes.forEach(node => {
+            node.fx = node.x = x;
+            node.fy = node.y = y;
+            x += 2 * radius + padding;
+            if (x > width - padding - radius) {
+                x = radius + padding;
+                y += 2 * radius + padding;
+            }
+        });
+    }
+    const TWOPI = 2 * Math.PI;
+    const PI6 = Math.PI / 6;
+    function drawArrow(context, link, radius) {
+        const ng = Math.atan2(link.target.y - link.source.y, link.target.x - link.source.x);
+        const x = link.target.x - radius * Math.cos(ng);
+        const y = link.target.y - radius * Math.sin(ng);
+        context.moveTo(x, y);
+        context.lineTo(x - 10 * Math.cos(ng - PI6), y - 10 * Math.sin(ng - PI6));
+        context.lineTo(x - 10 * Math.cos(ng + PI6), y - 10 * Math.sin(ng + PI6));
+        context.closePath();
+    }
+    function drawLinkLabel(context, link) {
+        const x = (link.source.x + link.target.x) / 2;
+        const y = (link.source.y + link.target.y) / 2;
+        context.moveTo(x, y);
+        context.fillText(link.labels.join(', '), x, y);
+    }
+    function drawNodeLabel(context, node) {
+        context.moveTo(node.x, node.y);
+        context.fillText(node.id, node.x, node.y);
+    }
+    function drawLink(context, link) {
+        context.moveTo(link.source.x, link.source.y);
+        context.lineTo(link.target.x, link.target.y);
+    }
+    function drawNode(context, node, radius) {
+        context.moveTo(node.x + radius, node.y);
+        context.arc(node.x, node.y, radius, 0, TWOPI);
+    }
+
+    class EvaluatorViewNew extends View {
+        constructor(selection, alloy) {
+            super(selection);
+            this._expressions = new Map();
+            this._expressionList = [];
+            this._graphedExpressions = new Map();
+            this._graphNextExpression = false;
+            Split(['#eval-editor', '#eval-display', '#eval-settings'], {
+                sizes: [20, 60, 20],
+                minSize: [200, 100, 200],
+                gutterSize: 4
+            });
+            Split(['#eval-output', '#eval-console'], {
+                sizes: [75, 25],
+                direction: 'vertical',
+                gutterSize: 4
+            });
+            this._evaluator = new Evaluator(alloy);
+            this._input = new EvaluatorInput(selection.select('#eval-input'));
+            this._output = new EvaluatorOutput(selection.select('#eval-output'));
+            this._stage = new EvaluatorStageNew(selection.select('#eval-display'));
+            this._settings = new EvaluatorSettings(selection.select('#eval-settings'));
+            this._settings.setStage(this._stage);
+            this._input.addEventListener('evaluate', event => {
+                this._evaluator.evaluate(event.text);
+                this._graphNextExpression = event.ctrlKey;
+            });
+            this._evaluator.addEventListener('expression', event => {
+                this._addExpression(event.expression);
+            });
+            this._settings.addEventListener('toggle', event => {
+                const expression = event.expression;
+                if (this._graphedExpressions.has(expression)) {
+                    this._graphedExpressions.delete(expression);
+                }
+                else {
+                    const expr = this._expressions.get(expression);
+                    this._graphedExpressions.set(expression, expr);
+                }
+                this._updateGraphedExpressions();
+            });
+        }
+        set_instance(instance) {
+            const nodes = instance.atoms().map(atom => ({
+                id: atom.id()
+            }));
+            this._setNodes(nodes);
+            this._evaluator.setInstance(instance);
+        }
+        _on_hide() {
+        }
+        _on_show() {
+        }
+        _addExpression(expression) {
+            this._expressions.set(expression.expression, expression);
+            this._expressionList.push(expression);
+            this._output.expressions(this._expressionList.filter(expr => expr.result !== null));
+            // Get expressions that have tuples
+            const withTuples = Array.from(this._expressions.values())
+                .filter(expr => expr.tuples.length)
+                .map(expr => expr.expression);
+            if (this._graphNextExpression) {
+                this._graphedExpressions.set(expression.expression, expression);
+                this._graphNextExpression = false;
+            }
+            this._settings.setExpressions(withTuples);
+            this._updateGraphedExpressions();
+        }
+        _setNodes(nodes) {
+            this._stage.setNodes(nodes);
+        }
+        _updateGraphedExpressions() {
+            this._stage.setExpressions(Array.from(this._graphedExpressions.values()));
+            this._settings.setGraphedExpressions(Array.from(this._graphedExpressions.keys()));
         }
     }
 
@@ -9314,6 +11523,143 @@
         }
     }
 
+    class SourceView extends View {
+        constructor(selection) {
+            super(selection);
+            this._tree = selection.select('.filetree');
+            this._view = selection.select('.fileview');
+            this._gutter = this._view.select('.gutter');
+            this._editor = this._view.select('.editor');
+            this._message = this._editor
+                .append('div')
+                .attr('class', 'message');
+            this._code = this._editor
+                .append('pre')
+                .append('code')
+                .attr('class', 'alloy');
+            this._show_message('No files loaded.');
+        }
+        make_active(file) {
+            if (file) {
+                // Set the tree item to active
+                this._tree
+                    .selectAll('.file')
+                    .classed('active', d => d === file);
+                // Set the editor text
+                this._code
+                    .html(file.text);
+                // Highlight the code
+                hljs.highlightBlock(this._code.node());
+                // Update line numbers
+                this._update_line_numbers(file);
+            }
+            else {
+                this._code.text('Open a file.');
+            }
+        }
+        set_files(files) {
+            this._set_tree_data(files);
+            this._show_code();
+        }
+        _on_show() {
+        }
+        _on_hide() {
+        }
+        _set_tree_data(files) {
+            let fs = this._tree
+                .selectAll('.file')
+                .data(files, d => d.filename);
+            // Remove old files
+            fs.exit().remove();
+            // Add new files
+            let enter = fs.enter()
+                .append('div')
+                .attr('class', 'file')
+                .on('click', d => this.make_active(d));
+            // Add icon to new file
+            enter.append('div')
+                .attr('class', 'icon')
+                .append('i')
+                .attr('class', 'fas fa-file');
+            // Add filename to new file
+            enter.append('div')
+                .attr('class', 'filename')
+                .attr('id', d => d.filename)
+                .text(d => d.filename);
+            // Set the active file
+            let active = this._tree
+                .select('.active')
+                .data();
+            if (active.length) {
+                this.make_active(active[0]);
+            }
+            else if (files.length) {
+                this.make_active(files[0]);
+            }
+            else {
+                this.make_active(null);
+            }
+        }
+        _show_code() {
+            this._message
+                .style('display', 'none');
+            this._code
+                .style('display', null);
+        }
+        _show_message(message) {
+            this._message
+                .style('display', null)
+                .text(message);
+            this._code
+                .style('display', 'none');
+        }
+        _update_line_numbers(file) {
+            let lines = file.text.match(/\r?\n/g);
+            let numlines = lines ? lines.length + 1 : 2;
+            let selection = this._gutter
+                .selectAll('pre')
+                .data(sequence(numlines));
+            selection
+                .exit()
+                .remove();
+            selection
+                .enter()
+                .append('pre')
+                .attr('class', 'line-number')
+                .append('code')
+                .append('span')
+                .attr('class', 'hljs-comment')
+                .html(d => d + 1);
+        }
+    }
+    hljs.registerLanguage('alloy', function () {
+        let NUMBER_RE = '\\b\\d+';
+        return {
+            // case_insensitive
+            case_insensitive: false,
+            // keywords
+            keywords: 'abstract all and as assert but check disj ' +
+                'else exactly extends fact for fun iden iff implies ' +
+                'in Int let lone module no none not one open or pred ' +
+                'run set sig some sum univ',
+            // contains
+            contains: [
+                // hljs.COMMENT
+                hljs.COMMENT('//', '$'),
+                hljs.COMMENT('--', '$'),
+                hljs.COMMENT('/\\*', '\\*/'),
+                {
+                    // className
+                    className: 'number',
+                    // begin
+                    begin: NUMBER_RE,
+                    // relevance
+                    relevance: 0
+                }
+            ]
+        };
+    });
+
     class TableLayoutPreferences {
         constructor() {
             this.border_color = '#ababab';
@@ -10054,148 +12400,12 @@
         }
     }
 
-    class SourceView extends View {
-        constructor(selection) {
-            super(selection);
-            this._tree = selection.select('.filetree');
-            this._view = selection.select('.fileview');
-            this._gutter = this._view.select('.gutter');
-            this._editor = this._view.select('.editor');
-            this._message = this._editor
-                .append('div')
-                .attr('class', 'message');
-            this._code = this._editor
-                .append('pre')
-                .append('code')
-                .attr('class', 'alloy');
-            this._show_message('No files loaded.');
-        }
-        make_active(file) {
-            if (file) {
-                // Set the tree item to active
-                this._tree
-                    .selectAll('.file')
-                    .classed('active', d => d === file);
-                // Set the editor text
-                this._code
-                    .html(file.text);
-                // Highlight the code
-                hljs.highlightBlock(this._code.node());
-                // Update line numbers
-                this._update_line_numbers(file);
-            }
-            else {
-                this._code.text('Open a file.');
-            }
-        }
-        set_files(files) {
-            this._set_tree_data(files);
-            this._show_code();
-        }
-        _on_show() {
-        }
-        _on_hide() {
-        }
-        _set_tree_data(files) {
-            let fs = this._tree
-                .selectAll('.file')
-                .data(files, d => d.filename);
-            // Remove old files
-            fs.exit().remove();
-            // Add new files
-            let enter = fs.enter()
-                .append('div')
-                .attr('class', 'file')
-                .on('click', d => this.make_active(d));
-            // Add icon to new file
-            enter.append('div')
-                .attr('class', 'icon')
-                .append('i')
-                .attr('class', 'fas fa-file');
-            // Add filename to new file
-            enter.append('div')
-                .attr('class', 'filename')
-                .attr('id', d => d.filename)
-                .text(d => d.filename);
-            // Set the active file
-            let active = this._tree
-                .select('.active')
-                .data();
-            if (active.length) {
-                this.make_active(active[0]);
-            }
-            else if (files.length) {
-                this.make_active(files[0]);
-            }
-            else {
-                this.make_active(null);
-            }
-        }
-        _show_code() {
-            this._message
-                .style('display', 'none');
-            this._code
-                .style('display', null);
-        }
-        _show_message(message) {
-            this._message
-                .style('display', null)
-                .text(message);
-            this._code
-                .style('display', 'none');
-        }
-        _update_line_numbers(file) {
-            let lines = file.text.match(/\r?\n/g);
-            let numlines = lines ? lines.length + 1 : 2;
-            let selection = this._gutter
-                .selectAll('pre')
-                .data(sequence(numlines));
-            selection
-                .exit()
-                .remove();
-            selection
-                .enter()
-                .append('pre')
-                .attr('class', 'line-number')
-                .append('code')
-                .append('span')
-                .attr('class', 'hljs-comment')
-                .html(d => d + 1);
-        }
-    }
-    hljs.registerLanguage('alloy', function () {
-        let NUMBER_RE = '\\b\\d+';
-        return {
-            // case_insensitive
-            case_insensitive: false,
-            // keywords
-            keywords: 'abstract all and as assert but check disj ' +
-                'else exactly extends fact for fun iden iff implies ' +
-                'in Int let lone module no none not one open or pred ' +
-                'run set sig some sum univ',
-            // contains
-            contains: [
-                // hljs.COMMENT
-                hljs.COMMENT('//', '$'),
-                hljs.COMMENT('--', '$'),
-                hljs.COMMENT('/\\*', '\\*/'),
-                {
-                    // className
-                    className: 'number',
-                    // begin
-                    begin: NUMBER_RE,
-                    // relevance
-                    relevance: 0
-                }
-            ]
-        };
-    });
-
     class UI {
         constructor() {
             this._initialize_alloy_connection();
             this._nav_bar = null;
             this._status_bar = null;
+            this._eval_view = null;
             this._graph_view = null;
             this._table_view = null;
             this._tree_view = null;
@@ -10213,6 +12423,10 @@
             this._alloy.connect();
             return this;
         }
+        eval_view(selector) {
+            this._eval_view = new EvaluatorViewNew(select(selector), this._alloy);
+            return this;
+        }
         graph_view(selector) {
             this._graph_view = new GraphView(select(selector));
             return this;
@@ -10221,6 +12435,7 @@
             // Initialize navbar
             this._nav_bar = new NavBar(select(selector));
             // Register events
+            this._nav_bar.on_eval(this.show_eval.bind(this));
             this._nav_bar.on_graph(this.show_graph.bind(this));
             this._nav_bar.on_next(this._alloy.request_next.bind(this._alloy));
             this._nav_bar.on_source(this.show_source.bind(this));
@@ -10256,6 +12471,8 @@
             });
             if (this._status_bar)
                 this._status_bar.set_command(instance.command());
+            if (this._eval_view)
+                this._eval_view.set_instance(instance);
             if (this._graph_view)
                 this._graph_view.set_instance(instance);
             if (this._table_view)
@@ -10265,8 +12482,23 @@
             if (this._source_view)
                 this._source_view.set_files(sources);
         }
+        show_eval() {
+            this._nav_bar.set_eval_active();
+            if (this._eval_view)
+                this._eval_view.show();
+            if (this._graph_view)
+                this._graph_view.hide();
+            if (this._source_view)
+                this._source_view.hide();
+            if (this._table_view)
+                this._table_view.hide();
+            if (this._tree_view)
+                this._tree_view.hide();
+        }
         show_graph() {
             this._nav_bar.set_graph_active();
+            if (this._eval_view)
+                this._eval_view.hide();
             if (this._graph_view)
                 this._graph_view.show();
             if (this._source_view)
@@ -10278,6 +12510,8 @@
         }
         show_source() {
             this._nav_bar.set_source_active();
+            if (this._eval_view)
+                this._eval_view.hide();
             if (this._graph_view)
                 this._graph_view.hide();
             if (this._source_view)
@@ -10289,6 +12523,8 @@
         }
         show_table() {
             this._nav_bar.set_table_active();
+            if (this._eval_view)
+                this._eval_view.hide();
             if (this._graph_view)
                 this._graph_view.hide();
             if (this._source_view)
@@ -10300,6 +12536,8 @@
         }
         show_tree() {
             this._nav_bar.set_tree_active();
+            if (this._eval_view)
+                this._eval_view.hide();
             if (this._graph_view)
                 this._graph_view.hide();
             if (this._source_view)

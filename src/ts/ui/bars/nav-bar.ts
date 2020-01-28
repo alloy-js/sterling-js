@@ -4,6 +4,7 @@ export class NavBar {
 
     _navbar;
     _active;
+    _on_click_eval: Function;
     _on_click_graph: Function;
     _on_click_next: Function;
     _on_click_source: Function;
@@ -13,6 +14,11 @@ export class NavBar {
     constructor (selection) {
 
         this._navbar = selection;
+
+        selection.select('#nav-eval')
+            .on('click', () => {
+                if (this._on_click_eval) this._on_click_eval();
+            });
 
         selection.select('#nav-graph')
             .on('click', () => {
@@ -41,6 +47,11 @@ export class NavBar {
 
     }
 
+    on_eval (callback: Function): NavBar {
+        this._on_click_eval = callback;
+        return this;
+    }
+
     on_graph (callback: Function): NavBar {
         this._on_click_graph = callback;
         return this;
@@ -64,6 +75,10 @@ export class NavBar {
     on_tree (callback: Function): NavBar {
         this._on_click_tree = callback;
         return this;
+    }
+
+    set_eval_active () {
+        this._make_active('nav-eval');
     }
 
     set_graph_active () {
