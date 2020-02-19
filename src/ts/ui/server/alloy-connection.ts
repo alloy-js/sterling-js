@@ -175,7 +175,7 @@ export class AlloyConnection {
                 break;
 
             case 'XML:':
-                console.log(data);
+
                 if (data.length) {
                     let instance = Instance.fromXML(data);
                     if (this._on_instance_cb) this._on_instance_cb(instance);

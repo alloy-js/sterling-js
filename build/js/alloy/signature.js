@@ -58,8 +58,7 @@ export class Signature {
     }
     types() {
         let hierarchy = this._parent ? this._parent.types() : [];
-        if (this._label !== 'univ')
-            hierarchy.push(this);
+        hierarchy.push(this);
         return hierarchy;
     }
 }

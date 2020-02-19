@@ -167,6 +167,10 @@ export class Instance {
                 instance._sources.set(f, c);
             });
 
+        instance.signatures().forEach(sig => {
+            console.log(sig.id(), sig.types().map(sig => sig.id()));
+        })
+
         return instance;
 
     }
